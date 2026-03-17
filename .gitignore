@@ -1,0 +1,60 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+*.local
+
+# Docker volumes
+postgres_data/
+n8n_data/
+blob_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Uploads / media (large files, stored in Azure Blob)
+uploads/
+media/
+*.mp4
+*.mp3
+*.wav
+
+# Build artifacts
+*.pyc
+*.pyd
+*.so
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Secrets
+*.pem
+*.key
+secrets/

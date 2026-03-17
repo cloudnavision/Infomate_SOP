@@ -1,0 +1,158 @@
+version: '3.9'
+
+# ============================================================
+# SOP Automation Platform — Docker Compose
+# 5 containers start locally; sop-tunnel is production-only
+# Run: docker compose up --build
+# ============================================================
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # PostgreSQL 16 — Primary database
+  # ──────────────────────────────────────────────────────────
+  sop-postgres:
+    image: postgres:16
+    container_name: sop-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sop-network
+
+  # ──────────────────────────────────────────────────────────
+  # FastAPI — Backend REST API + export generation
+  # ──────────────────────────────────────────────────────────
+  sop-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: sop-api
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      AZURE_BLOB_BASE_URL: ${AZURE_BLOB_BASE_URL:-}
+      AZURE_BLOB_SAS_TOKEN: ${AZURE_BLOB_SAS_TOKEN:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      sop-postgres:
+        condition: service_healthy
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - sop-network
+
+  # ──────────────────────────────────────────────────────────
+  # Frame Extractor — FFmpeg + PySceneDetect + Mermaid CLI
+  # ──────────────────────────────────────────────────────────
+  sop-extractor:
+    build:
+      context: ./extractor
+      dockerfile: Dockerfile
+    container_name: sop-extractor
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - sop-network
+
+  # ──────────────────────────────────────────────────────────
+  # React SPA — Nginx serving compiled assets
+  # ──────────────────────────────────────────────────────────
+  sop-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: prod
+    container_name: sop-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - sop-api
+    networks:
+      - sop-network
+
+  # ──────────────────────────────────────────────────────────
+  # n8n — Pipeline orchestrator (3 workflows)
+  # ──────────────────────────────────────────────────────────
+  sop-n8n:
+    image: n8nio/n8n:latest
+    container_name: sop-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: sop-postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./data:/data
+    depends_on:
+      sop-postgres:
+        condition: service_healthy
+    networks:
+      - sop-network
+
+  # ──────────────────────────────────────────────────────────
+  # Cloudflare Tunnel — PRODUCTION ONLY
+  # Not started with normal `docker compose up`
+  # Start with: docker compose --profile production up
+  # ──────────────────────────────────────────────────────────
+  sop-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: sop-tunnel
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-disabled}
+    depends_on:
+      - sop-frontend
+      - sop-api
+    profiles:
+      - production
+    networks:
+      - sop-network
+
+# ──────────────────────────────────────────────────────────
+networks:
+  sop-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  n8n_data:

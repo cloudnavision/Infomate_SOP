@@ -1,0 +1,32 @@
+# Environment — NEVER commit secrets
+.env
+
+# Node
+node_modules/
+.vite/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# Data directories — keep structure (.gitkeep), ignore content
+data/uploads/*
+data/frames/*
+data/exports/*
+data/templates/*.docx
+!data/**/.gitkeep
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

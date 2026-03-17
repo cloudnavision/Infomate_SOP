@@ -1,0 +1,28 @@
+# ============================================================
+# Dev overrides — hot reload for all custom services
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# ============================================================
+
+services:
+
+  sop-frontend:
+    build:
+      target: dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+
+  sop-api:
+    volumes:
+      - ./api:/app
+      - ./data:/data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  sop-extractor:
+    volumes:
+      - ./extractor:/app
+      - ./data:/data
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload

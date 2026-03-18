@@ -9,7 +9,7 @@
 
 | # | Phase | Deliverable | Status |
 |---|-------|-------------|--------|
-| 1 | **Foundation** | Docker infra, PostgreSQL schema, FastAPI CRUD, React scaffold | 🔵 In Progress |
+| 1 | **Foundation** | Docker infra, PostgreSQL schema, FastAPI CRUD, React scaffold | ✅ Complete |
 | 2 | **Video + Transcript** | VideoPlayer, step sync, TranscriptPanel | ⬜ Pending |
 | 3 | **Callout Editor** | Konva canvas, drag-drop annotations, confidence colours | ⬜ Pending |
 | 4 | **Pipeline Integration** | Frame extractor, n8n Workflows 1+2, upload page | ⬜ Pending |
@@ -63,7 +63,7 @@ External Services (not in Docker Compose):
 Phase 1: Foundation
   └─ 1a. Docker + DB schema       ✅ Done
   └─ 1b. FastAPI CRUD              ✅ Done
-  └─ 1c. React scaffold + SOP page ◀ Next
+  └─ 1c. React scaffold + SOP page ✅ Done
          │
          ▼
 Phase 2: Video + Transcript
@@ -90,7 +90,7 @@ Phase 5: Exports + Polish
 |----------|-------------|--------|
 | 1a | Docker Compose (3 containers) + Supabase schema + seed data + verify script | ✅ Complete |
 | 1b | FastAPI CRUD routes: SOPs, steps, callouts, sections, pipeline runs | ✅ Complete |
-| 1c | React scaffold: TanStack Router, SOP list page, step detail view | ◀ Next |
+| 1c | React scaffold: TanStack Router, SOP list page, step detail view | ✅ Complete |
 
 ---
 

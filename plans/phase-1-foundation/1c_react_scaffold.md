@@ -108,41 +108,41 @@ From CONVERSATION_SUMMARY.md route structure:
 - Frontend calls API at VITE_API_URL (no nginx proxy)
 
 ### Validation
-- [ ] `npm run build` produces no TypeScript errors
-- [ ] http://localhost:5173/ redirects to /dashboard
-- [ ] /dashboard shows SOP card for Aged Debtor Report
-- [ ] Clicking card navigates to /sop/{id}/procedure
-- [ ] Sidebar shows 8 steps in order
-- [ ] Clicking step updates detail panel
-- [ ] First step auto-selected on load
-- [ ] Step 1 shows 3 callouts with green/amber dots
-- [ ] Step 1 shows discussion card with clarification icon
-- [ ] Step 6 shows discussion card with warning icon
-- [ ] /sop/{id}/overview shows purpose, inputs, outputs, risks sections
-- [ ] Tab navigation works between Procedure/Overview/Matrices/History
+- [x] `npm run build` produces no TypeScript errors
+- [x] http://localhost:5173/ redirects to /dashboard
+- [x] /dashboard shows SOP card for Aged Debtor Report
+- [x] Clicking card navigates to /sop/{id}/procedure
+- [x] Sidebar shows 8 steps in order
+- [x] Clicking step updates detail panel
+- [x] First step auto-selected on load
+- [x] Step 1 shows 3 callouts with green/amber dots
+- [x] Step 1 shows discussion card with clarification icon
+- [x] Step 6 shows discussion card with warning icon
+- [x] /sop/{id}/overview shows purpose, inputs, outputs, risks sections
+- [x] Tab navigation works between Procedure/Overview/Matrices/History
 
 ### Checklist
-- [ ] Install TanStack Router + Query + Zustand + lucide-react + clsx
-- [ ] Configure TanStack Router plugin in vite.config.ts
-- [ ] Create src/api/types.ts
-- [ ] Create src/api/client.ts (using VITE_API_URL)
-- [ ] Create src/hooks/useSOPStore.ts
-- [ ] Create src/routes/__root.tsx
-- [ ] Create src/routes/index.tsx
-- [ ] Create src/routes/dashboard.tsx
-- [ ] Create src/routes/sop.$id.tsx
-- [ ] Create src/routes/sop.$id.procedure.tsx
-- [ ] Create src/routes/sop.$id.overview.tsx
-- [ ] Create src/routes/sop.$id.matrices.tsx (placeholder)
-- [ ] Create src/routes/sop.$id.history.tsx (placeholder)
-- [ ] Create src/routes/sop.new.tsx (placeholder)
-- [ ] Create src/components/Layout.tsx
-- [ ] Create src/components/StepSidebar.tsx
-- [ ] Create src/components/StepDetail.tsx
-- [ ] Create src/components/CalloutList.tsx
-- [ ] Create src/components/DiscussionCard.tsx
-- [ ] Create src/components/SOPCard.tsx
-- [ ] Wire procedure page with data fetching
-- [ ] All validation checks pass
+- [x] Install TanStack Router + Query + Zustand + lucide-react + clsx
+- [x] Configure TanStack Router plugin in vite.config.ts
+- [x] Create src/api/types.ts
+- [x] Create src/api/client.ts (using VITE_API_URL)
+- [x] Create src/hooks/useSOPStore.ts
+- [x] Create src/routes/__root.tsx
+- [x] Create src/routes/index.tsx
+- [x] Create src/routes/dashboard.tsx
+- [x] Create src/routes/sop.$id.tsx
+- [x] Create src/routes/sop.$id.procedure.tsx
+- [x] Create src/routes/sop.$id.overview.tsx
+- [x] Create src/routes/sop.$id.matrices.tsx (placeholder)
+- [x] Create src/routes/sop.$id.history.tsx (placeholder)
+- [x] Create src/routes/sop.new.tsx (placeholder)
+- [x] Create src/components/Layout.tsx
+- [x] Create src/components/StepSidebar.tsx
+- [x] Create src/components/StepDetail.tsx
+- [x] Create src/components/CalloutList.tsx
+- [x] Create src/components/DiscussionCard.tsx
+- [x] Create src/components/SOPCard.tsx
+- [x] Wire procedure page with data fetching
+- [x] All validation checks pass
 
-### Status: ⬜ Next
+### Status: ✅ Complete

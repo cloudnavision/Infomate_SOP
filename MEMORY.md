@@ -1,5 +1,5 @@
 # SOP Automation Platform — Project Memory
-## Last Updated: 2026-03-18
+## Last Updated: 2026-03-18 (Phase 1 complete)
 
 ---
 
@@ -23,15 +23,31 @@
 
 ---
 
-## Current State — Phase 1
+## Current State
+
+### Phase 1: Foundation ✅ Complete
 
 | Sub-Part | Description | Status |
 |----------|-------------|--------|
 | 1a | Docker Compose (3 containers) + Supabase schema + seed data + verify script | ✅ Complete |
-| 1b | FastAPI CRUD routes: SOPs, steps, callouts, sections, pipeline runs | ✅ Complete |
-| 1c | React scaffold: TanStack Router, SOP list page, step detail view | ◀ Next |
+| 1b | FastAPI CRUD routes: SOPs, steps, callouts, sections, transcript, watchlist | ✅ Complete |
+| 1c | React scaffold: TanStack Router, SOP list page, step detail view | ✅ Complete |
 
-**Phase 2–5:** Pending (Video+Transcript → Callout Editor → Pipeline → Exports)
+**What was built in 1c:**
+- `sop-platform/frontend/src/api/types.ts` — TypeScript interfaces matching all Pydantic schemas
+- `sop-platform/frontend/src/api/client.ts` — fetch wrapper using `VITE_API_URL`, query key factories
+- `sop-platform/frontend/src/hooks/useSOPStore.ts` — Zustand store (selectedStepId, editMode)
+- 9 route files: `__root.tsx`, `index.tsx`, `dashboard.tsx`, `sop.$id.tsx`, `sop.$id.procedure.tsx`, `sop.$id.overview.tsx`, `sop.$id.matrices.tsx`, `sop.$id.history.tsx`, `sop.new.tsx`
+- 6 components: `Layout.tsx`, `SOPCard.tsx`, `StepSidebar.tsx`, `StepDetail.tsx`, `CalloutList.tsx`, `DiscussionCard.tsx`
+- `vite.config.ts` updated: TanStack Router Vite plugin added, old nginx proxy removed
+- Build: `tsc && vite build` passes with 0 errors
+
+**Key 1c implementation note:** Child routes (`procedure`, `overview`) use `useQuery` with the same key as the parent `sop.$id.tsx` — React Query cache means no extra network calls. Did not use `useRouteContext`/`useOutletContext` (unreliable in TanStack Router v1 for data passing).
+
+### Phase 2: Video + Transcript ◀ Next
+### Phase 3: Callout Editor ⬜
+### Phase 4: Pipeline Integration ⬜
+### Phase 5: Exports + Polish ⬜
 
 ---
 
@@ -113,8 +129,14 @@ EXTRACTOR_URL=http://sop-extractor:8001
 | `sop-platform/scripts/verify_infrastructure.sh` | 11-check infra verification script |
 | `plans/MASTER_PLAN.md` | Phase overview, architecture diagram |
 | `plans/phase-1-foundation/PHASE_1_PLAN.md` | Phase 1 detailed checklist |
-| `plans/phase-1-foundation/1c_react_scaffold.md` | Full Phase 1c build plan |
-| `plans/phase-1-foundation/PHASE_1_ISSUES.md` | Troubleshooting log (8 issues) |
+| `plans/phase-1-foundation/1c_react_scaffold.md` | Phase 1c build record (✅ complete) |
+| `plans/phase-1-foundation/PHASE_1_ISSUES.md` | Troubleshooting log (13 issues) |
+| `sop-platform/frontend/src/api/types.ts` | TypeScript interfaces (matches schemas.py) |
+| `sop-platform/frontend/src/api/client.ts` | API fetch wrapper + sopKeys factories |
+| `sop-platform/frontend/src/hooks/useSOPStore.ts` | Zustand store (selectedStepId, editMode) |
+| `sop-platform/frontend/src/routes/` | 9 route files (TanStack Router file-based) |
+| `sop-platform/frontend/src/components/` | 6 UI components |
+| `CHECKLIST.md` | Master checklist across all 5 phases |
 | `PROJECT_BLUEPRINT.md` | Master architecture + full file tree |
 | `workflow_1_extraction.md` | n8n 14-node extraction pipeline (full JS) |
 | `workflow_2_section_generation.md` | n8n 6-node section gen (all 19 Gemini prompts) |
@@ -145,7 +167,8 @@ EXTRACTOR_URL=http://sop-extractor:8001
 
 1. **VITE_API_URL bake-time issue:** Vite bakes env vars at build time. The `prod` Docker stage
    builds static files — `VITE_API_URL` must be passed as `--build-arg` to docker compose build,
-   not just as a runtime env var. In `dev` stage (Vite dev server), runtime env works. Address in Phase 1c.
+   not just as a runtime env var. In `dev` stage (Vite dev server), runtime env works.
+   Mitigated in Phase 1c by fallback: `const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'`.
 
 2. **Supabase transaction pooler:** Use port 6543, not 5432. Pool size should be ≤10.
    asyncpg connection string prefix: `postgresql+asyncpg://` not `postgresql://`.
@@ -161,6 +184,14 @@ EXTRACTOR_URL=http://sop-extractor:8001
 
 6. **Write tool requires prior Read:** The Write tool will fail if the file wasn't read in the
    current context session. Always read before writing even if content is known.
+
+7. **TanStack Router v1 outlet context:** `useRouteContext` does not cleanly pass data from parent
+   to child routes via `<Outlet context={...} />`. Use `useQuery` with the same query key in child
+   routes instead — React Query cache ensures no duplicate network requests.
+
+8. **routeTree.gen.ts is auto-generated:** The TanStack Router Vite plugin regenerates this file
+   on every `vite build` or `vite dev`. The stub file checked into source is overwritten on build.
+   Never edit `routeTree.gen.ts` manually.
 
 ---
 
@@ -199,16 +230,18 @@ docker compose down
 
 ---
 
-## Next Steps — Phase 1c
+## Next Steps — Phase 2
 
-1. Install frontend deps: TanStack Router, TanStack Query, Zustand, lucide-react, clsx
-2. Create `src/types.ts` — TypeScript interfaces matching Pydantic schemas
-3. Create `src/api/client.ts` — fetch wrapper + TanStack Query keys
-4. Create `src/hooks/useSOPStore.ts` — Zustand store (selectedStepId, editMode)
-5. Create route files: `__root.tsx`, `index.tsx`, `sop.$id.tsx`, `sop.$id.procedure.tsx`,
-   `sop.$id.overview.tsx`, `sop.$id.matrices.tsx`, `sop.$id.history.tsx`,
-   `sop.new.tsx`, `settings.tsx`
-6. Create components: `StepSidebar.tsx`, `StepDetail.tsx`, `ScreenshotReadView.tsx`,
-   `SOPHeader.tsx`, `SOPTabBar.tsx`, `EmptyState.tsx`
-7. Verify: SOP list renders, step detail shows callouts, transcript tab works
-8. VITE_API_URL build-arg fix in docker-compose.yml for prod stage
+Phase 2: Video + Transcript — build on top of the existing procedure page.
+
+1. Add `VideoPlayer.tsx` component (Video.js) to the step detail area
+2. Implement `useStepSync.ts` hook — coordinates video time ↔ selected step ↔ transcript scroll
+3. Add `TranscriptPanel.tsx` — virtualised list (react-virtual), speaker colours, search, click-to-seek
+4. Navigation: clip mode toggle, "Watch this step" button, keyboard shortcuts (↑↓, Space, C)
+5. Step timestamps visible in `StepSidebar.tsx`
+
+**Install needed for Phase 2:**
+- `video.js` + `@types/video.js`
+- `react-virtual` (or `@tanstack/react-virtual`)
+
+**Plan doc:** Create `plans/phase-2-video-transcript/PHASE_2_PLAN.md` before starting.

@@ -10,7 +10,7 @@
 |----------|-------------|--------|
 | 1a | Docker Compose (3 containers) + Supabase schema + verify script | ✅ Complete |
 | 1b | FastAPI CRUD: SOPs, steps, callouts, sections, transcript, watchlist | ✅ Complete |
-| 1c | React scaffold: TanStack Router, SOP list, step detail page | ⬜ Next |
+| 1c | React scaffold: TanStack Router, SOP list, step detail page | ✅ Complete |
 
 ---
 
@@ -57,22 +57,17 @@ See: [1b_fastapi_crud.md](1b_fastapi_crud.md)
 
 ---
 
-## Sub-Part 1c — React Scaffold (Next)
+## Sub-Part 1c — React Scaffold ✅
 
 See: [1c_react_scaffold.md](1c_react_scaffold.md)
 
-**Goal:** React app renders SOP data from the API with step sidebar and detail panel.
-
-**What to build:**
-- Install TanStack Router, TanStack Query, Zustand, lucide-react
-- TypeScript types matching Pydantic schemas
-- API client with query key factories
+- TanStack Router + Query + Zustand + lucide-react installed
+- TypeScript interfaces matching all Pydantic schemas
+- API client using VITE_API_URL with query key factories
 - Zustand store (selectedStepId, editMode)
-- Route files: dashboard, sop.$id, procedure, overview, matrices, history
-- Components: Layout, StepSidebar, StepDetail, CalloutList, DiscussionCard, SOPCard
-- Frontend calls API at VITE_API_URL (http://localhost:8000 for local dev)
-
-**Note:** No nginx proxy — frontend calls the API directly. In production, Cloudflare handles routing.
+- 9 route files: dashboard, sop.$id (tab layout), procedure, overview, matrices, history, new, index, root
+- 6 components: Layout, SOPCard, StepSidebar, StepDetail, CalloutList, DiscussionCard
+- Build passes with 0 TypeScript errors (vite build ✓)
 
 ---
 
@@ -103,19 +98,19 @@ See: [1c_react_scaffold.md](1c_react_scaffold.md)
 - [x] All endpoints tested and returning data from Supabase
 
 1c: React Scaffold
-- [ ] Install TanStack Router + Query + Zustand + lucide-react
-- [ ] src/api/types.ts — TypeScript interfaces
-- [ ] src/api/client.ts — fetch wrapper + query keys
-- [ ] src/hooks/useSOPStore.ts — Zustand store
-- [ ] Route files — dashboard, sop.$id, procedure, overview, etc.
-- [ ] Layout.tsx — header + navigation
-- [ ] StepSidebar.tsx — clickable step list
-- [ ] StepDetail.tsx — step info + callouts + discussions
-- [ ] CalloutList.tsx — confidence colour dots
-- [ ] DiscussionCard.tsx — type icons + speakers
-- [ ] SOPCard.tsx — dashboard card
-- [ ] Procedure page renders with API data
-- [ ] Build passes with no TypeScript errors
+- [x] Install TanStack Router + Query + Zustand + lucide-react
+- [x] src/api/types.ts — TypeScript interfaces
+- [x] src/api/client.ts — fetch wrapper + query keys
+- [x] src/hooks/useSOPStore.ts — Zustand store
+- [x] Route files — dashboard, sop.$id, procedure, overview, etc.
+- [x] Layout.tsx — header + navigation
+- [x] StepSidebar.tsx — clickable step list
+- [x] StepDetail.tsx — step info + callouts + discussions
+- [x] CalloutList.tsx — confidence colour dots
+- [x] DiscussionCard.tsx — type icons + speakers
+- [x] SOPCard.tsx — dashboard card
+- [x] Procedure page renders with API data
+- [x] Build passes with no TypeScript errors
 ```
 
 ---

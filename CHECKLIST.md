@@ -30,20 +30,20 @@ Last updated: 2026-03-18
 - [x] Routes registered in main.py
 - [x] All endpoints tested with Supabase data
 
-### 1c: React Scaffold ⬜
-- [ ] Install TanStack Router + Query + Zustand + lucide-react
-- [ ] src/api/types.ts — TypeScript interfaces
-- [ ] src/api/client.ts — fetch wrapper + query keys
-- [ ] src/hooks/useSOPStore.ts — Zustand store
-- [ ] Route files — dashboard, sop.$id, procedure, overview, matrices, history
-- [ ] Layout.tsx — header + navigation
-- [ ] StepSidebar.tsx — clickable step list
-- [ ] StepDetail.tsx — step info + callouts + discussions
-- [ ] CalloutList.tsx — confidence colour dots
-- [ ] DiscussionCard.tsx — type icons + speakers
-- [ ] SOPCard.tsx — dashboard card
-- [ ] Procedure page renders with API data
-- [ ] Build passes with no TypeScript errors
+### 1c: React Scaffold ✅
+- [x] Install TanStack Router + Query + Zustand + lucide-react
+- [x] src/api/types.ts — TypeScript interfaces
+- [x] src/api/client.ts — fetch wrapper + query keys
+- [x] src/hooks/useSOPStore.ts — Zustand store
+- [x] Route files — dashboard, sop.$id, procedure, overview, matrices, history
+- [x] Layout.tsx — header + navigation
+- [x] StepSidebar.tsx — clickable step list
+- [x] StepDetail.tsx — step info + callouts + discussions
+- [x] CalloutList.tsx — confidence colour dots
+- [x] DiscussionCard.tsx — type icons + speakers
+- [x] SOPCard.tsx — dashboard card
+- [x] Procedure page renders with API data
+- [x] Build passes with no TypeScript errors
 
 ---
 

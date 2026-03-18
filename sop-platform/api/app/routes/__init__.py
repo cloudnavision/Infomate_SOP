@@ -1,8 +1,8 @@
-# Implemented in Phase 2
-# Route modules registered here:
+# Route modules registered in main.py:
 #
-#   sops.py     — GET/POST /api/sops, GET/PATCH /api/sops/:id
-#   steps.py    — GET/PATCH /api/sops/:id/steps
-#   exports.py  — POST /api/exports (triggers Workflow 3 webhook)
-#   media.py    — GET /api/media/* (signed Blob URL generation)
-#   pipeline.py — POST /api/pipeline/start, GET /api/pipeline/:id/progress (SSE)
+#   sops.py      — GET /api/sops, GET /api/sops/{id}
+#   steps.py     — GET /api/sops/{id}/steps, GET /api/sops/{id}/steps/{step_id}
+#   sections.py  — GET /api/sops/{id}/sections, /transcript, /watchlist
+#   exports.py   — Phase 5: export generation endpoints
+#   media.py     — Phase 4: Azure Blob signed URL generation
+#   pipeline.py  — Phase 4: video upload + SSE progress stream

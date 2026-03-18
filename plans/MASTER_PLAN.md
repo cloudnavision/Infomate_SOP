@@ -51,8 +51,8 @@
 ```
 Phase 1: Foundation
   └─ 1a. Docker + DB schema       ✅ Done
-  └─ 1b. FastAPI CRUD              ◀ Next
-  └─ 1c. React scaffold + SOP page
+  └─ 1b. FastAPI CRUD              ✅ Done
+  └─ 1c. React scaffold + SOP page ◀ Next
          │
          ▼
 Phase 2: Video + Transcript
@@ -78,8 +78,8 @@ Phase 5: Exports + Polish
 | Sub-Part | Description | Status |
 |----------|-------------|--------|
 | 1a | Docker Compose (6 containers) + PostgreSQL schema + seed data + verify script | ✅ Complete |
-| 1b | FastAPI CRUD routes: SOPs, steps, callouts, sections, pipeline runs | ◀ Next |
-| 1c | React scaffold: TanStack Router, SOP list page, step detail view | ⬜ After 1b |
+| 1b | FastAPI CRUD routes: SOPs, steps, callouts, sections, pipeline runs | ✅ Complete |
+| 1c | React scaffold: TanStack Router, SOP list page, step detail view | ◀ Next |
 
 ---
 

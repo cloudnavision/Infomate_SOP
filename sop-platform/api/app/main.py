@@ -1,7 +1,9 @@
 """
 SOP Platform — FastAPI Backend
-Phase 1: health checks + connectivity diagnostics
-Phase 2+: full CRUD, export generation, SSE pipeline progress
+Phase 1a: health checks + connectivity diagnostics
+Phase 1b: CRUD routes — SOPs, steps, sections, transcript, watchlist
+Phase 4+: pipeline endpoints, media signed URLs
+Phase 5+: export generation, SSE progress stream
 """
 
 import os
@@ -12,6 +14,8 @@ import asyncpg
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.routes import sops, steps, sections
 
 app = FastAPI(
     title="SOP Platform API",
@@ -28,6 +32,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── CRUD Routes (Phase 1b) ────────────────────────────────────
+app.include_router(sops.router)
+app.include_router(steps.router)
+app.include_router(sections.router)
 
 
 # ── Health ───────────────────────────────────────────────────

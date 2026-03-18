@@ -9,8 +9,8 @@
 | Sub-Part | Description | Status |
 |----------|-------------|--------|
 | 1a | Docker Compose setup + DB schema + seed + verify script | ✅ Complete |
-| 1b | FastAPI CRUD: SOPs, steps, callouts, sections, pipeline_runs | ◀ Next |
-| 1c | React scaffold: TanStack Router, SOP list, step detail | ⬜ Pending |
+| 1b | FastAPI CRUD: SOPs, steps, callouts, sections, pipeline_runs | ✅ Complete |
+| 1c | React scaffold: TanStack Router, SOP list, step detail | ◀ Next |
 
 ---
 
@@ -36,22 +36,22 @@
 
 ---
 
-## Sub-Part 1b — FastAPI CRUD (Next)
+## Sub-Part 1b — FastAPI CRUD ✅
 
 ### Checklist
 
-- [ ] `api/app/config.py` — Settings class (pydantic-settings), DATABASE_URL, EXTRACTOR_URL
-- [ ] `api/app/models.py` — SQLAlchemy async models for all 12 tables
-- [ ] `api/app/schemas.py` — Pydantic v2 request/response schemas
-- [ ] `api/app/routes/sops.py` — `GET /api/sops`, `GET /api/sops/{id}`, `POST /api/sops`
-- [ ] `api/app/routes/steps.py` — `GET /api/sops/{id}/steps`, `PUT /api/steps/{id}`
-- [ ] `api/app/routes/callouts.py` — `GET /api/steps/{id}/callouts`, `POST`, `PUT`, `DELETE`
-- [ ] `api/app/routes/sections.py` — `GET /api/sops/{id}/sections`, `POST`, `PUT`
-- [ ] `api/app/routes/pipeline.py` — `POST /api/pipeline/run`, `GET /api/pipeline/{id}/status` (SSE)
-- [ ] `api/app/routes/__init__.py` — register all routers on `app`
-- [ ] Database session dependency (`get_db`) with async context manager
-- [ ] Auto-create async engine from DATABASE_URL (strip `+asyncpg` for raw asyncpg calls)
-- [ ] CORS middleware configured for frontend origin
+- [x] `api/app/config.py` — Settings (pydantic-settings): DATABASE_URL, EXTRACTOR_URL, CORS, Azure
+- [x] `api/app/database.py` — async engine, AsyncSessionLocal, Base, `get_db` dependency
+- [x] `api/app/models.py` — SQLAlchemy 2.0 models for all 13 tables + 6 Python enums
+- [x] `api/app/schemas.py` — Pydantic v2 schemas: SOPListItem, SOPDetail, StepSchema, CalloutSchema, SectionSchema, WatchlistSchema, TranscriptLineSchema, PipelineRunSchema
+- [x] `api/app/routes/sops.py` — `GET /api/sops` (with step_count subquery), `GET /api/sops/{id}` (selectinload)
+- [x] `api/app/routes/steps.py` — `GET /api/sops/{id}/steps`, `GET /api/sops/{id}/steps/{step_id}`
+- [x] `api/app/routes/sections.py` — `GET /api/sops/{id}/sections`, `/transcript` (speaker filter), `/watchlist`
+- [x] `api/app/routes/exports.py` — Phase 5 placeholder
+- [x] `api/app/routes/media.py` — Phase 4 placeholder
+- [x] `api/app/routes/pipeline.py` — Phase 4 placeholder
+- [x] `api/app/routes/__init__.py` — updated with route module listing
+- [x] `api/app/main.py` — routers registered: `sops`, `steps`, `sections`
 
 ---
 

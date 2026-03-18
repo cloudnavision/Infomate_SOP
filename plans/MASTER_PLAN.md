@@ -1,6 +1,6 @@
 # SOP Automation Platform — Master Implementation Plan
 
-**Client:** Starboard Hotels | **Stack:** React + FastAPI + PostgreSQL + n8n + Gemini 2.5 Flash
+**Client:** Starboard Hotels | **Stack:** React + FastAPI + Supabase + n8n + Gemini 2.5 Flash
 **Goal:** KT meeting recording → structured SOP in ~4 minutes
 
 ---
@@ -17,32 +17,43 @@
 
 ---
 
-## Docker Architecture (6 Containers)
+## Docker Architecture (3 Containers + 3 External Services)
+
+> **Architecture updated based on TL feedback** — reduced from 6 containers to 3 local containers.
+> Database moved to Supabase, n8n moved to external hosted, Cloudflare Tunnel runs on host.
 
 ```
-                        ┌─────────────────────────────────────────┐
-                        │            sop-network (bridge)          │
-                        │                                          │
-  Browser ──5173──► sop-frontend (React+Nginx)                    │
-                         │  /api/* proxy ──────► sop-api :8000     │
-                         │                           │             │
-                         │                    sop-postgres :5432   │
-                         │                    sop-n8n :5678        │
-                         │                    sop-extractor :8001  │
-                         │                                          │
-                    [production only]                              │
-                    sop-tunnel (Cloudflare ZTNA)                   │
-                        └─────────────────────────────────────────┘
+Docker Compose (local / Azure VM):
+┌─────────────────────────────────────────────┐
+│                                             │
+│  sop-frontend    React (Vite/serve) :5173   │
+│  sop-api         FastAPI            :8000   │
+│  sop-extractor   FFmpeg+Python      :8001   │
+│                                             │
+│  Shared volume: ./data                      │
+│  Network: sop-network                       │
+└─────────────────────────────────────────────┘
+         │              │              │
+         ▼              ▼              ▼
+External Services (not in Docker Compose):
+- Supabase     PostgreSQL via transaction pooler, port 6543
+- n8n          Hosted externally, webhook communication
+- Cloudflare   Tunnel runs as host daemon (cloudflared tunnel run)
+               sop.yourdomain.com     → localhost:5173
+               api.sop.yourdomain.com → localhost:8000
 ```
 
 | Container | Image | Port | Role |
 |-----------|-------|------|------|
-| sop-frontend | Node 20 → Nginx | 5173:80 | React SPA + Nginx reverse proxy |
-| sop-api | python:3.11-slim | 8000 | FastAPI, SQLAlchemy async |
-| sop-postgres | postgres:16 | 5433:5432 | Primary database (shared with n8n) |
-| sop-extractor | python:3.11-slim + FFmpeg | 8001 | Frame extraction, clip cutting, Mermaid render |
-| sop-n8n | n8nio/n8n | 5678 | 3 automation workflows |
-| sop-tunnel | cloudflare/cloudflared | — | Production-only ZTNA tunnel |
+| sop-frontend | node:20-slim (serve) | 5173:5173 | React SPA — calls API directly via VITE_API_URL |
+| sop-api | python:3.11-slim | 8000:8000 | FastAPI, SQLAlchemy async → Supabase |
+| sop-extractor | python:3.11-slim + FFmpeg | 8001:8001 | Frame extraction, clip cutting, Mermaid render |
+
+| External Service | Where | How connected |
+|-----------------|-------|---------------|
+| Supabase | Supabase cloud | DATABASE_URL (transaction pooler, port 6543) |
+| n8n | External hosted | N8N_WEBHOOK_BASE_URL (webhook calls) |
+| Cloudflare Tunnel | Host daemon | `cloudflared tunnel run` on VM |
 
 ---
 
@@ -77,7 +88,7 @@ Phase 5: Exports + Polish
 
 | Sub-Part | Description | Status |
 |----------|-------------|--------|
-| 1a | Docker Compose (6 containers) + PostgreSQL schema + seed data + verify script | ✅ Complete |
+| 1a | Docker Compose (3 containers) + Supabase schema + seed data + verify script | ✅ Complete |
 | 1b | FastAPI CRUD routes: SOPs, steps, callouts, sections, pipeline runs | ✅ Complete |
 | 1c | React scaffold: TanStack Router, SOP list page, step detail view | ◀ Next |
 

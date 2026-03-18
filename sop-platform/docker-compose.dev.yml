@@ -1,5 +1,5 @@
 # ============================================================
-# Dev overrides — hot reload for all custom services
+# Dev overrides — hot reload for all 3 custom services
 # Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 # ============================================================
 

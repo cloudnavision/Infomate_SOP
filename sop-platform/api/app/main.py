@@ -4,17 +4,18 @@ Phase 1a: health checks + connectivity diagnostics
 Phase 1b: CRUD routes — SOPs, steps, sections, transcript, watchlist
 Phase 4+: pipeline endpoints, media signed URLs
 Phase 5+: export generation, SSE progress stream
+
+Infrastructure: Supabase (PostgreSQL via transaction pooler, port 6543)
 """
 
-import os
-import re
 from typing import Any
 
-import asyncpg
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
+from app.database import AsyncSessionLocal
 from app.routes import sops, steps, sections
 
 app = FastAPI(
@@ -49,7 +50,7 @@ async def health() -> dict[str, str]:
 
 @app.get("/api/health", tags=["health"])
 async def api_health() -> dict[str, str]:
-    """Same as /health but under /api/ prefix that nginx proxies."""
+    """Health check under /api/ prefix — used by verify script and monitoring."""
     return {"status": "ok", "service": "sop-api"}
 
 
@@ -58,25 +59,15 @@ async def api_health() -> dict[str, str]:
 @app.get("/api/test-db", tags=["diagnostics"])
 async def test_db() -> dict[str, Any]:
     """
-    Verify PostgreSQL connectivity and confirm schema was applied.
-    Counts tables in the public schema — expect 10+ after migrations run.
+    Verify Supabase connectivity using the SQLAlchemy async session.
+    Returns sop_count from the sops table — confirms schema is applied and
+    the transaction pooler connection (port 6543) is working.
     """
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
-        return {"status": "error", "detail": "DATABASE_URL env var not set"}
-
-    # SQLAlchemy dialect prefix (+asyncpg) must be stripped for asyncpg.connect()
-    raw_url = re.sub(r"\+asyncpg", "", database_url)
-
     try:
-        conn = await asyncpg.connect(raw_url)
-        try:
-            count = await conn.fetchval(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
-            )
-            return {"status": "ok", "tables_found": int(count)}
-        finally:
-            await conn.close()
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(text("SELECT COUNT(*) FROM sops"))
+            count = result.scalar()
+            return {"status": "ok", "sop_count": int(count)}
     except Exception as exc:
         return {"status": "error", "detail": str(exc)}
 

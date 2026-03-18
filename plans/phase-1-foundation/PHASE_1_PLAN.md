@@ -1,6 +1,8 @@
 # Phase 1: Foundation
 
-**Objective:** Establish the full local Docker infrastructure — 6 containers running, PostgreSQL schema applied with seed data, FastAPI CRUD routes for all entities, and a React scaffold that renders the SOP list and step detail pages.
+**Objective:** Establish the Docker infrastructure (3 containers), connect to Supabase, apply schema, build FastAPI CRUD routes, and scaffold the React frontend.
+
+> **Architecture revised after Phase 1a:** Database moved to Supabase, nginx removed, n8n and Cloudflare Tunnel moved off Docker Compose. See architecture update note below.
 
 ---
 
@@ -11,6 +13,24 @@
 | 1a | Docker Compose setup + DB schema + seed + verify script | ✅ Complete |
 | 1b | FastAPI CRUD: SOPs, steps, callouts, sections, pipeline_runs | ✅ Complete |
 | 1c | React scaffold: TanStack Router, SOP list, step detail | ◀ Next |
+
+---
+
+## ⚠️ Architecture Update (TL Feedback — post Phase 1a)
+
+After Phase 1a was verified working with 6 containers, the TL revised the infrastructure:
+
+| Component | Was | Now |
+|-----------|-----|-----|
+| Database | `sop-postgres` container (postgres:16) | **Supabase** (external, transaction pooler port 6543) |
+| Frontend serving | React + **Nginx** (nginx reverse proxy for `/api/`) | React + **Vite/serve** (calls API directly via `VITE_API_URL`) |
+| Pipeline orchestration | `sop-n8n` container | **External hosted n8n** (webhook communication) |
+| External access | `sop-tunnel` Docker container | **Host daemon** (`cloudflared tunnel run` on VM) |
+
+**Result:** 6 containers → **3 containers** (sop-frontend, sop-api, sop-extractor).
+Schema was applied to Supabase. All Phase 1b+ work uses the new 3-container architecture.
+
+See issues log entry #8 for the full change record.
 
 ---
 

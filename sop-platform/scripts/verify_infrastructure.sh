@@ -1,7 +1,16 @@
 #!/bin/bash
 # ============================================================
 # SOP Platform — Infrastructure Verification Script
-# 14 checks across all 5 local containers
+# 11 checks across 3 local containers + external Supabase
+#
+# Architecture: 3 Docker containers + external services
+#   - sop-frontend  (Vite / serve)  :5173
+#   - sop-api       (FastAPI)        :8000
+#   - sop-extractor (FFmpeg+Python)  :8001
+#   - Database: Supabase (external, verified via /api/test-db)
+#   - n8n:      External hosted (not verified here)
+#   - Cloudflare Tunnel: Host daemon (not verified here)
+#
 # Usage: bash scripts/verify_infrastructure.sh
 # Run from: sop-platform/ directory
 # ============================================================
@@ -16,17 +25,7 @@ NC='\033[0m'
 
 PASS=0
 FAIL=0
-TOTAL=14
-
-# ── Load .env if present ─────────────────────────────────────
-if [ -f ".env" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    source .env
-    set +a
-fi
-POSTGRES_USER="${POSTGRES_USER:-sop_admin}"
-POSTGRES_DB="${POSTGRES_DB:-sop_platform}"
+TOTAL=11
 
 # ── Helper: record a single check result ─────────────────────
 check() {
@@ -49,11 +48,11 @@ sleep 5
 echo ""
 
 # ============================================================
-# Section 1 — Container Status  (5 checks)
+# Section 1 — Container Status  (3 checks)
 # ============================================================
 echo -e "${BOLD}${CYAN}=== Section 1: Container Status ===${NC}"
 
-for container in sop-postgres sop-api sop-extractor sop-frontend sop-n8n; do
+for container in sop-frontend sop-api sop-extractor; do
     running=$(docker inspect --format='{{.State.Running}}' "$container" 2>/dev/null)
     if [ "$running" = "true" ]; then
         check "$container is running" 0
@@ -88,67 +87,41 @@ fi
 # Frontend serves HTML
 fe_resp=$(curl -sf --max-time 10 http://localhost:5173 2>/dev/null)
 if echo "$fe_resp" | grep -qi 'html'; then
-    check "Frontend serves HTML" 0
+    check "Frontend serves HTML at localhost:5173" 0
 else
-    check "Frontend serves HTML" 1 "${fe_resp:0:80}..."
+    check "Frontend serves HTML at localhost:5173" 1 "${fe_resp:0:80}..."
 fi
 
 echo ""
 
 # ============================================================
-# Section 3 — Cross-Container Communication  (3 checks)
+# Section 3 — External Connectivity  (2 checks)
 # ============================================================
-echo -e "${BOLD}${CYAN}=== Section 3: Cross-Container Communication ===${NC}"
+echo -e "${BOLD}${CYAN}=== Section 3: External Connectivity ===${NC}"
 
-# API → Postgres
-db_resp=$(curl -sf --max-time 15 http://localhost:8000/api/test-db 2>/dev/null)
+# API → Supabase (via SQLAlchemy async session, transaction pooler port 6543)
+db_resp=$(curl -sf --max-time 20 http://localhost:8000/api/test-db 2>/dev/null)
 if echo "$db_resp" | grep -q '"ok"'; then
-    tables=$(echo "$db_resp" | grep -o '"tables_found":[0-9]*' | grep -o '[0-9]*')
-    check "API → Postgres" 0 "tables found: ${tables:-?}"
+    sop_count=$(echo "$db_resp" | grep -o '"sop_count":[0-9]*' | grep -o '[0-9]*')
+    check "API → Supabase (transaction pooler)" 0 "sop_count: ${sop_count:-?}"
 else
-    check "API → Postgres" 1 "${db_resp:-no response}"
+    check "API → Supabase (transaction pooler)" 1 "${db_resp:-no response}"
 fi
 
-# API → Extractor
+# API → Extractor (cross-container via sop-network)
 ext_proxy=$(curl -sf --max-time 15 http://localhost:8000/api/test-extractor 2>/dev/null)
 if echo "$ext_proxy" | grep -q '"ok"'; then
-    check "API → Extractor (cross-service)" 0
+    check "API → Extractor (cross-container)" 0
 else
-    check "API → Extractor (cross-service)" 1 "${ext_proxy:-no response}"
-fi
-
-# Frontend nginx → API proxy
-nginx_resp=$(curl -sf --max-time 15 http://localhost:5173/api/health 2>/dev/null)
-if echo "$nginx_resp" | grep -q '"ok"'; then
-    check "Frontend nginx → API proxy (/api/health)" 0
-else
-    check "Frontend nginx → API proxy (/api/health)" 1 "${nginx_resp:-no response}"
+    check "API → Extractor (cross-container)" 1 "${ext_proxy:-no response}"
 fi
 
 echo ""
 
 # ============================================================
-# Section 4 — Database Schema  (1 check)
+# Section 4 — Tool Availability  (2 checks)
 # ============================================================
-echo -e "${BOLD}${CYAN}=== Section 4: Database Schema ===${NC}"
-
-table_count=$(docker exec sop-postgres psql \
-    -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-    -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" \
-    2>/dev/null | tr -d ' \n')
-
-if [[ "$table_count" =~ ^[0-9]+$ ]] && [ "$table_count" -ge 10 ]; then
-    check "PostgreSQL schema applied" 0 "${table_count} public tables (expect 10+)"
-else
-    check "PostgreSQL schema applied" 1 "expected 10+ tables, got: '${table_count:-error}'"
-fi
-
-echo ""
-
-# ============================================================
-# Section 5 — Tool Availability  (2 checks)
-# ============================================================
-echo -e "${BOLD}${CYAN}=== Section 5: Tool Availability ===${NC}"
+echo -e "${BOLD}${CYAN}=== Section 4: Tool Availability ===${NC}"
 
 # FFmpeg
 ffmpeg_resp=$(curl -sf --max-time 15 http://localhost:8001/test-ffmpeg 2>/dev/null)
@@ -162,9 +135,24 @@ fi
 # Data volume
 vol_resp=$(curl -sf --max-time 15 http://localhost:8001/test-data-volume 2>/dev/null)
 if echo "$vol_resp" | grep -q '"data_writable":true'; then
-    check "Data volume mounted and writable" 0 "all 4 subdirectories present"
+    check "Shared /data volume mounted and writable" 0 "all 4 subdirectories present"
 else
-    check "Data volume mounted and writable" 1 "${vol_resp:-no response}"
+    check "Shared /data volume mounted and writable" 1 "${vol_resp:-no response}"
+fi
+
+echo ""
+
+# ============================================================
+# Section 5 — Frontend API Access  (1 check)
+# ============================================================
+echo -e "${BOLD}${CYAN}=== Section 5: Frontend API Access ===${NC}"
+
+# Frontend calls API directly via VITE_API_URL (no nginx proxy)
+api_health_resp=$(curl -sf --max-time 10 http://localhost:8000/api/health 2>/dev/null)
+if echo "$api_health_resp" | grep -q '"ok"'; then
+    check "API reachable at localhost:8000 (VITE_API_URL target)" 0
+else
+    check "API reachable at localhost:8000 (VITE_API_URL target)" 1 "${api_health_resp:-no response}"
 fi
 
 echo ""
@@ -177,6 +165,11 @@ echo -e "${BOLD}Summary: ${PASS} passed, ${FAIL} failed out of ${TOTAL}${NC}"
 echo ""
 if [ "$FAIL" -eq 0 ]; then
     echo -e "${GREEN}${BOLD}🎉 All checks passed! Infrastructure is ready.${NC}"
+    echo ""
+    echo -e "${CYAN}External services (not verified here):${NC}"
+    echo -e "  • Supabase dashboard:   https://supabase.com/dashboard"
+    echo -e "  • n8n instance:         configure N8N_WEBHOOK_BASE_URL in .env"
+    echo -e "  • Cloudflare Tunnel:    run 'cloudflared tunnel run' on host"
 else
     echo -e "${RED}${BOLD}${FAIL} check(s) failed. Review the output above.${NC}"
     echo -e "${YELLOW}Tip: docker compose logs <service-name>${NC}"

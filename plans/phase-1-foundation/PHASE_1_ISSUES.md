@@ -1,12 +1,17 @@
-# Phase 1 — Issues Log
+# Phase 1 — Issues & Fixes
 
-| # | Issue | Symptom | Fix | Status |
-|---|-------|---------|-----|--------|
-| 1 | Docker not found in WSL | `docker: command not found` when running `docker compose up` in WSL terminal | Open Docker Desktop → Settings → Resources → WSL Integration → enable for your distro → restart WSL | Fixed |
-| 2 | Permission denied on docker.sock | `permission denied while trying to connect to the Docker daemon socket` | Run `sudo docker compose up -d` or add user to docker group: `sudo usermod -aG docker $USER` then restart shell | Fixed |
-| 3 | `docker-compose.yml` version warning | `version is obsolete` warning printed on every `docker compose` command | Cosmetic only. Removed the `version: "3.8"` line from `docker-compose.yml` — Docker Compose v2 does not require it | Fixed |
-| 4 | Windows line endings in verify script | `verify_infrastructure.sh: line 2: $'\r': command not found` | Run: `sed -i 's/\r$//' scripts/verify_infrastructure.sh` then re-run the script | Fixed |
-| 5 | Windows line endings in `.env` | Container fails to read env vars; DATABASE_URL contains trailing `\r`, connection fails | Run: `sed -i 's/\r$//' .env` — or re-create `.env` from `.env.example` in a Unix editor | Fixed |
-| 6 | Schema check false negative (verify check 4) | Section 4 of verify script reports `expected 10+ tables, got: error` even after schema applies correctly | Root cause was `.env` Windows line endings (issue 5) — `POSTGRES_USER` had `\r` appended, causing `psql` auth failure. Resolved by fix #5. | Fixed |
-| 7 | n8n creates 60+ extra tables | `SELECT COUNT(*) FROM information_schema.tables` returns 70+ instead of expected 12 | n8n stores its own data in the shared `sop_platform` database. Cosmetic — no impact on app. Verify script threshold is `10+` to accommodate this. | Minor |
-| 8 | Architecture change: TL feedback | 6-container setup worked but TL required a leaner architecture for production | Postgres→Supabase (transaction pooler port 6543), nginx→no proxy (frontend calls API directly via VITE_API_URL), n8n→external hosted (webhook comms), sop-tunnel→host daemon (cloudflared). Updated: docker-compose.yml (3 services), Dockerfile (no nginx), .env.example, config.py, main.py (/api/test-db uses SQLAlchemy instead of raw asyncpg), verify script (11 checks). | Updated |
+| # | Issue | Fix | Status |
+|---|---|---|---|
+| 1 | Docker not found in WSL | Enable WSL integration in Docker Desktop → Settings → Resources → WSL integration | ✅ Fixed |
+| 2 | Permission denied on docker.sock | Use sudo docker compose or add user to docker group | ✅ Fixed |
+| 3 | docker-compose.yml version warning | Removed obsolete version line — Docker Compose v2 doesn't need it | ✅ Fixed |
+| 4 | Windows line endings in verify script | sed -i 's/\r$//' scripts/verify_infrastructure.sh | ✅ Fixed |
+| 5 | Windows line endings in .env | sed -i 's/\r$//' .env | ✅ Fixed |
+| 6 | Schema check false negative | Caused by .env line endings — fixed after sed cleanup | ✅ Fixed |
+| 7 | n8n tables in same database | Cosmetic issue — resolved when n8n container was removed in architecture update | ✅ Resolved |
+| 8 | Architecture change (6→3 containers) | Removed sop-postgres, sop-n8n, sop-tunnel from docker-compose. Updated to Supabase, external n8n, Cloudflare sideloading | ✅ Updated |
+| 9 | npm ci missing package-lock.json | Ran npm install in frontend/ to generate package-lock.json before Docker build | ✅ Fixed |
+| 10 | Old containers lingering after compose update | sop-postgres and sop-n8n still running after removal from compose — used sudo docker stop + rm | ✅ Fixed |
+| 11 | Frontend still running nginx after Dockerfile update | Old image cached — rebuilt with sudo docker compose up -d --build sop-frontend | ✅ Fixed |
+| 12 | API routes returning "Not Found" after architecture update | API container running old code — rebuilt with sudo docker compose up -d --build sop-api | ✅ Fixed |
+| 13 | Supabase tables empty | Schema and seed data were in old local Postgres — re-applied both SQL files via Supabase SQL Editor | ✅ Fixed |

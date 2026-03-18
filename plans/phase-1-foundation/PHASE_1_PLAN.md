@@ -1,8 +1,6 @@
 # Phase 1: Foundation
 
-**Objective:** Establish the Docker infrastructure (3 containers), connect to Supabase, apply schema, build FastAPI CRUD routes, and scaffold the React frontend.
-
-> **Architecture revised after Phase 1a:** Database moved to Supabase, nginx removed, n8n and Cloudflare Tunnel moved off Docker Compose. See architecture update note below.
+**Objective:** Establish the Docker infrastructure (3 containers + external services), FastAPI CRUD endpoints connected to Supabase, and a React scaffold that renders the SOP list and step detail pages.
 
 ---
 
@@ -10,160 +8,131 @@
 
 | Sub-Part | Description | Status |
 |----------|-------------|--------|
-| 1a | Docker Compose setup + DB schema + seed + verify script | ✅ Complete |
-| 1b | FastAPI CRUD: SOPs, steps, callouts, sections, pipeline_runs | ✅ Complete |
-| 1c | React scaffold: TanStack Router, SOP list, step detail | ◀ Next |
+| 1a | Docker Compose (3 containers) + Supabase schema + verify script | ✅ Complete |
+| 1b | FastAPI CRUD: SOPs, steps, callouts, sections, transcript, watchlist | ✅ Complete |
+| 1c | React scaffold: TanStack Router, SOP list, step detail page | ⬜ Next |
 
 ---
 
-## ⚠️ Architecture Update (TL Feedback — post Phase 1a)
+## Architecture (v2.0)
 
-After Phase 1a was verified working with 6 containers, the TL revised the infrastructure:
+**3 Docker Containers:**
+| Container | Port | Purpose |
+|---|---|---|
+| sop-frontend | 5173 | React SPA (Vite dev / serve prod) |
+| sop-api | 8000 | FastAPI + Pillow + python-docx |
+| sop-extractor | 8001 | FFmpeg + PySceneDetect + Mermaid CLI |
 
-| Component | Was | Now |
-|-----------|-----|-----|
-| Database | `sop-postgres` container (postgres:16) | **Supabase** (external, transaction pooler port 6543) |
-| Frontend serving | React + **Nginx** (nginx reverse proxy for `/api/`) | React + **Vite/serve** (calls API directly via `VITE_API_URL`) |
-| Pipeline orchestration | `sop-n8n` container | **External hosted n8n** (webhook communication) |
-| External access | `sop-tunnel` Docker container | **Host daemon** (`cloudflared tunnel run` on VM) |
-
-**Result:** 6 containers → **3 containers** (sop-frontend, sop-api, sop-extractor).
-Schema was applied to Supabase. All Phase 1b+ work uses the new 3-container architecture.
-
-See issues log entry #8 for the full change record.
+**External Services:**
+| Service | Purpose |
+|---|---|
+| Supabase | PostgreSQL via transaction pooler (port 6543) |
+| n8n | Externally hosted, webhook communication |
+| Cloudflare | Sideloaded cloudflared daemon on host (HTTPS) |
+| Azure Blob | Video, image, document storage |
 
 ---
 
 ## Sub-Part 1a — Docker + Database ✅
 
-### Checklist
+See: [1a_docker_setup.md](1a_docker_setup.md)
 
-- [x] `docker-compose.yml` — 6 services on `sop-network`
-- [x] `docker-compose.dev.yml` — hot-reload overrides (volume mounts + `--reload`)
-- [x] `.env` / `.env.example` — all environment variables documented
-- [x] `.gitignore` / `.dockerignore`
-- [x] `sop-postgres` — postgres:16, schema auto-applied on first start
-- [x] `sop-api` — FastAPI with `/health`, `/api/test-db`, `/api/test-extractor`
-- [x] `sop-extractor` — FFmpeg + mmdc installed, `/health`, `/test-ffmpeg`, `/test-data-volume`
-- [x] `sop-frontend` — React + Nginx, health check fetches `/api/health`, SPA routing
-- [x] `sop-n8n` — shares sop_platform database, auto-creates its own tables
-- [x] `sop-tunnel` — production-only (behind `profiles: [production]`)
-- [x] `schema/001_initial_schema.sql` — 6 enums, 12 tables, triggers, pg_trgm index
-- [x] `schema/002_seed_aged_debtor.sql` — 1 SOP, 8 steps, 5 callouts, 4 sections, dev seed
-- [x] `data/` volume — 4 subdirs: uploads, frames, exports, templates
-- [x] `scripts/verify_infrastructure.sh` — 14 checks in 5 sections, coloured output
-- [x] All 14 verify checks passing
+- 3 Docker containers running and healthy
+- Supabase schema applied (001_initial_schema.sql)
+- Seed data loaded (002_seed_aged_debtor.sql)
+- Verification: 11/11 checks passing
+- Architecture updated from 6 → 3 containers after TL feedback
 
 ---
 
 ## Sub-Part 1b — FastAPI CRUD ✅
 
-### Checklist
+See: [1b_fastapi_crud.md](1b_fastapi_crud.md)
 
-- [x] `api/app/config.py` — Settings (pydantic-settings): DATABASE_URL, EXTRACTOR_URL, CORS, Azure
-- [x] `api/app/database.py` — async engine, AsyncSessionLocal, Base, `get_db` dependency
-- [x] `api/app/models.py` — SQLAlchemy 2.0 models for all 13 tables + 6 Python enums
-- [x] `api/app/schemas.py` — Pydantic v2 schemas: SOPListItem, SOPDetail, StepSchema, CalloutSchema, SectionSchema, WatchlistSchema, TranscriptLineSchema, PipelineRunSchema
-- [x] `api/app/routes/sops.py` — `GET /api/sops` (with step_count subquery), `GET /api/sops/{id}` (selectinload)
-- [x] `api/app/routes/steps.py` — `GET /api/sops/{id}/steps`, `GET /api/sops/{id}/steps/{step_id}`
-- [x] `api/app/routes/sections.py` — `GET /api/sops/{id}/sections`, `/transcript` (speaker filter), `/watchlist`
-- [x] `api/app/routes/exports.py` — Phase 5 placeholder
-- [x] `api/app/routes/media.py` — Phase 4 placeholder
-- [x] `api/app/routes/pipeline.py` — Phase 4 placeholder
-- [x] `api/app/routes/__init__.py` — updated with route module listing
-- [x] `api/app/main.py` — routers registered: `sops`, `steps`, `sections`
+- SQLAlchemy models for all 12 tables + 6 enums
+- Pydantic v2 response schemas
+- 7 read-only API endpoints working
+- Connected to Supabase via transaction pooler
+- Seed data returns correctly from all endpoints
 
 ---
 
-## Sub-Part 1c — React Scaffold (After 1b)
+## Sub-Part 1c — React Scaffold (Next)
 
-### Checklist
+See: [1c_react_scaffold.md](1c_react_scaffold.md)
 
-- [ ] TanStack Router file-based routing (`routes/` directory)
-- [ ] TanStack Query client setup in `main.tsx`
-- [ ] Zustand store skeleton (`hooks/useStore.ts`)
-- [ ] `api/client.ts` — typed API helpers (fetch wrapper)
-- [ ] `routes/index.tsx` — SOP list page, fetches `GET /api/sops`
-- [ ] `routes/sops/$sopId.tsx` — SOP detail page scaffold
-- [ ] `components/SOPCard.tsx` — card for list view
-- [ ] `components/Layout.tsx` — sidebar + main content area
-- [ ] Tailwind typography + colour tokens applied
-- [ ] Build passes: `npm run build` produces no TS errors
+**Goal:** React app renders SOP data from the API with step sidebar and detail panel.
 
----
+**What to build:**
+- Install TanStack Router, TanStack Query, Zustand, lucide-react
+- TypeScript types matching Pydantic schemas
+- API client with query key factories
+- Zustand store (selectedStepId, editMode)
+- Route files: dashboard, sop.$id, procedure, overview, matrices, history
+- Components: Layout, StepSidebar, StepDetail, CalloutList, DiscussionCard, SOPCard
+- Frontend calls API at VITE_API_URL (http://localhost:8000 for local dev)
 
-## Architecture Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| API dialect prefix | Strip `+asyncpg` via `re.sub` | asyncpg.connect() rejects SQLAlchemy format |
-| nginx SSE block | `/api/pipeline/` BEFORE `/api/` | Longer-prefix match; buffering must be off for SSE |
-| Konva.js loading | Lazy (edit mode only) | Saves ~140KB on read-only SOP views |
-| n8n database | Shared `sop_platform` DB | Simplifies Docker setup; n8n tables are cosmetic |
-| Cloudflare ZTNA | `profiles: [production]` | Not needed locally; one flag enables for prod |
-| DOCX generation | python-docx template tokens | ~300 lines vs 1500+ from scratch |
+**Note:** No nginx proxy — frontend calls the API directly. In production, Cloudflare handles routing.
 
 ---
 
-## Key File Locations
+## Checklist
 
 ```
-sop-platform/
-├── docker-compose.yml              # 6-service orchestration
-├── docker-compose.dev.yml          # hot-reload overrides
-├── .env                            # local environment (not committed)
-├── .env.example                    # template for new devs
-├── schema/
-│   ├── 001_initial_schema.sql      # full DB schema (12 tables)
-│   └── 002_seed_aged_debtor.sql    # dev seed data
-├── api/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── app/
-│       ├── main.py                 # health + test endpoints (Phase 1a)
-│       ├── config.py               # Settings — Phase 1b
-│       ├── models.py               # SQLAlchemy models — Phase 1b
-│       ├── schemas.py              # Pydantic schemas — Phase 1b
-│       ├── routes/
-│       │   └── __init__.py         # router registration — Phase 1b
-│       └── services/
-│           └── __init__.py         # Phase 5 placeholder
-├── extractor/
-│   ├── Dockerfile                  # FFmpeg + mmdc + Chromium
-│   ├── requirements.txt
-│   └── app/
-│       ├── main.py                 # health + test endpoints
-│       ├── scene_detector.py       # Phase 4 placeholder
-│       ├── deduplicator.py         # Phase 4 placeholder
-│       ├── clip_extractor.py       # Phase 4 placeholder
-│       └── mermaid_renderer.py     # Phase 4 placeholder
-├── frontend/
-│   ├── Dockerfile                  # 3-stage: dev / build / prod
-│   ├── nginx.conf                  # SPA routing + SSE proxy
-│   ├── tailwind.config.ts
-│   ├── vite.config.ts
-│   └── src/
-│       ├── App.tsx                 # health check display
-│       ├── api/                    # Phase 1c — API client
-│       ├── components/             # Phase 1c — shared components
-│       ├── hooks/                  # Phase 1c — Zustand store
-│       └── routes/                 # Phase 1c — TanStack Router pages
-├── data/
-│   ├── uploads/                    # raw video uploads
-│   ├── frames/                     # extracted frames
-│   ├── exports/                    # generated DOCX/PDF
-│   └── templates/                  # Word .docx templates
-├── templates/                      # n8n JSON workflow templates
-├── workflows/                      # workflow docs (reference)
-│   ├── workflow_1_extraction.md
-│   ├── workflow_2_section_generation.md
-│   └── workflow_3_export.md
-└── scripts/
-    └── verify_infrastructure.sh    # 14-check health script
+1a: Docker Infrastructure
+- [x] docker-compose.yml — 3 containers (frontend, API, extractor)
+- [x] docker-compose.dev.yml — hot reload overrides
+- [x] .env.example — Supabase URL, n8n webhook URL, VITE_API_URL
+- [x] Frontend Dockerfile — Node 20 (dev / build / serve, no nginx)
+- [x] API Dockerfile — Python 3.11 + LibreOffice + Pillow
+- [x] Extractor Dockerfile — FFmpeg + Node + Mermaid CLI
+- [x] Scaffold apps with health endpoints
+- [x] Supabase schema applied via SQL Editor
+- [x] Seed data loaded via SQL Editor
+- [x] Verification: 11/11 passing
+
+1b: FastAPI CRUD
+- [x] api/app/config.py — pydantic-settings (Supabase connection)
+- [x] api/app/database.py — async SQLAlchemy (conservative pool size)
+- [x] api/app/models.py — all 12 tables + 6 enums + relationships
+- [x] api/app/schemas.py — Pydantic v2 response schemas
+- [x] api/app/routes/sops.py — GET /api/sops, GET /api/sops/{id}
+- [x] api/app/routes/steps.py — steps with callouts, discussions
+- [x] api/app/routes/sections.py — sections, transcript, watchlist
+- [x] Routes registered in main.py
+- [x] All endpoints tested and returning data from Supabase
+
+1c: React Scaffold
+- [ ] Install TanStack Router + Query + Zustand + lucide-react
+- [ ] src/api/types.ts — TypeScript interfaces
+- [ ] src/api/client.ts — fetch wrapper + query keys
+- [ ] src/hooks/useSOPStore.ts — Zustand store
+- [ ] Route files — dashboard, sop.$id, procedure, overview, etc.
+- [ ] Layout.tsx — header + navigation
+- [ ] StepSidebar.tsx — clickable step list
+- [ ] StepDetail.tsx — step info + callouts + discussions
+- [ ] CalloutList.tsx — confidence colour dots
+- [ ] DiscussionCard.tsx — type icons + speakers
+- [ ] SOPCard.tsx — dashboard card
+- [ ] Procedure page renders with API data
+- [ ] Build passes with no TypeScript errors
 ```
+
+---
+
+## Decisions
+
+| Decision | Choice | Reason |
+|---|---|---|
+| Database | Supabase (transaction pooler, port 6543) | TL decision — hosted, no local container |
+| Frontend serving | Cloudflare sideloading | TL decision — no nginx, clean images |
+| n8n | Externally hosted, webhooks | TL decision — separate instance exists |
+| Docker containers | 3 (frontend, API, extractor) | Reduced from 6 after TL feedback |
+| Frame extractor | Separate from API | Resource isolation — FFmpeg needs 2-4GB |
+| Frontend API calls | Direct to localhost:8000 (VITE_API_URL) | No nginx proxy — Cloudflare handles production routing |
 
 ---
 
 ## Issues
 
-See [PHASE_1_ISSUES.md](PHASE_1_ISSUES.md) for all encountered issues and resolutions.
+See: [PHASE_1_ISSUES.md](PHASE_1_ISSUES.md)

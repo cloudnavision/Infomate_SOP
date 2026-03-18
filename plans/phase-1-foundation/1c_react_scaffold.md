@@ -3,6 +3,12 @@
 ### Objective
 Build the React frontend with routing, state management, API integration, and a basic SOP procedure page showing the step sidebar and step detail panel.
 
+### Architecture Note
+No nginx proxy — the frontend calls the API directly using `VITE_API_URL` environment variable.
+- Local dev: `VITE_API_URL=http://localhost:8000`
+- Production: `VITE_API_URL=https://api.sop.yourdomain.com` (via Cloudflare)
+- Vite bakes env vars at build time — for the Docker prod stage, pass as `--build-arg`
+
 ### What to Build
 
 **Install Dependencies:**
@@ -11,12 +17,17 @@ Build the React frontend with routing, state management, API integration, and a 
 - zustand — client state (selected step, edit mode)
 - @tanstack/router-plugin — Vite plugin for route generation
 - lucide-react — icons
+- clsx — conditional class names
 
 **API Layer (src/api/):**
-- `types.ts` — TypeScript interfaces matching the Pydantic schemas from 1b:
+- `types.ts` — TypeScript interfaces matching the Pydantic schemas from api/app/schemas.py:
   - SOP, SOPListItem, SOPStep, StepCallout, StepDiscussion, StepClip
   - TranscriptLine, SOPSection, WatchlistItem
-- `client.ts` — fetch wrapper + TanStack Query key factories:
+- `client.ts` — fetch wrapper using VITE_API_URL + TanStack Query key factories:
+  ```typescript
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  // All calls: fetch(`${API_BASE}/api/sops`)
+  ```
   - fetchSOPs(), fetchSOP(id), fetchTranscript(id), fetchSections(id)
   - sopKeys.all, sopKeys.detail(id), sopKeys.steps(id), sopKeys.transcript(id)
 
@@ -34,13 +45,13 @@ From CONVERSATION_SUMMARY.md route structure:
 - `dashboard.tsx` — SOP list page, fetches GET /api/sops, renders SOPCard for each
 - `sop.$id.tsx` — SOP layout with tab navigation (Procedure, Overview, Matrices, History), fetches SOP data
 - `sop.$id.procedure.tsx` — Main page: StepSidebar + StepDetail side by side
-- `sop.$id.overview.tsx` — Renders sections (purpose, inputs, outputs, risks)
+- `sop.$id.overview.tsx` — Renders sections based on content_type (text → paragraph, list → bullets, table → HTML table)
 - `sop.$id.matrices.tsx` — Placeholder
 - `sop.$id.history.tsx` — Placeholder
 - `sop.new.tsx` — Placeholder
 
 **Components (src/components/):**
-- `Layout.tsx` — Header with platform name, nav links (Dashboard, Settings)
+- `Layout.tsx` — Header with platform name, nav links (Dashboard)
 - `StepSidebar.tsx` — Ordered list of steps:
   - Props: steps, onStepClick
   - Active step highlighted (blue left border + bg)
@@ -63,8 +74,9 @@ From CONVERSATION_SUMMARY.md route structure:
   - Speaker names as badges
 - `SOPCard.tsx` — Card for dashboard list:
   - Title, client name, status badge, step count, meeting date
+  - Clickable — navigates to /sop/{id}/procedure
 
-**Procedure Page Wiring:**
+**Procedure Page Layout:**
 ```
 ┌───────────────┬─────────────────────────────────┐
 │               │                                 │
@@ -93,6 +105,7 @@ From CONVERSATION_SUMMARY.md route structure:
 - Auto-select first step on page load
 - Clicking step updates detail panel via Zustand store
 - TanStack Query fetches SOP data once, caches it
+- Frontend calls API at VITE_API_URL (no nginx proxy)
 
 ### Validation
 - [ ] `npm run build` produces no TypeScript errors
@@ -109,10 +122,10 @@ From CONVERSATION_SUMMARY.md route structure:
 - [ ] Tab navigation works between Procedure/Overview/Matrices/History
 
 ### Checklist
-- [ ] Install TanStack Router + Query + Zustand + lucide-react
+- [ ] Install TanStack Router + Query + Zustand + lucide-react + clsx
 - [ ] Configure TanStack Router plugin in vite.config.ts
 - [ ] Create src/api/types.ts
-- [ ] Create src/api/client.ts
+- [ ] Create src/api/client.ts (using VITE_API_URL)
 - [ ] Create src/hooks/useSOPStore.ts
 - [ ] Create src/routes/__root.tsx
 - [ ] Create src/routes/index.tsx

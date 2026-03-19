@@ -1,5 +1,14 @@
 ﻿// TypeScript interfaces matching api/app/schemas.py exactly
 
+export interface AppUser {
+  id: string
+  email: string
+  name: string
+  role: 'viewer' | 'editor' | 'admin'
+  created_at: string
+}
+
+
 export type SOPStatus = 'processing' | 'draft' | 'in_review' | 'published' | 'archived'
 export type CalloutConfidence = 'ocr_exact' | 'ocr_fuzzy' | 'gemini_only'
 export type CalloutMatchMethod = 'ocr' | 'gemini' | 'manual'

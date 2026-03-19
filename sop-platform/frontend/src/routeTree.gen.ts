@@ -13,6 +13,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SopNewRouteImport } from './routes/sop.new'
 import { Route as SopIdRouteImport } from './routes/sop.$id'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as SopIdProcedureRouteImport } from './routes/sop.$id.procedure'
 import { Route as SopIdOverviewRouteImport } from './routes/sop.$id.overview'
 import { Route as SopIdMatricesRouteImport } from './routes/sop.$id.matrices'
@@ -36,6 +37,11 @@ const SopNewRoute = SopNewRouteImport.update({
 const SopIdRoute = SopIdRouteImport.update({
   id: '/sop/$id',
   path: '/sop/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SopIdProcedureRoute = SopIdProcedureRouteImport.update({
@@ -62,6 +68,7 @@ const SopIdHistoryRoute = SopIdHistoryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/sop/$id': typeof SopIdRouteWithChildren
   '/sop/new': typeof SopNewRoute
   '/sop/$id/history': typeof SopIdHistoryRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/sop/$id': typeof SopIdRouteWithChildren
   '/sop/new': typeof SopNewRoute
   '/sop/$id/history': typeof SopIdHistoryRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/sop/$id': typeof SopIdRouteWithChildren
   '/sop/new': typeof SopNewRoute
   '/sop/$id/history': typeof SopIdHistoryRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/auth/callback'
     | '/sop/$id'
     | '/sop/new'
     | '/sop/$id/history'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/auth/callback'
     | '/sop/$id'
     | '/sop/new'
     | '/sop/$id/history'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/auth/callback'
     | '/sop/$id'
     | '/sop/new'
     | '/sop/$id/history'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   SopIdRoute: typeof SopIdRouteWithChildren
   SopNewRoute: typeof SopNewRoute
 }
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       path: '/sop/$id'
       fullPath: '/sop/$id'
       preLoaderRoute: typeof SopIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sop/$id/procedure': {
@@ -210,6 +230,7 @@ const SopIdRouteWithChildren = SopIdRoute._addFileChildren(SopIdRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   SopIdRoute: SopIdRouteWithChildren,
   SopNewRoute: SopNewRoute,
 }

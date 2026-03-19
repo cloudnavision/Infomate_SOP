@@ -1,9 +1,15 @@
 import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem } from './types'
+import { supabase } from '../lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 async function fetchAPI<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`)
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers: HeadersInit = {}
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`
+  }
+  const res = await fetch(`${API_BASE}${path}`, { headers })
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${res.statusText}`)
   }

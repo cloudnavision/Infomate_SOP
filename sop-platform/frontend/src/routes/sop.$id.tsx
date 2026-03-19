@@ -1,9 +1,14 @@
 import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSOP, sopKeys } from '../api/client'
+import { ProtectedRoute } from '../components/ProtectedRoute'
 
 export const Route = createFileRoute('/sop/$id')({
-  component: SOPLayout,
+  component: () => (
+    <ProtectedRoute requiredRole="viewer">
+      <SOPLayout />
+    </ProtectedRoute>
+  ),
 })
 
 const tabs = [

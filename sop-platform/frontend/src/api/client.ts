@@ -5,6 +5,13 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 async function fetchAPI<T>(path: string): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession()
+  // ── DEBUG ────────────────────────────────────────────────
+  console.log('[AUTH DEBUG] fetchAPI', path,
+    '| session found:', !!session,
+    '| token prefix:', session?.access_token?.slice(0, 20) ?? 'NONE',
+    '| auth header set:', !!session?.access_token,
+  )
+  // ────────────────────────────────────────────────────────
   const headers: HeadersInit = {}
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`

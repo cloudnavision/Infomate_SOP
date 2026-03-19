@@ -2,9 +2,14 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSOPs, sopKeys } from '../api/client'
 import { SOPCard } from '../components/SOPCard'
+import { ProtectedRoute } from '../components/ProtectedRoute'
 
 export const Route = createFileRoute('/dashboard')({
-  component: Dashboard,
+  component: () => (
+    <ProtectedRoute requiredRole="viewer">
+      <Dashboard />
+    </ProtectedRoute>
+  ),
 })
 
 function Dashboard() {

@@ -1,3 +1,4 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,14 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import SOP, SOPStep
+from app.dependencies.auth import require_viewer
+from app.models import SOP, SOPStep, User
 from app.schemas import StepSchema
 
 router = APIRouter(prefix="/api", tags=["steps"])
 
 
 @router.get("/sops/{sop_id}/steps", response_model=list[StepSchema])
-async def list_steps(sop_id: UUID, db: AsyncSession = Depends(get_db)):
+async def list_steps(
+    sop_id: UUID,
+    current_user: Annotated[User, Depends(require_viewer)],
+    db: AsyncSession = Depends(get_db),
+):
     """All steps for a SOP, ordered by sequence."""
     sop_exists = await db.scalar(select(SOP.id).where(SOP.id == sop_id))
     if sop_exists is None:
@@ -34,7 +40,12 @@ async def list_steps(sop_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/sops/{sop_id}/steps/{step_id}", response_model=StepSchema)
-async def get_step(sop_id: UUID, step_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_step(
+    sop_id: UUID,
+    step_id: UUID,
+    current_user: Annotated[User, Depends(require_viewer)],
+    db: AsyncSession = Depends(get_db),
+):
     """Single step with callouts, clips, and discussions."""
     stmt = (
         select(SOPStep)

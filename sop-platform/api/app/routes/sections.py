@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,14 +6,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models import SOP, SOPSection, TranscriptLine, PropertyWatchlist
+from app.dependencies.auth import require_viewer
+from app.models import SOP, SOPSection, TranscriptLine, PropertyWatchlist, User
 from app.schemas import SectionSchema, TranscriptLineSchema, WatchlistSchema
 
 router = APIRouter(prefix="/api", tags=["sections"])
 
 
 @router.get("/sops/{sop_id}/sections", response_model=list[SectionSchema])
-async def list_sections(sop_id: UUID, db: AsyncSession = Depends(get_db)):
+async def list_sections(
+    sop_id: UUID,
+    current_user: Annotated[User, Depends(require_viewer)],
+    db: AsyncSession = Depends(get_db),
+):
     """All sections for a SOP, ordered by display_order."""
     sop_exists = await db.scalar(select(SOP.id).where(SOP.id == sop_id))
     if sop_exists is None:
@@ -31,6 +36,7 @@ async def list_sections(sop_id: UUID, db: AsyncSession = Depends(get_db)):
 @router.get("/sops/{sop_id}/transcript", response_model=list[TranscriptLineSchema])
 async def list_transcript(
     sop_id: UUID,
+    current_user: Annotated[User, Depends(require_viewer)],
     speaker: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -52,7 +58,11 @@ async def list_transcript(
 
 
 @router.get("/sops/{sop_id}/watchlist", response_model=list[WatchlistSchema])
-async def list_watchlist(sop_id: UUID, db: AsyncSession = Depends(get_db)):
+async def list_watchlist(
+    sop_id: UUID,
+    current_user: Annotated[User, Depends(require_viewer)],
+    db: AsyncSession = Depends(get_db),
+):
     """Property watchlist entries for a SOP."""
     sop_exists = await db.scalar(select(SOP.id).where(SOP.id == sop_id))
     if sop_exists is None:

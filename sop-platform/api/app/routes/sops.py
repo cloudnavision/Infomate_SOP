@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,18 +7,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models import SOP, SOPStep, SOPStatus
+from app.dependencies.auth import require_viewer
+from app.models import SOP, SOPStep, SOPStatus, User, UserRole
 from app.schemas import SOPListItem, SOPDetail
 
 router = APIRouter(prefix="/api", tags=["sops"])
 
+# Statuses visible per role
+_VISIBLE_STATUSES: dict[str, list[SOPStatus]] = {
+    UserRole.viewer.value: [SOPStatus.published],
+    UserRole.editor.value: [SOPStatus.published, SOPStatus.draft, SOPStatus.in_review],
+    UserRole.admin.value:  [],  # empty = no filter (all statuses)
+}
+
 
 @router.get("/sops", response_model=list[SOPListItem])
 async def list_sops(
+    current_user: Annotated[User, Depends(require_viewer)],
     status: Optional[SOPStatus] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """List all SOPs with optional status filter, ordered by newest first."""
+    """List SOPs. Visibility is filtered by role: viewers see published only, editors see draft/in_review too, admins see all."""
     step_count_subq = (
         select(func.count(SOPStep.id))
         .where(SOPStep.sop_id == SOP.id)
@@ -27,6 +36,13 @@ async def list_sops(
     )
 
     stmt = select(SOP, step_count_subq.label("step_count")).order_by(SOP.created_at.desc())
+
+    # Role-based visibility filter (applied before any explicit status query param)
+    allowed = _VISIBLE_STATUSES.get(current_user.role.value, [])
+    if allowed:  # admin has empty list → no filter
+        stmt = stmt.where(SOP.status.in_(allowed))
+
+    # Optional caller-supplied status filter (intersects with role visibility)
     if status is not None:
         stmt = stmt.where(SOP.status == status)
 
@@ -47,7 +63,11 @@ async def list_sops(
 
 
 @router.get("/sops/{sop_id}", response_model=SOPDetail)
-async def get_sop(sop_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_sop(
+    sop_id: UUID,
+    current_user: Annotated[User, Depends(require_viewer)],
+    db: AsyncSession = Depends(get_db),
+):
     """Retrieve a single SOP with all steps (+ callouts, clips, discussions), sections, and watchlist."""
     stmt = (
         select(SOP)

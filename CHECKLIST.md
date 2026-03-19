@@ -1,6 +1,6 @@
 # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-03-18
+Last updated: 2026-03-19
 
 ---
 
@@ -47,32 +47,84 @@ Last updated: 2026-03-18
 
 ---
 
+## Phase 1.5: Authentication & Authorization
+
+### 1.5a: Supabase Auth + Azure AD ✅
+- [x] Azure AD app registration (Client ID, Secret, Tenant ID)
+- [x] Redirect URI added in Azure Portal
+- [x] Azure provider enabled in Supabase Auth (Client ID, Secret, Tenant URL)
+- [x] Supabase keys noted (Project URL, anon key, JWT Secret)
+- [x] Admin user inserted in users table
+- [x] .env updated with VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_JWT_SECRET
+- [x] npm install @supabase/supabase-js
+- [x] frontend/src/lib/supabase.ts — client singleton
+- [x] frontend/src/hooks/useAuth.ts — auth state hook
+- [x] frontend/src/contexts/AuthContext.tsx — auth context provider
+- [x] frontend/src/api/types.ts — AppUser interface
+- [x] frontend/src/api/client.ts — JWT in Authorization header
+- [x] api/app/routes/auth.py — GET /api/auth/me (ES256/JWKS)
+- [x] docker-compose.yml — build args for VITE_ vars, SUPABASE_JWT_SECRET for API
+- [x] frontend/Dockerfile — ARG/ENV for VITE_ vars in build stage
+
+### 1.5b: Sign-in Page + Protected Routes ✅
+- [x] frontend/src/routes/login.tsx — "Sign in with Microsoft"
+- [x] frontend/src/routes/auth.callback.tsx — OAuth callback
+- [x] frontend/src/components/ProtectedRoute.tsx — auth + role wrapper
+- [x] frontend/src/components/AccessDenied.tsx — blocked state
+- [x] frontend/src/routes/settings.tsx — admin-only page
+- [x] Updated __root.tsx — AuthProvider
+- [x] Updated dashboard, sop.$id — ProtectedRoute (viewer)
+- [x] Updated sop.new — ProtectedRoute (admin)
+- [x] Updated Layout.tsx — user info, role badge, conditional nav
+- [x] Sign-in flow works end-to-end
+
+### 1.5c: Backend JWT + Role Guards ✅
+- [x] api/app/dependencies/auth.py — get_current_user, require_role, require_viewer/editor/admin
+- [x] api/app/routes/sops.py — require_viewer + SOP visibility filtering
+- [x] api/app/routes/steps.py — require_viewer
+- [x] api/app/routes/sections.py — require_viewer
+- [x] Health endpoints remain public
+- [x] database.py — pool_pre_ping=True (fix stale connections)
+
+### 1.5d: Admin User Management ✅
+- [x] api/app/routes/users.py — GET/POST/PATCH/DELETE (require_admin)
+- [x] api/app/schemas.py — UserCreate, UserUpdate, UserResponse
+- [x] frontend/src/components/UserManagementTable.tsx — full CRUD table
+- [x] frontend/src/routes/settings.tsx — user management page
+- [x] frontend/src/api/client.ts — fetchUsers, createUser, updateUser, deleteUser
+- [x] Self-protection (cannot change own role / delete self)
+- [x] Duplicate email check (409 Conflict)
+- [x] TanStack Query mutations with cache invalidation
+
+---
+
 ## Phase 2: Video + Transcript (Week 2-3)
 
 ### 2a: Video Player ⬜
-- [ ] Video.js integration
-- [ ] Programmatic seek
-- [ ] Clip mode (restrict to step time range)
-- [ ] Time update events at 4Hz
+- [ ] npm install video.js @types/video.js @tanstack/react-virtual
+- [ ] Place test MP4 in data/uploads/
+- [ ] Seed data SQL update (video_url + step timestamps)
+- [ ] api/app/routes/media.py — dev video streaming with Range support
+- [ ] frontend/src/hooks/useSOPStore.ts — add video state fields
+- [ ] frontend/src/components/VideoPlayer.tsx + CSS
+- [ ] frontend/src/routes/sop.$id.procedure.tsx — layout with VideoPlayer
+- [ ] Video plays, seeks, speed control works
 
 ### 2b: Step Sync Hook ⬜
-- [ ] useStepSync — coordinates video, sidebar, transcript
-- [ ] Circular update prevention (seekSource flag)
-- [ ] Step click → video seek
-- [ ] Video time → step selection
+- [ ] frontend/src/hooks/useStepSync.ts
+- [ ] frontend/src/components/StepSidebar.tsx — add timestamps
+- [ ] Click step → video seeks; video play → step auto-selects
 
 ### 2c: Transcript Panel ⬜
-- [ ] Virtualised list (react-virtual)
-- [ ] Auto-scroll to active line
-- [ ] Speaker colour coding
-- [ ] Search with text highlighting
-- [ ] Click line → seek video
+- [ ] frontend/src/components/TranscriptPanel.tsx + CSS
+- [ ] frontend/src/routes/sop.$id.procedure.tsx — add to grid layout
+- [ ] Search, auto-scroll, click-to-seek, speaker colours
 
 ### 2d: Navigation Features ⬜
-- [ ] Clip mode toggle
-- [ ] "Watch this step" button
-- [ ] Keyboard shortcuts (↑↓ steps, Space play/pause, C clip mode)
-- [ ] Step timestamps in sidebar
+- [ ] frontend/src/components/ClipModeBar.tsx + CSS
+- [ ] frontend/src/components/StepDetail.tsx — onWatchStep button
+- [ ] Keyboard shortcuts (↑↓ Space C)
+- [ ] Clip mode, Watch Step all work
 
 ---
 
@@ -166,13 +218,7 @@ Last updated: 2026-03-18
 - [ ] Tunnel configured for frontend + API
 - [ ] Access policies defined
 
-### 5f: RBAC ⬜
-- [ ] Viewer / Editor / Admin roles
-- [ ] JWT verification from Cloudflare Access
-- [ ] Frontend conditional rendering
-- [ ] API role guards
-
-### 5g: Testing ⬜
+### 5f: Testing ⬜
 - [ ] End-to-end test with real recording
 - [ ] Prompt tuning
 - [ ] Performance optimisation

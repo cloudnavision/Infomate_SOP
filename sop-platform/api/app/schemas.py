@@ -9,13 +9,48 @@ from typing import Optional, Any
 
 from pydantic import BaseModel, ConfigDict
 
+from pydantic import field_validator
+
 from app.models import (
     SOPStatus,
     CalloutConfidence,
     CalloutMatchMethod,
     PipelineStatus,
     SectionContentType,
+    UserRole,
 )
+
+
+# ── User schemas ───────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    email: str
+    name: str
+    role: UserRole = UserRole.viewer
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        import re
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v.strip()):
+            raise ValueError("Invalid email address")
+        return v.strip().lower()
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[UserRole] = None
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: str
+    name: str
+    role: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class CalloutSchema(BaseModel):

@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.database import AsyncSessionLocal
-from app.routes import sops, steps, sections, auth
+from app.routes import sops, steps, sections, auth, users
 
 app = FastAPI(
     title="SOP Platform API",
@@ -41,6 +41,9 @@ app.include_router(auth.router)
 app.include_router(sops.router)
 app.include_router(steps.router)
 app.include_router(sections.router)
+
+# ── Admin Routes (Phase 1.5d) ─────────────────────────────────
+app.include_router(users.router)
 
 
 # ── Health ───────────────────────────────────────────────────

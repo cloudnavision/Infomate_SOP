@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.database import AsyncSessionLocal
-from app.routes import sops, steps, sections
+from app.routes import sops, steps, sections, auth
 
 app = FastAPI(
     title="SOP Platform API",
@@ -33,6 +33,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Auth Routes (Phase 1.5a) ──────────────────────────────────
+app.include_router(auth.router)
 
 # ── CRUD Routes (Phase 1b) ────────────────────────────────────
 app.include_router(sops.router)

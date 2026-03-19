@@ -1,5 +1,5 @@
 # SOP Automation Platform — Project Memory
-## Last Updated: 2026-03-18 (Phase 1 complete)
+## Last Updated: 2026-03-19 (Phase 2 planning complete)
 
 ---
 
@@ -44,7 +44,7 @@
 
 **Key 1c implementation note:** Child routes (`procedure`, `overview`) use `useQuery` with the same key as the parent `sop.$id.tsx` — React Query cache means no extra network calls. Did not use `useRouteContext`/`useOutletContext` (unreliable in TanStack Router v1 for data passing).
 
-### Phase 2: Video + Transcript ◀ Next
+### Phase 2: Video + Transcript 🔵 In Progress
 ### Phase 3: Callout Editor ⬜
 ### Phase 4: Pipeline Integration ⬜
 ### Phase 5: Exports + Polish ⬜
@@ -131,6 +131,11 @@ EXTRACTOR_URL=http://sop-extractor:8001
 | `plans/phase-1-foundation/PHASE_1_PLAN.md` | Phase 1 detailed checklist |
 | `plans/phase-1-foundation/1c_react_scaffold.md` | Phase 1c build record (✅ complete) |
 | `plans/phase-1-foundation/PHASE_1_ISSUES.md` | Troubleshooting log (13 issues) |
+| `plans/phase-2-video-transcript/PHASE_2_PLAN.md` | Phase 2 overview + layout diagram + checklist |
+| `plans/phase-2-video-transcript/2a_video_player.md` | Video.js integration + Zustand store additions |
+| `plans/phase-2-video-transcript/2b_step_sync.md` | useStepSync hook + circular update prevention |
+| `plans/phase-2-video-transcript/2c_transcript_panel.md` | Virtualised transcript + speaker colours + search |
+| `plans/phase-2-video-transcript/2d_navigation.md` | Clip mode, keyboard shortcuts, step timestamps |
 | `sop-platform/frontend/src/api/types.ts` | TypeScript interfaces (matches schemas.py) |
 | `sop-platform/frontend/src/api/client.ts` | API fetch wrapper + sopKeys factories |
 | `sop-platform/frontend/src/hooks/useSOPStore.ts` | Zustand store (selectedStepId, editMode) |
@@ -232,16 +237,25 @@ docker compose down
 
 ## Next Steps — Phase 2
 
-Phase 2: Video + Transcript — build on top of the existing procedure page.
+Phase 2 plan docs are complete. Begin with **2a (Video Player)**.
 
-1. Add `VideoPlayer.tsx` component (Video.js) to the step detail area
-2. Implement `useStepSync.ts` hook — coordinates video time ↔ selected step ↔ transcript scroll
-3. Add `TranscriptPanel.tsx` — virtualised list (react-virtual), speaker colours, search, click-to-seek
-4. Navigation: clip mode toggle, "Watch this step" button, keyboard shortcuts (↑↓, Space, C)
-5. Step timestamps visible in `StepSidebar.tsx`
+**Sub-parts (in order):**
+1. **2a** — `VideoPlayer.tsx` (Video.js, seek, clip mode) → [`plans/phase-2-video-transcript/2a_video_player.md`](plans/phase-2-video-transcript/2a_video_player.md)
+2. **2b** — `useStepSync` hook (circular-safe sync) → [`plans/phase-2-video-transcript/2b_step_sync.md`](plans/phase-2-video-transcript/2b_step_sync.md)
+3. **2c** — `TranscriptPanel.tsx` (virtualised, search, auto-scroll) → [`plans/phase-2-video-transcript/2c_transcript_panel.md`](plans/phase-2-video-transcript/2c_transcript_panel.md)
+4. **2d** — Navigation (clip toggle, keyboard shortcuts, step timestamps) → [`plans/phase-2-video-transcript/2d_navigation.md`](plans/phase-2-video-transcript/2d_navigation.md)
 
-**Install needed for Phase 2:**
-- `video.js` + `@types/video.js`
-- `react-virtual` (or `@tanstack/react-virtual`)
+**Packages to install first:**
+```bash
+npm install video.js @tanstack/react-virtual
+npm install --save-dev @types/video.js
+```
 
-**Plan doc:** Create `plans/phase-2-video-transcript/PHASE_2_PLAN.md` before starting.
+**Key Phase 2 Zustand additions:** `currentVideoTime`, `isPlaying`, `clipMode`, `seekRequested`, `clearSeekRequest`, `togglePlayPause` — all added to existing `useSOPStore.ts`.
+
+**Key Phase 2 new files:**
+- `src/components/VideoPlayer.tsx`
+- `src/components/TranscriptPanel.tsx`
+- `src/hooks/useStepSync.ts`
+- `src/hooks/useKeyboardShortcuts.ts`
+- `src/utils/formatTime.ts`

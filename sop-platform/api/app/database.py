@@ -8,7 +8,19 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(settings.database_url, echo=False)
+# statement_cache_size=0 is required for Supabase pgBouncer transaction pooling mode.
+# pgBouncer does not support prepared statements across connections, causing intermittent
+# "prepared statement does not exist" errors without this setting.
+engine = create_async_engine(
+    settings.database_url,
+    echo=False,
+    pool_size=5,
+    max_overflow=10,
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+    },
+)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

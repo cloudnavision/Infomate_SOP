@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     azure_blob_base_url: str = ""
     extractor_url: str = "http://sop-extractor:8001"
     n8n_webhook_base_url: str = ""
-    supabase_jwt_secret: str = ""
+    supabase_url: str = "https://hzluuqhbkiblmojxgbab.supabase.co"  # used to derive JWKS URL
+    supabase_jwt_secret: str = ""  # kept for reference; verification now uses JWKS/ES256
 
     class Config:
         env_file = ".env"

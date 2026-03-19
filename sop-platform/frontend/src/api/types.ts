@@ -6,6 +6,18 @@ export interface AppUser {
   name: string
   role: 'viewer' | 'editor' | 'admin'
   created_at: string
+  updated_at?: string
+}
+
+export interface UserCreateInput {
+  email: string
+  name: string
+  role: 'viewer' | 'editor' | 'admin'
+}
+
+export interface UserUpdateInput {
+  name?: string
+  role?: 'viewer' | 'editor' | 'admin'
 }
 
 

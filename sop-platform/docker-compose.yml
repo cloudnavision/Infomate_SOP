@@ -92,6 +92,29 @@ services:
     networks:
       - sop-network
 
+  # ──────────────────────────────────────────────────────────
+  # Cloudflare Tunnel — exposes sop-extractor to n8n (external)
+  #
+  # Route configured by TL in Cloudflare Zero Trust dashboard:
+  #   extractor.yourdomain.com → http://sop-extractor:8001
+  #
+  # Phase 6: TL adds 2 more routes (no rebuild needed):
+  #   api.yourdomain.com → http://sop-api:8000
+  #   sop.yourdomain.com → http://sop-frontend:5173
+  #
+  # IMPORTANT: use 'command', not 'entrypoint' — matches cloudflared ENTRYPOINT
+  # ──────────────────────────────────────────────────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: sop-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - sop-extractor
+    network_mode: "host"
+
 # ──────────────────────────────────────────────────────────
 networks:
   sop-network:

@@ -1,5 +1,5 @@
 # SOP Automation Platform — Project Memory
-## Last Updated: 2026-03-19 (Phase 1.5 complete)
+## Last Updated: 2026-03-26 (Phase 2 complete)
 
 ---
 
@@ -43,10 +43,20 @@
 | 1.5c | Backend JWT validation (ES256/JWKS), role guards on all API routes, SOP visibility by role | ✅ Complete |
 | 1.5d | Admin user management API (CRUD) + Settings page with user table | ✅ Complete |
 
-### Phase 2: Video + Transcript ◀ Next
-### Phase 3: Callout Editor ⬜
-### Phase 4: Pipeline Integration ⬜
-### Phase 5: Exports + Polish ⬜
+### Phase 2: Ingestion + Transcription (n8n Pipeline) ✅ Complete — 2026-03-26
+
+| Sub-Part | Description | Status |
+|----------|-------------|--------|
+| 2a | SharePoint Graph API connection + folder watching + dedup | ✅ Complete |
+| 2b | Download MP4 + Upload to Azure Blob + SOP/pipeline_run records | ✅ Complete |
+| 2c | Gemini File API upload + polling loop + transcription + screen detection | ✅ Complete |
+| 2d | Parse transcript + write to Supabase + update pipeline status | ✅ Complete |
+| + | Cloudflare Tunnel for sop-extractor (soptest.cloudnavision.com) | ✅ Complete |
+
+### Phase 3: Frame Extraction (sop-extractor) ◀ Next
+### Phase 4: Callout Editor ⬜
+### Phase 5: Pipeline Integration ⬜
+### Phase 6: Exports + Polish ⬜
 
 ---
 
@@ -243,12 +253,42 @@ EXTRACTOR_URL=http://sop-extractor:8001
 
 ---
 
+## Phase 2 — n8n Ingestion Pipeline
+
+**Workflow file:** `sop-platform/n8n-workflows/2a_sharepoint_connection.json`
+**n8n instance:** `https://awsn8n.cloudnavision.com/`
+
+**Key config (Setup Config node):**
+- `SITE_NAME`: Saara | `LIBRARY_NAME`: Documents | `FOLDER_PATH`: Infomate/SOP
+- `SUPABASE_URL`: hzluuqhbkiblmojxgbab.supabase.co
+- `AZURE_BLOB_ACCOUNT`: cnavinfsop | `AZURE_BLOB_CONTAINER`: infsop
+- `GEMINI_API_KEY`: stored in Setup Config node (AI Studio key)
+
+**Critical decisions:**
+- Gemini auth = API key (`x-goog-api-key`), NOT Vertex AI service account
+  → Vertex AI scopes incompatible with Gemini File API; new GCP project created
+  → Plan: migrate to Vertex AI for production
+- `Mark File Processed` runs BEFORE Gemini to prevent duplicate Azure uploads
+- Binary must be reattached after Azure Blob PUT (Reattach Binary Code node)
+- `fullResponse: true` on `Start Gemini Upload` to capture X-Goog-Upload-URL header
+- File polling loop needed: Gemini files go PROCESSING → ACTIVE (takes 10-60s)
+- Use `$json.uri` not `$('Complete Gemini Upload').first().json.file.uri` — immune to node renaming
+- `pipeline_status` after Phase 2 = `extracting_frames` (valid enum value)
+- Azure Blob container is `infsop` (not `sop-media` as originally planned)
+
+**Cloudflare Tunnel:**
+- soptest.cloudnavision.com → http://localhost:8001 (sop-extractor)
+- cloudflared uses `network_mode: "host"` (not sop-network)
+
+---
+
 ## TL Feedback Log
 
 | Date | Feedback | Action Taken |
 |------|----------|--------------|
 | 2026-03 | 6-container setup too heavy | Reduced to 3 containers |
 | 2026-03 | Add auth before Phase 2 | Built Phase 1.5 with Supabase Auth + Azure AD SSO |
+| 2026-03 | Use Google Service Account for Gemini | Attempted — incompatible with Gemini File API scopes. Switched to API key for now, Vertex AI planned for production |
 
 ---
 

@@ -1,6 +1,6 @@
 # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-03-19
+Last updated: 2026-03-26
 
 ---
 
@@ -98,33 +98,53 @@ Last updated: 2026-03-19
 
 ---
 
-## Phase 2: Video + Transcript (Week 2-3)
+## Phase 2: Ingestion + Transcription (n8n Pipeline) ✅
 
-### 2a: Video Player ⬜
-- [ ] npm install video.js @types/video.js @tanstack/react-virtual
-- [ ] Place test MP4 in data/uploads/
-- [ ] Seed data SQL update (video_url + step timestamps)
-- [ ] api/app/routes/media.py — dev video streaming with Range support
-- [ ] frontend/src/hooks/useSOPStore.ts — add video state fields
-- [ ] frontend/src/components/VideoPlayer.tsx + CSS
-- [ ] frontend/src/routes/sop.$id.procedure.tsx — layout with VideoPlayer
-- [ ] Video plays, seeks, speed control works
+### 2a: SharePoint Connection ✅
+- [x] "Saara - Sharepoint" oAuth2Api credential (pre-existing)
+- [x] Get Root Site → Analyze Root Site → Access Saara Site → Get Document Libraries
+- [x] Find Documents Library (Code node — fallback search)
+- [x] List SOP Files (Graph API, ordered by lastModifiedDateTime)
+- [x] Get Processed Files (Supabase dedup query)
+- [x] Filter New MP4 Files (Code node — mp4 + dedup filter)
+- [x] Any New Files? (IF node — true/false branch)
+- [x] Process One File At a Time (SplitInBatches, size=1)
 
-### 2b: Step Sync Hook ⬜
-- [ ] frontend/src/hooks/useStepSync.ts
-- [ ] frontend/src/components/StepSidebar.tsx — add timestamps
-- [ ] Click step → video seeks; video play → step auto-selects
+### 2b: Azure Blob Upload ✅
+- [x] Azure Blob container `infsop` (pre-existing, not sop-media)
+- [x] SAS token confirmed with write permissions
+- [x] Download from SharePoint (Graph API /items/{id}/content, responseFormat=file)
+- [x] Generate SOP ID (UUID + blob_url + mime_type)
+- [x] Upload to Azure Blob (PUT, SAS token, BlockBlob, 300s timeout)
+- [x] Create SOP Record (Supabase sops, status=processing)
+- [x] Create Pipeline Run (Supabase pipeline_runs, status=transcribing)
+- [x] Mark File Processed (upsert with merge-duplicates — BEFORE Gemini)
+- [x] MP4 confirmed in Azure Blob, SOP record in Supabase ✅
 
-### 2c: Transcript Panel ⬜
-- [ ] frontend/src/components/TranscriptPanel.tsx + CSS
-- [ ] frontend/src/routes/sop.$id.procedure.tsx — add to grid layout
-- [ ] Search, auto-scroll, click-to-seek, speaker colours
+### 2c: Gemini Transcription ✅
+- [x] Start Gemini Upload (resumable, fullResponse=true for header capture)
+- [x] Reattach Binary (Code node — re-attaches binary lost after Azure PUT)
+- [x] Complete Gemini Upload (PUT to signed URL, 600s timeout)
+- [x] Wait for File Processing (10s Wait node)
+- [x] Check File Status (GET /v1beta/files/{name})
+- [x] File Active? (IF — poll loop until state=ACTIVE)
+- [x] Gemini Transcription (generateContent, 900s timeout)
+- [x] Gemini Screen Detection (generateContent, 900s timeout, parallel)
+- [x] API key auth via x-goog-api-key (not Vertex AI — see PHASE_2_PLAN.md)
 
-### 2d: Navigation Features ⬜
-- [ ] frontend/src/components/ClipModeBar.tsx + CSS
-- [ ] frontend/src/components/StepDetail.tsx — onWatchStep button
-- [ ] Keyboard shortcuts (↑↓ Space C)
-- [ ] Clip mode, Watch Step all work
+### 2d: Supabase Write ✅
+- [x] Merge Results (combine Transcription + Screen Detection outputs)
+- [x] Parse Transcript (Code node — transcript_lines array, cost calculation)
+- [x] Insert Transcript Lines (bulk POST to Supabase)
+- [x] Update SOP Record (PATCH — participants, screen_share_periods, video_duration_sec)
+- [x] Update Pipeline Run (PATCH — status=extracting_frames, api_cost, stage_results)
+- [x] All verified in Supabase with direct SQL queries ✅
+
+### Cloudflare Tunnel (set up during Phase 2 pause) ✅
+- [x] cloudflared container with network_mode: "host"
+- [x] CLOUDFLARE_TUNNEL_TOKEN in .env
+- [x] soptest.cloudnavision.com → http://localhost:8001 (sop-extractor)
+- [x] Health check confirmed: ffmpeg=true, mermaid_cli=true ✅
 
 ---
 

@@ -10,10 +10,12 @@
 | # | Phase | Deliverable | Status |
 |---|-------|-------------|--------|
 | 1 | **Foundation** | Docker infra, PostgreSQL schema, FastAPI CRUD, React scaffold | ✅ Complete |
-| 2 | **Video + Transcript** | VideoPlayer, step sync, TranscriptPanel | ⬜ Pending |
-| 3 | **Callout Editor** | Konva canvas, drag-drop annotations, confidence colours | ⬜ Pending |
-| 4 | **Pipeline Integration** | Frame extractor, n8n Workflows 1+2, upload page | ⬜ Pending |
-| 5 | **Exports + Polish** | n8n Workflow 3, DOCX/PDF, dashboard, Cloudflare ZTNA | ⬜ Pending |
+| 1.5 | **Authentication** | Supabase Auth + Azure AD SSO, role-based access, user management | ✅ Complete |
+| 2 | **Ingestion + Transcription** | n8n pipeline: SharePoint → Azure Blob → Gemini → Supabase | ✅ Complete |
+| 3 | **Frame Extraction** | sop-extractor: FFmpeg + PySceneDetect, n8n trigger, frame metadata to Supabase | ◀ Next |
+| 4 | **Gemini Classification** | n8n Workflow 3: Gemini Vision per-frame → gemini_description + step_callouts | ⬜ Pending |
+| 5 | **Video + Transcript UI** | VideoPlayer, step sync, TranscriptPanel | ⬜ Pending |
+| 6 | **Exports + Polish** | n8n Workflow 3, DOCX/PDF, dashboard, Cloudflare ZTNA | ⬜ Pending |
 
 ---
 
@@ -60,25 +62,38 @@ External Services (not in Docker Compose):
 ## Phase Dependency Graph
 
 ```
-Phase 1: Foundation
-  └─ 1a. Docker + DB schema       ✅ Done
-  └─ 1b. FastAPI CRUD              ✅ Done
-  └─ 1c. React scaffold + SOP page ✅ Done
+Phase 1: Foundation                         ✅ Complete
+  └─ 1a. Docker + DB schema
+  └─ 1b. FastAPI CRUD
+  └─ 1c. React scaffold + SOP page
          │
          ▼
-Phase 2: Video + Transcript
+Phase 1.5: Authentication                   ✅ Complete
+  └─ Supabase Auth + Azure AD SSO
+  └─ Role-based access (Viewer/Editor/Admin)
+  └─ Admin user management
+         │
+         ▼
+Phase 2: Ingestion + Transcription          ✅ Complete
+  └─ n8n: SharePoint → Azure Blob → Gemini → Supabase
+  └─ Cloudflare Tunnel (soptest.cloudnavision.com)
+         │
+         ▼
+Phase 3: Frame Extraction                   ◀ Next
+  └─ sop-extractor: FFmpeg + PySceneDetect
+  └─ n8n workflow polls extracting_frames records
+  └─ Frame metadata written to Supabase
+         │
+         ▼
+Phase 4: Gemini Classification
+  (n8n Workflow 3: Vision → gemini_description + step_callouts per frame)
+         │
+         ▼
+Phase 5: Video + Transcript UI
   (VideoPlayer, useStepSync, TranscriptPanel)
          │
          ▼
-Phase 3: Callout Editor
-  (Konva.js canvas, drag-drop, confidence badges)
-         │
-         ▼
-Phase 4: Pipeline Integration
-  (n8n Workflow 1+2, frame extractor, upload UI)
-         │
-         ▼
-Phase 5: Exports + Polish
+Phase 6: Exports + Polish
   (n8n Workflow 3, DOCX/PDF, Cloudflare ZTNA)
 ```
 
@@ -113,3 +128,11 @@ Phase 5: Exports + Polish
 
 - [Phase 1 Plan](phase-1-foundation/PHASE_1_PLAN.md)
 - [Phase 1 Issues](phase-1-foundation/PHASE_1_ISSUES.md)
+- [Phase 1 Conversation Summary](Phase%201%20-%20CONVERSATION_SUMMARY.md)
+- [Phase 1.5 Plan](phase-1.5-auth/PHASE_1.5_PLAN.md)
+- [Phase 1.5 Issues](phase-1.5-auth/PHASE_1.5_ISSUES.md)
+- [Phase 1.5 Conversation Summary](Phase%201.5%20-%20CONVERSATION_SUMMARY.md)
+- [Phase 2 Plan](phase-2-ingestion-transcription/PHASE_2_PLAN.md)
+- [Phase 2 Conversation Summary](phase-2-ingestion-transcription/Phase%202%20-%20CONVERSATION_SUMMARY.md)
+- [Phase 3 Plan](phase-3-frame-extraction/PHASE_3_PLAN.md)
+- [Phase 4 Plan](phase-4-gemini-classification/PHASE_4_PLAN.md)

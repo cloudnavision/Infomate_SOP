@@ -148,69 +148,35 @@ Last updated: 2026-03-26
 
 ---
 
-## Phase 3: Callout Editor (Week 3-4)
+## Phase 3: Frame Extraction
 
-### 3a: Konva Canvas ⬜
-- [ ] 4-layer canvas (screenshot, highlight, callouts, hit areas)
-- [ ] Responsive scaling with coordinate mapping
-- [ ] Lazy loading (edit mode only)
+### 3a: sop-extractor /extract endpoint ⬜
+- [ ] `extractor/app/scene_detector.py` — full implementation (FFmpeg crop, PySceneDetect, phash dedup)
+- [ ] `extractor/app/main.py` — `POST /extract` endpoint + Pydantic models
+- [ ] `extractor/requirements.txt` — add `requests==2.32.3`
+- [ ] Rebuild sop-extractor Docker container
+- [ ] Manual test: `curl soptest.cloudnavision.com/extract` with test payload
 
-### 3b: Drag-Drop ⬜
-- [ ] Draggable callout markers
-- [ ] Add callout (click on canvas)
-- [ ] Delete callout
-- [ ] Label editing in side panel
-
-### 3c: Confidence Colours ⬜
-- [ ] Green (ocr_exact), Amber (ocr_fuzzy), Red (gemini_only)
-- [ ] Legend in toolbar
-
-### 3d: Optimistic Updates ⬜
-- [ ] TanStack Query mutations with instant UI feedback
-- [ ] Rollback on API failure
-
-### 3e: Read Mode ⬜
-- [ ] CSS-positioned hotspots on static image (no Konva)
-- [ ] Hover tooltips
+### 3b: n8n Workflow 2 — Frame Extraction ⬜
+- [ ] `n8n-workflows/Saara - SOP_Workflow 2 - Frame Extraction.json` — created
+- [ ] Import to n8n (delete any old version first, then import fresh)
+- [ ] Update Setup Config node with real Supabase + Azure credentials
+- [ ] Test: set pipeline_run status=extracting_frames, trigger workflow
+- [ ] Verify sop_steps rows in Supabase with screenshot_url → Azure Blob frames
+- [ ] Verify pipeline_runs.status = classifying_frames
 
 ---
 
-## Phase 4: Pipeline Integration (Week 4-5)
+## Phase 4: Gemini Frame Classification
 
-### 4a: Frame Extractor Service ⬜
-- [ ] Scene detection (PySceneDetect adaptive)
-- [ ] Perceptual deduplication (imagehash)
-- [ ] Transition frame filtering (T+1.5s offset)
-- [ ] Clip extraction (FFmpeg)
-
-### 4b: n8n Workflow 1 — Extraction ⬜
-- [ ] Webhook trigger from API
-- [ ] Gemini transcription
-- [ ] Screen share detection
-- [ ] Frame extraction call to sop-extractor
-- [ ] Annotation matching (Gemini + OCR)
-- [ ] Clip extraction
-- [ ] Azure Blob upload
-
-### 4c: n8n Workflow 2 — Section Generation ⬜
-- [ ] Load transcript + steps from Supabase
-- [ ] 17 Gemini prompts
-- [ ] Batch processing (4 parallel)
-- [ ] Upsert sections to Supabase
-- [ ] Mermaid process map rendering
-
-### 4d: Upload Page ⬜
-- [ ] File upload form
-- [ ] SSE pipeline progress
-- [ ] Stage-by-stage status display
-- [ ] Cost tracker
-
-### 4e: Annotation Matching ⬜
-- [ ] Gemini semantic identification
-- [ ] Google Vision OCR bounding boxes
-- [ ] Levenshtein matching algorithm
-- [ ] Region disambiguation
-- [ ] Confidence scoring
+### 4a: n8n Workflow 3 — Gemini Vision Classification ⬜
+- [ ] `n8n-workflows/Saara - SOP_Workflow 3 - Gemini Classification.json` — created
+- [ ] Import to n8n (delete any old version first)
+- [ ] Setup Config — fill in GEMINI_API_KEY + AZURE_BLOB_SAS_TOKEN
+- [ ] Test: set pipeline_run status=classifying_frames, trigger workflow
+- [ ] Verify sop_steps.gemini_description populated for each useful step
+- [ ] Verify step_callouts rows in Supabase (1-5 per step)
+- [ ] Verify pipeline_runs.status = generating_annotations
 
 ---
 

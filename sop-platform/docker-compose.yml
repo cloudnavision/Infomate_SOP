@@ -1,20 +1,46 @@
 # ============================================================
-# SOP Automation Platform — Docker Compose
-# 3 local containers + 3 external services:
-#   - Database:  Supabase (PostgreSQL via transaction pooler, port 6543)
-#   - Pipelines: n8n (hosted externally, webhook communication)
-#   - Access:    Cloudflare Tunnel (runs as host daemon, not container)
+# SOP Automation Platform — Docker Compose (Production)
 #
-# Run: docker compose up --build
-# Dev: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# 4 containers:
+#   sop-frontend   — React SPA (static files, port 5173)
+#   sop-api        — FastAPI REST API (port 8000)
+#   sop-extractor  — FFmpeg + PySceneDetect (internal only, NO host port)
+#   sop-tunnel     — Cloudflare Tunnel (profile: tunnel)
+#
+# External services:
+#   Supabase   — PostgreSQL :6543 (transaction pooler) + Auth
+#   n8n        — Self-hosted at azuren8n.cloudnavision.com
+#   Azure Blob — infsop container (video + frames + exports)
+#
+# Run (dev, no tunnel):    docker compose up --build
+# Run (prod, with tunnel): docker compose --profile tunnel up --build
+# Dev overlay:             docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 # ============================================================
 
 services:
 
   # ──────────────────────────────────────────────────────────
-  # React SPA — Vite dev server (dev) / serve static (prod)
-  # Cloudflare Tunnel sideloads this to the internet at
-  # https://sop.yourdomain.com → localhost:5173
+  # Cloudflare Tunnel — dedicated container, independent lifecycle
+  # Profile "tunnel" — only starts in production (when --profile tunnel is passed)
+  # Prevents crash-loop on dev machines without a tunnel token.
+  #
+  # Cloudflare Zero Trust dashboard must route:
+  #   soptest.cloudnavision.com → http://sop-api:8000   (Docker DNS)
+  # ──────────────────────────────────────────────────────────
+  sop-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: sop-tunnel
+    restart: always
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - sop-network
+    depends_on:
+      sop-api:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────
+  # React SPA — static file server (prod) / Vite dev server (dev)
   # ──────────────────────────────────────────────────────────
   sop-frontend:
     build:
@@ -36,9 +62,8 @@ services:
       - sop-network
 
   # ──────────────────────────────────────────────────────────
-  # FastAPI — Backend REST API + export generation
-  # Connects to Supabase (external PostgreSQL, port 6543)
-  # Cloudflare Tunnel exposes at https://api.sop.yourdomain.com
+  # FastAPI — lean image (no LibreOffice, no cloudflared)
+  # Connects to Supabase external PostgreSQL :6543
   # ──────────────────────────────────────────────────────────
   sop-api:
     build:
@@ -48,12 +73,14 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       AZURE_BLOB_BASE_URL: ${AZURE_BLOB_BASE_URL:-}
       AZURE_BLOB_SAS_TOKEN: ${AZURE_BLOB_SAS_TOKEN:-}
       N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     ports:
       - "8000:8000"
     volumes:
@@ -68,15 +95,19 @@ services:
       - sop-network
 
   # ──────────────────────────────────────────────────────────
-  # Frame Extractor — FFmpeg + PySceneDetect + Mermaid CLI
+  # Frame Extractor — FFmpeg + PySceneDetect + imagehash
+  # INTERNAL ONLY — no host port mapping in production.
+  # Accessed by sop-api via http://sop-extractor:8001 (Docker DNS).
+  # Chromium/Node (Phase 5 Mermaid) not installed by default.
   # ──────────────────────────────────────────────────────────
   sop-extractor:
     build:
       context: ./extractor
       dockerfile: Dockerfile
+      args:
+        INSTALL_MERMAID: "false"
     container_name: sop-extractor
-    ports:
-      - "8001:8001"
+    # No ports — internal only. Add 8001:8001 via docker-compose.dev.yml for local testing.
     volumes:
       - ./data:/data
     deploy:
@@ -91,29 +122,6 @@ services:
       start_period: 10s
     networks:
       - sop-network
-
-  # ──────────────────────────────────────────────────────────
-  # Cloudflare Tunnel — exposes sop-extractor to n8n (external)
-  #
-  # Route configured by TL in Cloudflare Zero Trust dashboard:
-  #   extractor.yourdomain.com → http://sop-extractor:8001
-  #
-  # Phase 6: TL adds 2 more routes (no rebuild needed):
-  #   api.yourdomain.com → http://sop-api:8000
-  #   sop.yourdomain.com → http://sop-frontend:5173
-  #
-  # IMPORTANT: use 'command', not 'entrypoint' — matches cloudflared ENTRYPOINT
-  # ──────────────────────────────────────────────────────────
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: sop-cloudflared
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - sop-extractor
-    network_mode: "host"
 
 # ──────────────────────────────────────────────────────────
 networks:

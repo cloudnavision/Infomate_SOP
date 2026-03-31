@@ -21,41 +21,55 @@
 
 ## Docker Architecture (3 Containers + 3 External Services)
 
-> **Architecture updated based on TL feedback** — reduced from 6 containers to 3 local containers.
-> Database moved to Supabase, n8n moved to external hosted, Cloudflare Tunnel runs on host.
+> **Architecture updated based on TL feedback** — 3 containers only. cloudflared removed from Docker Compose.
+> sop-api is the single external entry point. sop-extractor is internal only.
 
 ```
-Docker Compose (local / Azure VM):
-┌─────────────────────────────────────────────┐
-│                                             │
-│  sop-frontend    React (Vite/serve) :5173   │
-│  sop-api         FastAPI            :8000   │
-│  sop-extractor   FFmpeg+Python      :8001   │
-│                                             │
-│  Shared volume: ./data                      │
-│  Network: sop-network                       │
-└─────────────────────────────────────────────┘
-         │              │              │
-         ▼              ▼              ▼
+External traffic:
+                                        Host daemon
+n8n / browser → soptest.cloudnavision.com ──────────► localhost:8000 (sop-api)
+                                                              │
+                              ┌───────────────────────────────┘
+                              │  Docker network: sop-network
+                              ▼
+┌──────────────────────────────────────────────────────────┐
+│                                                          │
+│  sop-frontend   React (Vite/serve)  :5173  ◄─ browser   │
+│  sop-api        FastAPI             :8000  ◄─ Cloudflare │
+│  sop-extractor  FFmpeg+Python       :8001  (internal)    │
+│                                                          │
+│  sop-api → http://sop-extractor:8001  (Docker network)   │
+│  Shared volume: ./data                                   │
+│  Network: sop-network                                    │
+└──────────────────────────────────────────────────────────┘
+         │              │
+         ▼              ▼
 External Services (not in Docker Compose):
 - Supabase     PostgreSQL via transaction pooler, port 6543
-- n8n          Hosted externally, webhook communication
-- Cloudflare   Tunnel runs as host daemon (cloudflared tunnel run)
-               sop.yourdomain.com     → localhost:5173
-               api.sop.yourdomain.com → localhost:8000
+- n8n          Hosted externally — calls soptest.cloudnavision.com/api/extract
+- Cloudflare   Host daemon (cloudflared tunnel run --token <TOKEN>)
+               soptest.cloudnavision.com → localhost:8000 (sop-api ONLY)
 ```
 
-| Container | Image | Port | Role |
-|-----------|-------|------|------|
-| sop-frontend | node:20-slim (serve) | 5173:5173 | React SPA — calls API directly via VITE_API_URL |
-| sop-api | python:3.11-slim | 8000:8000 | FastAPI, SQLAlchemy async → Supabase |
-| sop-extractor | python:3.11-slim + FFmpeg | 8001:8001 | Frame extraction, clip cutting, Mermaid render |
+| Container | Port | Exposed externally | Role |
+|-----------|------|-------------------|------|
+| sop-frontend | 5173 | Via Cloudflare (future) | React SPA |
+| sop-api | 8000 | ✅ Via Cloudflare tunnel | FastAPI — CRUD, proxy to extractor |
+| sop-extractor | 8001 | ❌ Internal only | FFmpeg + PySceneDetect + Mermaid |
 
 | External Service | Where | How connected |
 |-----------------|-------|---------------|
 | Supabase | Supabase cloud | DATABASE_URL (transaction pooler, port 6543) |
-| n8n | External hosted | N8N_WEBHOOK_BASE_URL (webhook calls) |
-| Cloudflare Tunnel | Host daemon | `cloudflared tunnel run` on VM |
+| n8n | External hosted | Calls `soptest.cloudnavision.com/api/extract` |
+| Cloudflare Tunnel | Host daemon | `cloudflared tunnel run --token <TOKEN>` → `:8000` |
+
+**Request flow (n8n → extractor):**
+```
+n8n → POST soptest.cloudnavision.com/api/extract
+    → Cloudflare tunnel → localhost:8000 (sop-api)
+    → sop-api proxy → http://sop-extractor:8001/extract
+    → response back through the same chain
+```
 
 ---
 

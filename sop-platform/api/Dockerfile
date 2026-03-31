@@ -1,6 +1,7 @@
 # ============================================================
 # SOP Platform — API Dockerfile
-# FastAPI + SQLAlchemy + python-docx + Pillow + LibreOffice
+# FastAPI + SQLAlchemy + Pillow
+# Lean image — no LibreOffice (Phase 8), no cloudflared (sop-tunnel container)
 # ============================================================
 FROM python:3.11-slim
 
@@ -10,9 +11,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
-    fonts-dejavu-core \
-    libreoffice-writer \
-    libreoffice-common \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

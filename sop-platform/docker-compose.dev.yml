@@ -1,6 +1,12 @@
 # ============================================================
-# Dev overrides — hot reload for all 3 custom services
+# Dev overrides — hot reload + local port access for testing
 # Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Dev differences from prod:
+#   - sop-tunnel: not started (no --profile tunnel in dev)
+#   - sop-api: hot reload via uvicorn --reload
+#   - sop-extractor: port 8001 exposed for direct curl testing
+#   - sop-frontend: hot reload via vite dev server
 # ============================================================
 
 services:
@@ -8,8 +14,6 @@ services:
   sop-frontend:
     build:
       target: dev
-    ports:
-      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -22,6 +26,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   sop-extractor:
+    ports:
+      - "8001:8001"     # exposed for local testing only — NOT in production compose
     volumes:
       - ./extractor:/app
       - ./data:/data

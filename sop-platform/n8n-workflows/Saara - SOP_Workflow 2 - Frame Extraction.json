@@ -215,7 +215,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.EXTRACTOR_URL }}/extract",
+        "url": "={{ $json.EXTRACTOR_URL }}/api/extract",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

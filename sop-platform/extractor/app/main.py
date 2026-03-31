@@ -19,6 +19,11 @@ from .scene_detector import extract_frames
 
 logger = logging.getLogger(__name__)
 
+# ── Concurrency guard ─────────────────────────────────────────────────────────
+# One extraction job at a time — a single 45-min recording can be 2-3 GB.
+# Two simultaneous jobs risk OOM within the 4 GB container memory limit.
+_extraction_semaphore = asyncio.Semaphore(1)
+
 app = FastAPI(
     title="SOP Frame Extractor",
     description="FFmpeg + PySceneDetect + Mermaid CLI microservice",
@@ -79,6 +84,11 @@ class ExtractResponse(BaseModel):
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
+
+@app.get("/", tags=["health"])
+async def root() -> dict[str, str]:
+    return {"service": "sop-extractor", "status": "ok"}
+
 
 @app.get("/health", tags=["health"])
 async def health() -> dict[str, Any]:
@@ -148,13 +158,23 @@ async def extract(req: ExtractRequest) -> ExtractResponse:
       3. imagehash phash deduplication
       4. Upload USEFUL frames to Azure Blob
       5. Return frame list + stats
+
+    Concurrency: single-job semaphore. Returns 503 if already busy.
     """
-    try:
-        result = await asyncio.to_thread(_run_extraction, req)
-        return result
-    except Exception as exc:
-        logger.exception("Extraction failed for sop_id=%s", req.sop_id)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    if _extraction_semaphore.locked():
+        logger.warning("Extraction already in progress — rejecting sop_id=%s", req.sop_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Extractor busy — another extraction is in progress. Retry in 60 seconds.",
+            headers={"Retry-After": "60"},
+        )
+    async with _extraction_semaphore:
+        try:
+            result = await asyncio.to_thread(_run_extraction, req)
+            return result
+        except Exception as exc:
+            logger.exception("Extraction failed for sop_id=%s", req.sop_id)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 def _run_extraction(req: ExtractRequest) -> ExtractResponse:

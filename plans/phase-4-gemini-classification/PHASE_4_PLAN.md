@@ -1,6 +1,14 @@
-# Phase 4: Gemini Frame Classification
+# Phase 4: Frame Annotation — Hybrid Approach
 
-**Objective:** For each `sop_steps` row marked `frame_classification = 'useful'`, send the screenshot to Gemini Vision. Get back a natural-language description of what's on screen plus a list of annotated UI elements with pixel coordinates. Write the description to `sop_steps.gemini_description` and insert `step_callouts` rows. Advance the pipeline to `generating_annotations`.
+**Objective:** For each `sop_steps` row marked `frame_classification = 'useful'`, run a 3-stage annotation pipeline:
+1. **Gemini semantic** — identify WHAT UI elements to annotate + region hints
+2. **Vision OCR** — get pixel-precise bounding boxes for all text in the screenshot
+3. **Matching algorithm** — match Gemini labels → OCR boxes via Levenshtein → assign confidence
+
+Write `gemini_description` to `sop_steps`. Insert `step_callouts` rows with confidence levels (`ocr_exact` / `ocr_fuzzy` / `gemini_only`). Advance pipeline to `generating_annotations`.
+
+**Accuracy targets:** gemini_only ~60% → hybrid ~92%
+**Confidence colour coding in React:** Green (ocr_exact), Amber (ocr_fuzzy), Red (gemini_only)
 
 **Status: ⬜ Pending** — waiting for Phase 3 end-to-end pass (sop_steps in Supabase)
 
@@ -8,17 +16,19 @@
 
 ## Sub-Parts
 
-| Sub-Part | Description | Status |
-|----------|-------------|--------|
-| 4a | n8n Workflow 3 — Gemini Vision per-frame classification | ⬜ Pending |
+| Sub-Part | File | Description | Status |
+|----------|------|-------------|--------|
+| 4a | [4a_gemini_classification.md](4a_gemini_classification.md) | Gemini Vision — identify UI elements, get region hints + fallback coordinates | ⬜ Pending |
+| 4b | [4b_vision_ocr.md](4b_vision_ocr.md) | Google Cloud Vision OCR — TEXT_DETECTION for pixel-precise bounding boxes | ⬜ Pending |
+| 4c | [4c_matching_algorithm.md](4c_matching_algorithm.md) | Levenshtein matching algorithm — connect Gemini labels → OCR boxes → confidence | ⬜ Pending |
 
-> Phase 4 is a single n8n workflow. No code changes required to sop-extractor or sop-api.
+> All three sub-parts run as a single extended n8n Workflow 3. No code changes to sop-extractor or sop-api.
 
 ---
 
 ## Architecture
 
-**Phase 4 data flow:**
+**Phase 4 data flow (18 nodes):**
 ```
 Supabase pipeline_runs (status = classifying_frames)
   → n8n polls every 2 minutes
@@ -26,11 +36,13 @@ Supabase pipeline_runs (status = classifying_frames)
   → SplitInBatches(1) — process one frame at a time
     → Build Image URL (append SAS token to screenshot_url)
     → Download Frame Image (GET PNG from Azure Blob)
-    → Build Gemini Request (base64 encode PNG + prompt)
-    → Call Gemini Vision (POST generateContent — gemini-2.5-flash)
-    → Parse Gemini Response (extract description + UI elements)
+    → Build Gemini Request (base64 encode PNG + prompt)       ← 4a
+    → Call Gemini Vision (POST generateContent — gemini-2.5-flash)  ← 4a
+    → Parse Gemini Response (extract description + element labels)  ← 4a
+    → Call Vision OCR (Google Cloud Vision TEXT_DETECTION)          ← 4b
+    → Run Matching Algorithm (Levenshtein label → bounding box)     ← 4c
     → Update SOP Step (PATCH gemini_description)
-    → Insert Step Callouts (POST step_callouts — one row per UI element)
+    → Insert Step Callouts (POST step_callouts with confidence)
     → [loop — next step]
   → Update Pipeline Run (PATCH status = generating_annotations)
 ```

@@ -11,11 +11,14 @@ Infrastructure: Supabase (PostgreSQL via transaction pooler, port 6543)
 from typing import Any
 
 import httpx
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy import text
 
+from app.config import settings
 from app.database import AsyncSessionLocal
+from app.dependencies.pipeline_auth import require_internal_key
 from app.routes import sops, steps, sections, auth, users
 
 app = FastAPI(
@@ -28,7 +31,7 @@ app = FastAPI(
 # Allow all origins in development; tighten to specific origins in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,6 +51,11 @@ app.include_router(users.router)
 
 # ── Health ───────────────────────────────────────────────────
 
+@app.get("/", tags=["health"])
+async def root() -> dict[str, str]:
+    return {"service": "sop-api", "status": "ok"}
+
+
 @app.get("/health", tags=["health"])
 async def health() -> dict[str, str]:
     """Docker healthcheck endpoint — direct container access."""
@@ -62,7 +70,7 @@ async def api_health() -> dict[str, str]:
 
 # ── Diagnostics ──────────────────────────────────────────────
 
-@app.get("/api/test-db", tags=["diagnostics"])
+@app.get("/api/test-db", tags=["diagnostics"], dependencies=[Depends(require_internal_key)])
 async def test_db() -> dict[str, Any]:
     """
     Verify Supabase connectivity using the SQLAlchemy async session.
@@ -78,7 +86,50 @@ async def test_db() -> dict[str, Any]:
         return {"status": "error", "detail": str(exc)}
 
 
-@app.get("/api/test-extractor", tags=["diagnostics"])
+class _CropRegion(BaseModel):
+    x: int
+    y: int
+    w: int
+    h: int
+
+
+class _ScreenSharePeriod(BaseModel):
+    start_time: float
+    end_time: float
+    crop: _CropRegion
+
+
+class _ExtractRequest(BaseModel):
+    sop_id: str
+    video_url: str
+    screen_share_periods: list[_ScreenSharePeriod]
+    azure_sas_token: str
+    azure_account: str
+    azure_container: str
+    pyscenedetect_threshold: float = 3.0
+    min_scene_len_sec: float = 2.0
+    dedup_hash_threshold: int = 8
+    frame_offset_sec: float = 1.5
+
+
+@app.post("/api/extract", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def proxy_extract(body: _ExtractRequest) -> Any:
+    """
+    Proxy POST /api/extract → sop-extractor:8001/extract
+    n8n calls this endpoint externally via Cloudflare tunnel.
+    The extractor container stays internal (never exposed publicly).
+    Timeout: 600s — video extraction takes 3-10 minutes.
+    """
+    async with httpx.AsyncClient(timeout=600.0) as client:
+        response = await client.post(
+            "http://sop-extractor:8001/extract",
+            json=body.model_dump(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+@app.get("/api/test-extractor", tags=["diagnostics"], dependencies=[Depends(require_internal_key)])
 async def test_extractor() -> dict[str, Any]:
     """
     Verify connectivity to the sop-extractor service.

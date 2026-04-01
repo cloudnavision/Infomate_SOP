@@ -8,10 +8,12 @@ Phase 5+: export generation, SSE progress stream
 Infrastructure: Supabase (PostgreSQL via transaction pooler, port 6543)
 """
 
+import asyncio
+import uuid
 from typing import Any
 
 import httpx
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -112,21 +114,46 @@ class _ExtractRequest(BaseModel):
     frame_offset_sec: float = 1.5
 
 
+# ── Async extraction job store ────────────────────────────────
+_jobs: dict[str, dict[str, Any]] = {}
+
+
+async def _run_extraction_job(job_id: str, body: _ExtractRequest) -> None:
+    try:
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            response = await client.post(
+                "http://sop-extractor:8001/extract",
+                json=body.model_dump(),
+            )
+            response.raise_for_status()
+            _jobs[job_id] = {"status": "completed", "result": response.json(), "error": None}
+    except Exception as exc:
+        _jobs[job_id] = {"status": "failed", "result": None, "error": str(exc)}
+
+
 @app.post("/api/extract", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
 async def proxy_extract(body: _ExtractRequest) -> Any:
     """
-    Proxy POST /api/extract → sop-extractor:8001/extract
+    Async proxy POST /api/extract → sop-extractor:8001/extract
+    Returns immediately with job_id. Poll GET /api/extract/status/{job_id} for result.
     n8n calls this endpoint externally via Cloudflare tunnel.
-    The extractor container stays internal (never exposed publicly).
-    Timeout: 600s — video extraction takes 3-10 minutes.
     """
-    async with httpx.AsyncClient(timeout=600.0) as client:
-        response = await client.post(
-            "http://sop-extractor:8001/extract",
-            json=body.model_dump(),
-        )
-        response.raise_for_status()
-        return response.json()
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "processing", "result": None, "error": None}
+    asyncio.create_task(_run_extraction_job(job_id, body))
+    return {"job_id": job_id, "status": "processing"}
+
+
+@app.get("/api/extract/status/{job_id}", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def get_extraction_status(job_id: str) -> Any:
+    """
+    Poll extraction job status.
+    Returns: {job_id, status: processing|completed|failed, result, error}
+    """
+    job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return {"job_id": job_id, **job}
 
 
 @app.get("/api/test-extractor", tags=["diagnostics"], dependencies=[Depends(require_internal_key)])

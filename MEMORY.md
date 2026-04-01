@@ -1,5 +1,5 @@
 # SOP Automation Platform — Project Memory
-## Last Updated: 2026-03-26 (Phase 2 complete)
+## Last Updated: 2026-04-01 (Phase 4 complete)
 
 ---
 
@@ -53,10 +53,27 @@
 | 2d | Parse transcript + write to Supabase + update pipeline status | ✅ Complete |
 | + | Cloudflare Tunnel for sop-extractor (soptest.cloudnavision.com) | ✅ Complete |
 
-### Phase 3: Frame Extraction (sop-extractor) ◀ Next
-### Phase 4: Callout Editor ⬜
-### Phase 5: Pipeline Integration ⬜
-### Phase 6: Exports + Polish ⬜
+### Phase 3: Frame Extraction ✅ Complete — 2026-03-26
+
+| Sub-Part | Description | Status |
+|----------|-------------|--------|
+| 3a | sop-extractor /extract endpoint: FFmpeg crop + PySceneDetect + phash dedup + Azure upload | ✅ Complete |
+| 3b | n8n Workflow 2: polls extracting_frames, calls sop-extractor, inserts sop_steps rows | ✅ Complete |
+
+### Phase 4: Gemini Classification ✅ Complete — 2026-04-01 ⚠️
+
+| Sub-Part | Description | Status |
+|----------|-------------|--------|
+| 4a | Gemini Vision per frame — gemini_description + ui_elements | ✅ Complete |
+| 4b | Google Cloud Vision OCR — TEXT_DETECTION bboxes | ⛔ Blocked (GCP billing $10 prepayment) |
+| 4c | Levenshtein matching algorithm — Gemini labels → OCR boxes → confidence | ⛔ Blocked (needs 4b) |
+| — | **Workflow 3b (Gemini Only)** — skips OCR, all callouts `confidence = gemini_only` | ✅ Running |
+
+> ⚠️ Known issues: (1) Vision OCR blocked on GCP billing. (2) `target_y` unreliable for toolbar elements — Gemini clusters at y=18.
+
+### Phase 5: Extracting Clips ◀ Next
+### Phase 6: Video + Transcript UI ⬜
+### Phase 7: Exports + Polish ⬜
 
 ---
 
@@ -311,11 +328,17 @@ sudo docker compose down
 
 ---
 
-## Next Steps — Phase 2
+## Next Steps — Phase 5: Extracting Clips
 
-Phase 2 plan docs are complete in `plans/phase-2-video-transcript/`. Build order: 2a → 2b → 2c → 2d.
+Pipeline is at `status = generating_annotations`. Phase 5 polls for this, cuts MP4 clips per step via FFmpeg through sop-extractor, uploads to Azure Blob, inserts `step_clips` rows.
 
-**Before starting 2a:**
-- Place test MP4 in `sop-platform/data/uploads/`
-- Run seed data SQL update in Supabase (video_url + step timestamps)
-- Install: `npm install video.js @types/video.js @tanstack/react-virtual`
+Plan at: `plans/phase-5-clips-sections/` (if created) or build fresh.
+
+**Test SOP for development:**
+- `sop_id`: `82c234ae-67d5-479a-a4cc-f31abc8fe855`
+- 4 steps with `gemini_description` filled, 151 `step_callouts` rows
+- `pipeline_runs.status` = `generating_annotations`
+
+**Phase 4 known issues to resolve later:**
+- Enable GCP Vision billing → switch to Workflow 3 (full hybrid, ~92% accuracy)
+- Fix `target_y` coordinate clamping in Phase 6 callout overlay rendering

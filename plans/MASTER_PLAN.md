@@ -12,10 +12,13 @@
 | 1 | **Foundation** | Docker infra, PostgreSQL schema, FastAPI CRUD, React scaffold | ✅ Complete |
 | 1.5 | **Authentication** | Supabase Auth + Azure AD SSO, role-based access, user management | ✅ Complete |
 | 2 | **Ingestion + Transcription** | n8n pipeline: SharePoint → Azure Blob → Gemini → Supabase | ✅ Complete |
-| 3 | **Frame Extraction** | sop-extractor: FFmpeg + PySceneDetect, n8n trigger, frame metadata to Supabase | ◀ Next |
-| 4 | **Gemini Classification** | n8n Workflow 3: Gemini Vision per-frame → gemini_description + step_callouts | ⬜ Pending |
-| 5 | **Video + Transcript UI** | VideoPlayer, step sync, TranscriptPanel | ⬜ Pending |
-| 6 | **Exports + Polish** | n8n Workflow 3, DOCX/PDF, dashboard, Cloudflare ZTNA | ⬜ Pending |
+| 3 | **Frame Extraction** | sop-extractor: FFmpeg + PySceneDetect, n8n trigger, frame metadata to Supabase | ✅ Complete |
+| 4 | **Gemini Classification** | n8n Workflow 3b (Gemini Only): gemini_description + step_callouts per frame | ✅ Complete ⚠️ |
+| 5 | **Extracting Clips** | n8n Workflow 4: FFmpeg clips per step → Azure Blob → step_clips rows | ◀ Next |
+| 6 | **Video + Transcript UI** | VideoPlayer, step sync, TranscriptPanel | ⬜ Pending |
+| 7 | **Exports + Polish** | DOCX/PDF generation, dashboard, Cloudflare ZTNA | ⬜ Pending |
+
+> ⚠️ Phase 4 note: Running on **Workflow 3b (Gemini Only)** — ~60% coordinate accuracy. Full hybrid (Workflow 3) needs GCP Vision API billing enabled ($10 prepayment). `target_y` values unreliable for toolbar elements — all callouts have `confidence = 'gemini_only'`.
 
 ---
 
@@ -93,22 +96,28 @@ Phase 2: Ingestion + Transcription          ✅ Complete
   └─ Cloudflare Tunnel (soptest.cloudnavision.com)
          │
          ▼
-Phase 3: Frame Extraction                   ◀ Next
+Phase 3: Frame Extraction                   ✅ Complete
   └─ sop-extractor: FFmpeg + PySceneDetect
-  └─ n8n workflow polls extracting_frames records
+  └─ n8n Workflow 2 polls extracting_frames records
   └─ Frame metadata written to Supabase
          │
          ▼
-Phase 4: Gemini Classification
-  (n8n Workflow 3: Vision → gemini_description + step_callouts per frame)
+Phase 4: Gemini Classification              ✅ Complete ⚠️
+  └─ n8n Workflow 3b (Gemini Only) — gemini_description + step_callouts
+  └─ 151 callouts for test SOP, all confidence = gemini_only
+  └─ Full hybrid (Workflow 3) blocked on GCP Vision billing
          │
          ▼
-Phase 5: Video + Transcript UI
+Phase 5: Extracting Clips                   ◀ Next
+  (n8n Workflow 4: FFmpeg clips per step → Azure Blob → step_clips rows)
+         │
+         ▼
+Phase 6: Video + Transcript UI
   (VideoPlayer, useStepSync, TranscriptPanel)
          │
          ▼
-Phase 6: Exports + Polish
-  (n8n Workflow 3, DOCX/PDF, Cloudflare ZTNA)
+Phase 7: Exports + Polish
+  (DOCX/PDF, dashboard, Cloudflare ZTNA)
 ```
 
 ---
@@ -138,6 +147,31 @@ Phase 6: Exports + Polish
 
 ---
 
+## Key Decisions (Do Not Re-Debate)
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | Gemini auth = API key (AI Studio), not Vertex AI | Vertex AI scopes incompatible with Gemini File API at `generativelanguage.googleapis.com` |
+| 2 | n8n re-import: DELETE old workflow first | Avoids "1" suffix renaming on all nodes |
+| 3 | Cloudflare tunnel: `cloudflared` as host daemon | More reliable than container; avoids Docker-in-Docker networking |
+| 4 | sop-extractor: Docker bridge network only | Accessed via internal DNS `http://sop-extractor:8001`; NOT `network_mode: host` |
+| 5 | Gemini File API polling loop | `Wait(10s) → GET file status → IF state==ACTIVE`; use `$json.uri` not nested path after node renaming |
+| 6 | Mark file processed BEFORE Gemini | Prevents duplicate Azure uploads on pipeline retry |
+| 7 | n8n Cloud binary data | Code nodes cannot access binary (filesystem-v2 refs). Upload via HTTP Request node → Gemini Files API → use `fileData.fileUri` in generateContent |
+| 8 | Phase 4 running Gemini-only (Workflow 3b) | Vision OCR blocked on GCP billing ($10 prepayment). Switch to Workflow 3 when enabled. |
+
+---
+
+## Pipeline Status Flow
+
+```
+queued → transcribing → detecting_screenshare → extracting_frames
+→ deduplicating → classifying_frames → generating_annotations
+→ extracting_clips → generating_sections → completed | failed
+```
+
+---
+
 ## Phase Plans
 
 - [Phase 1 Plan](phase-1-foundation/PHASE_1_PLAN.md)
@@ -149,4 +183,11 @@ Phase 6: Exports + Polish
 - [Phase 2 Plan](phase-2-ingestion-transcription/PHASE_2_PLAN.md)
 - [Phase 2 Conversation Summary](phase-2-ingestion-transcription/Phase%202%20-%20CONVERSATION_SUMMARY.md)
 - [Phase 3 Plan](phase-3-frame-extraction/PHASE_3_PLAN.md)
-- [Phase 4 Plan](phase-4-gemini-classification/PHASE_4_PLAN.md)
+- [Phase 3 Issues](phase-3-frame-extraction/PHASE_3_ISSUES.md)
+- [Phase 3 Specs](phase-3-frame-extraction/3a_extractor_endpoints.md)
+- [Phase 3 Conversation Summary](phase-3-frame-extraction/Phase%203%20-%20CONVERSATION_SUMMARY.md)
+- [Phase 4 Plan](phase-4-annotation/PHASE_4_PLAN.md)
+- [Phase 4 Conversation Summary](phase-4-annotation/Phase%204%20-%20CONVERSATION_SUMMARY.md)
+- [Phase 5 Plan](phase-5-extracting-clips/PHASE_5_PLAN.md)
+- [Phase 5 — 5a Extractor Clip Endpoint](phase-5-extracting-clips/5a_sop_extractor_clip_endpoint.md)
+- [Phase 5 — 5b n8n Workflow 4](phase-5-extracting-clips/5b_n8n_workflow_4.md)

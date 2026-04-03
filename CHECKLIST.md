@@ -1,10 +1,10 @@
 # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-03-26
+Last updated: 2026-04-02
 
 ---
 
-## Phase 1: Foundation (Week 1-2)
+## Phase 1: Foundation ✅
 
 ### 1a: Docker Infrastructure ✅
 - [x] docker-compose.yml — 3 containers (frontend, API, extractor)
@@ -47,7 +47,7 @@ Last updated: 2026-03-26
 
 ---
 
-## Phase 1.5: Authentication & Authorization
+## Phase 1.5: Authentication & Authorization ✅
 
 ### 1.5a: Supabase Auth + Azure AD ✅
 - [x] Azure AD app registration (Client ID, Secret, Tenant ID)
@@ -98,7 +98,7 @@ Last updated: 2026-03-26
 
 ---
 
-## Phase 2: Ingestion + Transcription (n8n Pipeline) ✅
+## Phase 2: Ingestion + Transcription ✅
 
 ### 2a: SharePoint Connection ✅
 - [x] "Saara - Sharepoint" oAuth2Api credential (pre-existing)
@@ -140,72 +140,140 @@ Last updated: 2026-03-26
 - [x] Update Pipeline Run (PATCH — status=extracting_frames, api_cost, stage_results)
 - [x] All verified in Supabase with direct SQL queries ✅
 
-### Cloudflare Tunnel (set up during Phase 2 pause) ✅
-- [x] cloudflared container with network_mode: "host"
+### Cloudflare Tunnel ✅
+- [x] cloudflared as host daemon (not in Docker Compose)
 - [x] CLOUDFLARE_TUNNEL_TOKEN in .env
-- [x] soptest.cloudnavision.com → http://localhost:8001 (sop-extractor)
-- [x] Health check confirmed: ffmpeg=true, mermaid_cli=true ✅
+- [x] soptest.cloudnavision.com → localhost:8000 (sop-api)
+- [x] Health check confirmed ✅
 
 ---
 
-## Phase 3: Frame Extraction
+## Phase 3: Frame Extraction ✅
 
-### 3a: sop-extractor /extract endpoint ⬜
-- [ ] `extractor/app/scene_detector.py` — full implementation (FFmpeg crop, PySceneDetect, phash dedup)
-- [ ] `extractor/app/main.py` — `POST /extract` endpoint + Pydantic models
-- [ ] `extractor/requirements.txt` — add `requests==2.32.3`
-- [ ] Rebuild sop-extractor Docker container
-- [ ] Manual test: `curl soptest.cloudnavision.com/extract` with test payload
+### 3a: sop-extractor /extract endpoint ✅
+- [x] extractor/app/scene_detector.py — FFmpeg crop, PySceneDetect, phash dedup
+- [x] extractor/app/main.py — POST /extract endpoint + Pydantic models
+- [x] extractor/requirements.txt — all dependencies
+- [x] sop-extractor Docker container rebuilt and running
+- [x] Manual test: curl confirmed frames extracted + uploaded to Azure Blob
 
-### 3b: n8n Workflow 2 — Frame Extraction ⬜
-- [ ] `n8n-workflows/Saara - SOP_Workflow 2 - Frame Extraction.json` — created
-- [ ] Import to n8n (delete any old version first, then import fresh)
-- [ ] Update Setup Config node with real Supabase + Azure credentials
-- [ ] Test: set pipeline_run status=extracting_frames, trigger workflow
-- [ ] Verify sop_steps rows in Supabase with screenshot_url → Azure Blob frames
-- [ ] Verify pipeline_runs.status = classifying_frames
+### 3b: n8n Workflow 2 — Frame Extraction ✅
+- [x] Saara - SOP_Workflow 2 - Frame Extraction.json — imported to n8n
+- [x] Supabase + Azure credentials configured
+- [x] Tested: sop_steps rows in Supabase with screenshot_url → Azure Blob frames ✅
+- [x] pipeline_runs.status = classifying_frames ✅
 
 ---
 
-## Phase 4: Gemini Frame Classification
+## Phase 4: Gemini Classification ✅ ⚠️
 
-### 4a: n8n Workflow 3 — Gemini Vision Classification ⬜
-- [ ] `n8n-workflows/Saara - SOP_Workflow 3 - Gemini Classification.json` — created
-- [ ] Import to n8n (delete any old version first)
-- [ ] Setup Config — fill in GEMINI_API_KEY + AZURE_BLOB_SAS_TOKEN
-- [ ] Test: set pipeline_run status=classifying_frames, trigger workflow
-- [ ] Verify sop_steps.gemini_description populated for each useful step
-- [ ] Verify step_callouts rows in Supabase (1-5 per step)
-- [ ] Verify pipeline_runs.status = generating_annotations
+### 4a: n8n Workflow 3b — Gemini Only (running) ✅
+- [x] Saara - SOP_Workflow 3b - Gemini Only.json — imported and active
+- [x] gemini_description populated per step
+- [x] step_callouts rows inserted (151 callouts, all confidence = gemini_only)
+- [x] pipeline_runs.status = generating_annotations ✅
+
+### 4b: n8n Workflow 3 — Full Hybrid (OCR) ⬜ → adding 2026-04-03
+- [ ] Google service account set up (Cloud Vision API)
+- [ ] Workflow 3 imported and credentials configured
+- [ ] Re-run against existing SOPs — callout accuracy ~92% (vs ~60% Gemini-only)
+- [ ] Verify callouts updated with ocr_exact / ocr_fuzzy confidence values
 
 ---
 
-## Phase 5: Exports + Polish (Week 5-6)
+## Phase 5: Extracting Clips ✅
 
-### 5a: Export Workflow ⬜
-- [ ] n8n Workflow 3 webhook integration
-- [ ] Annotation re-rendering (Pillow)
-- [ ] DOCX generation (python-docx template)
+### 5a: sop-extractor /clip endpoint ✅
+- [x] extractor/app/clip_extractor.py — FFmpeg stream-copy per step
+- [x] extractor/app/main.py — POST /clip + GET /clip-status/{job_id}
+- [x] Async job tracking
+- [x] Clips uploaded to Azure Blob
 
-### 5b: DOCX Template ⬜
-- [ ] Master template with placeholder tokens
-- [ ] All 14 sections mapped
+### 5b: n8n Workflow 4 — Extract Clips ✅
+- [x] Saara - SOP_Workflow 4 - Extract Clips.json — imported and active
+- [x] Polls generating_annotations → POST /api/clip
+- [x] step_clips rows inserted with clip_url ✅
+- [x] pipeline_runs.status = completed ✅
 
-### 5c: PDF Export ⬜
-- [ ] LibreOffice headless conversion
+---
 
-### 5d: Dashboard ⬜
-- [ ] SOP list with status badges
-- [ ] Search and filters
-- [ ] SOPCard with actions
+## Phase 6: Video + Transcript UI ◀ Next
 
-### 5e: Cloudflare Setup ⬜
-- [ ] cloudflared installed on host
-- [ ] Tunnel configured for frontend + API
-- [ ] Access policies defined
+### 6a: Dependencies
+- [ ] npm install video.js @videojs/http-streaming @tanstack/react-virtual
+- [ ] npm install -D @types/video.js
+- [ ] npm run typecheck — zero errors
 
-### 5f: Testing ⬜
-- [ ] End-to-end test with real recording
-- [ ] Prompt tuning
-- [ ] Performance optimisation
-- [ ] Production deployment
+### 6b: Zustand Store Extension
+- [ ] src/hooks/useSOPStore.ts — add isPlaying, videoMode fields + actions
+
+### 6c: VideoPlayer Component
+- [ ] src/components/VideoPlayer.tsx — Video.js wrapper, clip/full toggle, fallback chain
+
+### 6d: TranscriptPanel Component
+- [ ] src/components/TranscriptPanel.tsx — virtualised, searchable, click-to-seek
+
+### 6e: useStepSync Hook
+- [ ] src/hooks/useStepSync.ts — 3-way sync (video ↔ step ↔ transcript), seekSource ref guard
+
+### 6f: Update StepDetail
+- [ ] Remove gray placeholder div
+- [ ] Fix flex-1 → grid-compatible class
+
+### 6g: Update ProcedurePage
+- [ ] src/routes/sop.$id.procedure.tsx — 3-column grid layout, wire all components
+- [ ] Transcript collapse toggle (default open ≥1280px)
+- [ ] Auto-select first step on load
+
+### 6h: Browser Verification
+- [ ] Step click → clip plays
+- [ ] Full video toggle → seeks to step timestamp
+- [ ] Transcript lines highlighted blue for current step
+- [ ] Click transcript line → video seeks
+- [ ] Full video mode → step auto-advances on playback
+- [ ] Collapse toggle works
+- [ ] No circular update loops
+
+---
+
+## Phase 7: Exports + Polish ⬜
+
+### 7a: DOCX/PDF Export
+- [ ] n8n Workflow 3 (export) — python-docx template injection
+- [ ] Annotation re-rendering with Pillow
+- [ ] LibreOffice headless PDF conversion
+- [ ] Azure Blob upload + export_history record
+
+### 7b: Dashboard Polish
+- [ ] SOP list with pipeline status badges
+- [ ] Full-text search across SOPs
+- [ ] SOPCard actions (export, share)
+
+### 7c: Cloudflare ZTNA
+- [ ] Frontend exposed via Cloudflare tunnel
+- [ ] Access policies: viewer/editor/admin roles
+- [ ] Production deployment verified
+
+---
+
+## Phase 8: Annotation Editor (Konva.js) ⬜
+
+> Prerequisite: Phase 4b (GCP Vision OCR) must be complete so callout accuracy is ~92% before building editor.
+
+### 8a: react-konva Setup
+- [ ] npm install konva react-konva
+- [ ] Lazy loaded for Editor role only
+
+### 8b: Canvas Callout Editor
+- [ ] Annotated screenshot rendered on Konva Stage
+- [ ] Numbered callout circles draggable on canvas
+- [ ] Confidence colour coding: green (ocr_exact), amber (ocr_fuzzy), red (gemini_only)
+- [ ] Save updated x/y positions to step_callouts via API
+
+### 8c: Backend
+- [ ] PATCH /api/sops/{id}/steps/{step_id}/callouts/{callout_id} — update x, y, match_method=manual
+- [ ] Re-render annotated screenshot PNG via Pillow after position update
+
+### 8d: Integration
+- [ ] Editor role sees canvas editor on procedure page
+- [ ] Viewer role sees static annotated screenshot (no Konva)

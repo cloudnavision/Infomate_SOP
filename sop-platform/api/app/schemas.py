@@ -7,10 +7,9 @@ import uuid
 from datetime import datetime, date
 from typing import Optional, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
-from pydantic import field_validator
-
+from app.config import settings
 from app.models import (
     SOPStatus,
     CalloutConfidence,
@@ -19,6 +18,13 @@ from app.models import (
     SectionContentType,
     UserRole,
 )
+
+
+def _with_sas(url: Optional[str]) -> Optional[str]:
+    """Append Azure SAS token to blob URLs if not already present."""
+    if url and settings.azure_blob_sas_token and "?" not in url:
+        return f"{url}?{settings.azure_blob_sas_token}"
+    return url
 
 
 # ── User schemas ───────────────────────────────────────────────────────────────
@@ -84,6 +90,11 @@ class StepClipSchema(BaseModel):
     file_size_bytes: Optional[int] = None
     created_at: datetime
 
+    @field_validator("clip_url", mode="after")
+    @classmethod
+    def add_sas_clip(cls, v: str) -> str:
+        return _with_sas(v) or v
+
 
 class DiscussionSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -113,6 +124,11 @@ class StepSchema(BaseModel):
     screenshot_url: Optional[str] = None
     annotated_screenshot_url: Optional[str] = None
     screenshot_width: Optional[int] = None
+
+    @field_validator("screenshot_url", "annotated_screenshot_url", mode="after")
+    @classmethod
+    def add_sas_screenshot(cls, v: Optional[str]) -> Optional[str]:
+        return _with_sas(v)
     screenshot_height: Optional[int] = None
     scene_score: Optional[float] = None
     frame_classification: Optional[str] = None
@@ -219,6 +235,11 @@ class SOPDetail(BaseModel):
     video_duration_sec: Optional[int] = None
     video_file_size_bytes: Optional[int] = None
     cropped_video_url: Optional[str] = None
+
+    @field_validator("video_url", "cropped_video_url", mode="after")
+    @classmethod
+    def add_sas_video(cls, v: Optional[str]) -> Optional[str]:
+        return _with_sas(v)
     screen_share_periods: list[Any] = []
     template_id: Optional[str] = None
     meeting_date: Optional[date] = None

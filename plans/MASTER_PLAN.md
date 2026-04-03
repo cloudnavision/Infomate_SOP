@@ -13,10 +13,11 @@
 | 1.5 | **Authentication** | Supabase Auth + Azure AD SSO, role-based access, user management | ✅ Complete |
 | 2 | **Ingestion + Transcription** | n8n pipeline: SharePoint → Azure Blob → Gemini → Supabase | ✅ Complete |
 | 3 | **Frame Extraction** | sop-extractor: FFmpeg + PySceneDetect, n8n trigger, frame metadata to Supabase | ✅ Complete |
-| 4 | **Gemini Classification** | n8n Workflow 3b (Gemini Only): gemini_description + step_callouts per frame | ✅ Complete ⚠️ |
-| 5 | **Extracting Clips** | n8n Workflow 4: FFmpeg clips per step → Azure Blob → step_clips rows | ◀ Next |
-| 6 | **Video + Transcript UI** | VideoPlayer, step sync, TranscriptPanel | ⬜ Pending |
+| 4 | **Gemini Classification** | n8n Workflow 3b (Gemini Only): gemini_description + step_callouts per frame. Workflow 3 (full hybrid + OCR) adding 2026-04-03 | ✅ Complete ⚠️ |
+| 5 | **Extracting Clips** | n8n Workflow 4: FFmpeg clips per step → Azure Blob → step_clips rows | ✅ Complete |
+| 6 | **Video + Transcript UI** | VideoPlayer, step sync, TranscriptPanel | ◀ Next |
 | 7 | **Exports + Polish** | DOCX/PDF generation, dashboard, Cloudflare ZTNA | ⬜ Pending |
+| 8 | **Annotation Editor** | Konva.js drag-and-drop callout editor, confidence colour coding (Editor role) | ⬜ Pending |
 
 > ⚠️ Phase 4 note: Running on **Workflow 3b (Gemini Only)** — ~60% coordinate accuracy. Full hybrid (Workflow 3) needs GCP Vision API billing enabled ($10 prepayment). `target_y` values unreliable for toolbar elements — all callouts have `confidence = 'gemini_only'`.
 
@@ -108,16 +109,20 @@ Phase 4: Gemini Classification              ✅ Complete ⚠️
   └─ Full hybrid (Workflow 3) blocked on GCP Vision billing
          │
          ▼
-Phase 5: Extracting Clips                   ◀ Next
+Phase 5: Extracting Clips                   ✅ Complete
   (n8n Workflow 4: FFmpeg clips per step → Azure Blob → step_clips rows)
          │
          ▼
-Phase 6: Video + Transcript UI
+Phase 6: Video + Transcript UI              ◀ Next
   (VideoPlayer, useStepSync, TranscriptPanel)
          │
          ▼
 Phase 7: Exports + Polish
   (DOCX/PDF, dashboard, Cloudflare ZTNA)
+         │
+         ▼
+Phase 8: Annotation Editor
+  (Konva.js drag-and-drop callout editor, Editor role only)
 ```
 
 ---

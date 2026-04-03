@@ -9,7 +9,7 @@ interface Props {
 export function StepDetail({ step }: Props) {
   if (!step) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+      <div className="flex items-center justify-center text-gray-400 text-sm py-16">
         Select a step from the sidebar to view details
       </div>
     )
@@ -18,7 +18,7 @@ export function StepDetail({ step }: Props) {
   const subSteps = Array.isArray(step.sub_steps) ? step.sub_steps as string[] : []
 
   return (
-    <div className="flex-1 min-w-0 bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6">
+    <div className="min-w-0 bg-white rounded-lg shadow-sm border border-gray-100 p-6 space-y-6 overflow-y-auto">
       <h2 className="text-xl font-semibold text-gray-900">
         Step {step.sequence}: {step.title}
       </h2>
@@ -26,10 +26,6 @@ export function StepDetail({ step }: Props) {
       {step.description && (
         <p className="text-gray-700 leading-relaxed">{step.description}</p>
       )}
-
-      <div className="bg-gray-100 rounded-lg p-8 border border-dashed border-gray-300 text-center">
-        <p className="text-sm text-gray-400">Screenshot available after pipeline processing</p>
-      </div>
 
       {subSteps.length > 0 && (
         <div>

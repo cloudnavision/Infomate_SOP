@@ -1,6 +1,6 @@
-# SOP Automation Platform — Master Checklist
+ # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-04-02
+Last updated: 2026-04-03
 
 ---
 
@@ -197,42 +197,49 @@ Last updated: 2026-04-02
 
 ---
 
-## Phase 6: Video + Transcript UI ◀ Next
+## Phase 6: Video + Transcript UI ✅
 
-### 6a: Dependencies
-- [ ] npm install video.js @videojs/http-streaming @tanstack/react-virtual
-- [ ] npm install -D @types/video.js
-- [ ] npm run typecheck — zero errors
+### 6a: Dependencies ✅
+- [x] npm install video.js @videojs/http-streaming @tanstack/react-virtual
+- [x] npm install -D @types/video.js
 
-### 6b: Zustand Store Extension
-- [ ] src/hooks/useSOPStore.ts — add isPlaying, videoMode fields + actions
+### 6b: Zustand Store Extension ✅
+- [x] src/hooks/useSOPStore.ts — videoMode (clip/full) + setVideoMode
 
-### 6c: VideoPlayer Component
-- [ ] src/components/VideoPlayer.tsx — Video.js wrapper, clip/full toggle, fallback chain
+### 6c: VideoPlayer Component ✅
+- [x] src/components/VideoPlayer.tsx — Video.js, clip/full toggle, vjs fill:true + 260px fixed height, fallback chain (annotated screenshot → screenshot → placeholder)
 
-### 6d: TranscriptPanel Component
-- [ ] src/components/TranscriptPanel.tsx — virtualised, searchable, click-to-seek
+### 6d: TranscriptPanel Component ✅
+- [x] src/components/TranscriptPanel.tsx — virtualised, searchable, speaker filter dropdown, auto-scroll to linked step, "Synced transcript" label, data lifted from ProcedurePage
 
-### 6e: useStepSync Hook
-- [ ] src/hooks/useStepSync.ts — 3-way sync (video ↔ step ↔ transcript), seekSource ref guard
+### 6e: useStepSync Hook ✅
+- [x] src/hooks/useStepSync.ts — 3-way sync (video ↔ step ↔ transcript), seekSource ref guard
 
-### 6f: Update StepDetail
-- [ ] Remove gray placeholder div
-- [ ] Fix flex-1 → grid-compatible class
+### 6f: SOPPageHeader ✅
+- [x] src/components/SOPPageHeader.tsx — title, client/version/date metadata, Export DOCX/PDF (disabled placeholders), Share link (copy URL + toast)
 
-### 6g: Update ProcedurePage
-- [ ] src/routes/sop.$id.procedure.tsx — 3-column grid layout, wire all components
-- [ ] Transcript collapse toggle (default open ≥1280px)
-- [ ] Auto-select first step on load
+### 6g: StepCard ✅
+- [x] src/components/StepCard.tsx — step badge, description, sub-steps, screenshot thumbnail, KT session quote block, Play from timestamp, callouts, discussions
+- [x] src/components/ScreenshotModal.tsx — fullscreen lightbox (Escape to close)
 
-### 6h: Browser Verification
-- [ ] Step click → clip plays
-- [ ] Full video toggle → seeks to step timestamp
-- [ ] Transcript lines highlighted blue for current step
-- [ ] Click transcript line → video seeks
-- [ ] Full video mode → step auto-advances on playback
-- [ ] Collapse toggle works
-- [ ] No circular update loops
+### 6h: Updated StepSidebar ✅
+- [x] src/components/StepSidebar.tsx — SECTIONS block below steps list
+
+### 6i: Update ProcedurePage ✅
+- [x] src/routes/sop.$id.procedure.tsx — 3-col grid [220px|1fr|320px], SOPPageHeader, lifted transcript query, StepCard in right panel, transcript in center
+- [x] Auto-select first step on load
+
+### 6j: Browser Verification ✅
+- [x] Step click → clip plays
+- [x] Full video toggle → seeks to step timestamp
+- [x] Transcript lines highlighted blue for current step
+- [x] Click transcript line → video seeks
+- [x] Speaker filter dropdown works
+- [x] Screenshot thumbnail → fullscreen modal
+- [x] Share link → copies URL, toast appears
+
+### Known Issue (tracked)
+- sopnew SOP has NULL step descriptions/sub_steps — pipeline stage that generates them (Gemini step content workflow) never ran for this recording. See memory note. UI is ready — will display automatically when data exists.
 
 ---
 

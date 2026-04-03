@@ -3,7 +3,7 @@ SOP Platform — FastAPI Backend
 Phase 1a: health checks + connectivity diagnostics
 Phase 1b: CRUD routes — SOPs, steps, sections, transcript, watchlist
 Phase 4+: pipeline endpoints, media signed URLs
-Phase 5+: export generation, SSE progress stream
+Phase 5: /api/clip proxy — per-step MP4 clip cutting
 
 Infrastructure: Supabase (PostgreSQL via transaction pooler, port 6543)
 """
@@ -148,6 +148,60 @@ async def proxy_extract(body: _ExtractRequest) -> Any:
 async def get_extraction_status(job_id: str) -> Any:
     """
     Poll extraction job status.
+    Returns: {job_id, status: processing|completed|failed, result, error}
+    """
+    job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return {"job_id": job_id, **job}
+
+
+class _ClipDefinition(BaseModel):
+    step_id: str
+    sequence: int
+    start_sec: float
+    end_sec: float
+
+
+class _ClipRequest(BaseModel):
+    sop_id: str
+    video_url: str
+    clips: list[_ClipDefinition]
+    azure_sas_token: str
+    azure_account: str
+    azure_container: str
+
+
+async def _run_clip_job(job_id: str, body: _ClipRequest) -> None:
+    try:
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            response = await client.post(
+                "http://sop-extractor:8001/clip",
+                json=body.model_dump(),
+            )
+            response.raise_for_status()
+            _jobs[job_id] = {"status": "completed", "result": response.json(), "error": None}
+    except Exception as exc:
+        _jobs[job_id] = {"status": "failed", "result": None, "error": str(exc)}
+
+
+@app.post("/api/clip", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def proxy_clip(body: _ClipRequest) -> Any:
+    """
+    Async proxy POST /api/clip → sop-extractor:8001/clip
+    Returns immediately with job_id. Poll GET /api/clip/status/{job_id} for result.
+    n8n calls this endpoint externally via Cloudflare tunnel.
+    """
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "processing", "result": None, "error": None}
+    asyncio.create_task(_run_clip_job(job_id, body))
+    return {"job_id": job_id, "status": "processing"}
+
+
+@app.get("/api/clip/status/{job_id}", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def get_clip_status(job_id: str) -> Any:
+    """
+    Poll clip job status.
     Returns: {job_id, status: processing|completed|failed, result, error}
     """
     job = _jobs.get(job_id)

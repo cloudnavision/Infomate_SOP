@@ -1,5 +1,5 @@
 # SOP Automation Platform — Project Memory
-## Last Updated: 2026-04-01 (Phase 4 complete)
+## Last Updated: 2026-04-01 (Phase 5 complete)
 
 ---
 
@@ -71,8 +71,16 @@
 
 > ⚠️ Known issues: (1) Vision OCR blocked on GCP billing. (2) `target_y` unreliable for toolbar elements — Gemini clusters at y=18.
 
-### Phase 5: Extracting Clips ◀ Next
-### Phase 6: Video + Transcript UI ⬜
+### Phase 5: Extracting Clips ✅ Complete — 2026-04-01
+
+| Sub-Part | Description | Status |
+|----------|-------------|--------|
+| 5a | sop-extractor `/clip` endpoint: download video once, FFmpeg stream-copy per step, upload to Azure | ✅ Complete |
+| 5b | n8n Workflow 4: polls `generating_annotations`, calls `/api/clip`, polls job status, inserts `step_clips` | ✅ Complete |
+
+> Test SOP `82c234ae-67d5-479a-a4cc-f31abc8fe855` — 5 `step_clips` rows inserted, `pipeline_runs.status = generating_sections`
+
+### Phase 6: Video + Transcript UI ◀ Next
 ### Phase 7: Exports + Polish ⬜
 
 ---
@@ -328,16 +336,18 @@ sudo docker compose down
 
 ---
 
-## Next Steps — Phase 5: Extracting Clips
-
-Pipeline is at `status = generating_annotations`. Phase 5 polls for this, cuts MP4 clips per step via FFmpeg through sop-extractor, uploads to Azure Blob, inserts `step_clips` rows.
-
-Plan at: `plans/phase-5-clips-sections/` (if created) or build fresh.
+## Next Steps — Phase 6: Video + Transcript UI
 
 **Test SOP for development:**
 - `sop_id`: `82c234ae-67d5-479a-a4cc-f31abc8fe855`
-- 4 steps with `gemini_description` filled, 151 `step_callouts` rows
-- `pipeline_runs.status` = `generating_annotations`
+- 5 `step_clips` rows in Supabase, clips uploaded to Azure Blob
+- `pipeline_runs.status` = `generating_sections`
+
+**Phase 6 deliverables:**
+- VideoPlayer — plays `step_clips` MP4s with SAS token, per-step
+- Step sync — clicking a step jumps video; video timestamp highlights active step
+- TranscriptPanel — `transcript_lines` synced to current timestamp
+- Callout overlay — `step_callouts` (Gemini annotations) displayed on frame
 
 **Phase 4 known issues to resolve later:**
 - Enable GCP Vision billing → switch to Workflow 3 (full hybrid, ~92% accuracy)

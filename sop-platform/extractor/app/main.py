@@ -1,6 +1,7 @@
 """
 SOP Platform — Frame Extractor Service
 Phase 3: /extract endpoint — frame extraction pipeline
+Phase 5: /clip endpoint — per-step MP4 clip cutting
 """
 
 import asyncio
@@ -59,6 +60,36 @@ class ExtractRequest(BaseModel):
     min_scene_len_sec: float = 2.0
     dedup_hash_threshold: int = 8
     frame_offset_sec: float = 1.5
+
+
+class ClipDefinition(BaseModel):
+    step_id: str
+    sequence: int
+    start_sec: float
+    end_sec: float
+
+
+class ClipRequest(BaseModel):
+    sop_id: str
+    video_url: str
+    clips: list[ClipDefinition]
+    azure_sas_token: str
+    azure_account: str
+    azure_container: str
+
+
+class ClipResult(BaseModel):
+    step_id: str
+    sequence: int
+    clip_url: str        # Base URL without SAS — safe to store in Supabase
+    duration_sec: int
+    file_size_bytes: int
+
+
+class ClipResponse(BaseModel):
+    sop_id: str
+    clips: list[ClipResult]
+    clips_created: int
 
 
 class FrameResult(BaseModel):
@@ -251,6 +282,94 @@ def _run_extraction(req: ExtractRequest) -> ExtractResponse:
         )
 
 
+# ── /clip ─────────────────────────────────────────────────────────────────────
+
+@app.post("/clip", response_model=ClipResponse, tags=["extraction"])
+async def clip(req: ClipRequest) -> ClipResponse:
+    """
+    Per-step MP4 clip cutting pipeline:
+      1. Download original video from Azure Blob (once)
+      2. For each clip definition: FFmpeg stream-copy cut (start_sec → end_sec)
+      3. Upload each clip to Azure Blob: {sop_id}/clips/clip_{sequence:03d}.mp4
+      4. Return clip list with URLs + metadata
+
+    Concurrency: shares the single-job semaphore with /extract. Returns 503 if busy.
+    """
+    if _extraction_semaphore.locked():
+        logger.warning("Extractor busy — rejecting clip job for sop_id=%s", req.sop_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Extractor busy — another job is in progress. Retry in 60 seconds.",
+            headers={"Retry-After": "60"},
+        )
+    async with _extraction_semaphore:
+        try:
+            result = await asyncio.to_thread(_run_clip_job, req)
+            return result
+        except Exception as exc:
+            logger.exception("Clip job failed for sop_id=%s", req.sop_id)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _run_clip_job(req: ClipRequest) -> ClipResponse:
+    """Blocking implementation — runs in a thread pool via asyncio.to_thread."""
+    with tempfile.TemporaryDirectory(prefix=f"sop_clips_{req.sop_id}_") as tmp_str:
+        tmp_dir = Path(tmp_str)
+        video_path = tmp_dir / "original.mp4"
+
+        logger.info("Downloading video for clip job sop_id=%s (%d clips)", req.sop_id, len(req.clips))
+        _download_file(req.video_url, video_path)
+        logger.info("Download complete: %.1f MB", video_path.stat().st_size / 1_048_576)
+
+        clip_results: list[ClipResult] = []
+
+        for clip_def in req.clips:
+            seq_str = f"{clip_def.sequence:03d}"
+            clip_filename = f"clip_{seq_str}.mp4"
+            clip_path = tmp_dir / clip_filename
+
+            cmd = [
+                "ffmpeg", "-y",
+                "-ss", str(clip_def.start_sec),
+                "-to", str(clip_def.end_sec),
+                "-i", str(video_path),
+                "-c", "copy",
+                "-avoid_negative_ts", "make_zero",
+                str(clip_path),
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"FFmpeg clip failed for step {clip_def.step_id} "
+                    f"(seq={clip_def.sequence}): {result.stderr[-500:]}"
+                )
+
+            blob_path = f"{req.sop_id}/clips/{clip_filename}"
+            azure_base_url = (
+                f"https://{req.azure_account}.blob.core.windows.net"
+                f"/{req.azure_container}/{blob_path}"
+            )
+            upload_url = f"{azure_base_url}?{req.azure_sas_token}"
+
+            _upload_to_azure_blob_video(clip_path, upload_url)
+            logger.info("Uploaded clip_%s → %s", seq_str, blob_path)
+
+            duration = clip_def.end_sec - clip_def.start_sec
+            clip_results.append(ClipResult(
+                step_id=clip_def.step_id,
+                sequence=clip_def.sequence,
+                clip_url=azure_base_url,   # No SAS — safe for Supabase storage
+                duration_sec=round(duration),
+                file_size_bytes=clip_path.stat().st_size,
+            ))
+
+        return ClipResponse(
+            sop_id=req.sop_id,
+            clips=clip_results,
+            clips_created=len(clip_results),
+        )
+
+
 # ── Azure / HTTP helpers ──────────────────────────────────────────────────────
 
 def _download_file(url: str, dest: Path) -> None:
@@ -277,5 +396,24 @@ def _upload_to_azure_blob(local_path: Path, sas_url: str) -> None:
             "Content-Type": "image/png",
         },
         timeout=60,
+    )
+    resp.raise_for_status()
+
+
+def _upload_to_azure_blob_video(local_path: Path, sas_url: str) -> None:
+    """
+    PUT an MP4 file to Azure Blob Storage using a SAS URL.
+    Raises requests.HTTPError on failure.
+    """
+    with open(local_path, "rb") as f:
+        data = f.read()
+    resp = requests.put(
+        sas_url,
+        data=data,
+        headers={
+            "x-ms-blob-type": "BlockBlob",
+            "Content-Type": "video/mp4",
+        },
+        timeout=120,
     )
     resp.raise_for_status()

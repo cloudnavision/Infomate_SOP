@@ -1,4 +1,4 @@
-import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput } from './types'
+import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout } from './types'
 import { supabase } from '../lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -68,6 +68,27 @@ export async function exportSOP(id: string, format: 'docx' | 'pdf'): Promise<Exp
     throw new Error(`Export failed: ${res.status} ${res.statusText}`)
   }
   return res.json() as Promise<ExportResponse>
+}
+
+export interface RenderAnnotatedResponse {
+  annotated_screenshot_url: string
+}
+
+export async function patchCallouts(
+  stepId: string,
+  items: CalloutPatchItem[],
+): Promise<StepCallout[]> {
+  const result = await mutateAPI<StepCallout[]>(`/api/steps/${stepId}/callouts`, 'PATCH', items)
+  if (result === null) throw new Error('Unexpected empty response from PATCH callouts')
+  return result
+}
+
+export async function renderAnnotated(stepId: string): Promise<RenderAnnotatedResponse> {
+  const result = await mutateAPI<RenderAnnotatedResponse>(
+    `/api/steps/${stepId}/render-annotated`, 'POST'
+  )
+  if (result === null) throw new Error('Unexpected empty response from POST render-annotated')
+  return result
 }
 
 // ── User management (admin only) ──────────────────────────────────────────────

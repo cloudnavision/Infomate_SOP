@@ -129,6 +129,26 @@ class RenderDocResponse(BaseModel):
     pdf_url: Optional[str] = None
 
 
+# ── /api/render-annotated models ─────────────────────────────────────────────
+
+class AnnotatedCallout(BaseModel):
+    number: int
+    target_x: int   # 0–100 integer percentage
+    target_y: int   # 0–100 integer percentage
+
+
+class RenderAnnotatedRequest(BaseModel):
+    step_id: str
+    screenshot_url: str           # SAS URL for download
+    callouts: list[AnnotatedCallout]
+    azure_blob_base_url: str      # e.g. https://cnavinfsop.blob.core.windows.net/infsop
+    azure_sas_token: str
+
+
+class RenderAnnotatedResponse(BaseModel):
+    annotated_screenshot_url: str  # Azure base URL (no SAS)
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["health"])
@@ -220,6 +240,32 @@ async def render_doc(req: RenderDocRequest) -> RenderDocResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return RenderDocResponse(docx_url=result["docx_url"], pdf_url=result["pdf_url"])
+
+
+# ── /api/render-annotated ─────────────────────────────────────────────────────
+
+@app.post("/api/render-annotated", response_model=RenderAnnotatedResponse, tags=["export"])
+async def render_annotated_endpoint(req: RenderAnnotatedRequest) -> RenderAnnotatedResponse:
+    """
+    Re-render annotated screenshot PNG with updated callout positions.
+    Called internally by sop-api only — not exposed externally.
+    """
+    from .annotator import render_annotated
+
+    try:
+        url = await asyncio.to_thread(
+            render_annotated,
+            step_id=req.step_id,
+            screenshot_url=req.screenshot_url,
+            callouts=[c.model_dump() for c in req.callouts],
+            azure_blob_base_url=req.azure_blob_base_url,
+            azure_sas_token=req.azure_sas_token,
+        )
+    except Exception as exc:
+        logger.exception("render_annotated failed for step_id=%s", req.step_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return RenderAnnotatedResponse(annotated_screenshot_url=url)
 
 
 # ── /extract ──────────────────────────────────────────────────────────────────

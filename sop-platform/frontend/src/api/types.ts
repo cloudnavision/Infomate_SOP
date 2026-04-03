@@ -46,6 +46,13 @@ export interface StepCallout {
   updated_at: string
 }
 
+export interface CalloutPatchItem {
+  id: string
+  target_x: number   // integer 0–100
+  target_y: number   // integer 0–100
+  was_repositioned: boolean
+}
+
 export interface StepClip {
   id: string
   step_id: string

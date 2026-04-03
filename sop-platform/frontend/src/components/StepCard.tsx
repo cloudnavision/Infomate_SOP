@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import type { SOPStep, TranscriptLine } from '../api/types'
+import { useAuth } from '../hooks/useAuth'
 import { CalloutList } from './CalloutList'
 import { DiscussionCard } from './DiscussionCard'
 import { ScreenshotModal } from './ScreenshotModal'
+import { AnnotationEditorModal } from './AnnotationEditorModal'
 
 interface Props {
   step: SOPStep | null
@@ -33,6 +35,9 @@ function getKTLines(step: SOPStep, lines: TranscriptLine[]): TranscriptLine[] {
 
 export function StepCard({ step, transcriptLines, onSeek }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const { appUser } = useAuth()
+  const canEdit = appUser?.role === 'editor' || appUser?.role === 'admin'
 
   if (!step) {
     return (
@@ -85,17 +90,38 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
             style={{ maxHeight: '160px', objectPosition: 'top' }}
             onClick={() => setModalOpen(true)}
           />
-          <button
-            onClick={() => setModalOpen(true)}
-            className="mt-1 text-xs text-blue-600 hover:underline"
-          >
-            Click to expand full screenshot
-          </button>
+          <div className="mt-1 flex items-center gap-3">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              Click to expand full screenshot
+            </button>
+            {canEdit && (
+              <button
+                onClick={() => setEditorOpen(true)}
+                className="text-xs text-purple-600 hover:underline font-medium"
+              >
+                ✎ Edit Callouts
+              </button>
+            )}
+          </div>
           {modalOpen && (
             <ScreenshotModal
               src={screenshotUrl}
               alt={`Step ${step.sequence} screenshot`}
               onClose={() => setModalOpen(false)}
+            />
+          )}
+          {editorOpen && canEdit && (
+            <AnnotationEditorModal
+              sopId={step.sop_id}
+              stepId={step.id}
+              stepTitle={step.title}
+              stepNumber={step.sequence}
+              screenshotUrl={screenshotUrl}
+              callouts={step.callouts}
+              onClose={() => setEditorOpen(false)}
             />
           )}
         </div>

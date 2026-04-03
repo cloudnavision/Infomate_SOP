@@ -266,5 +266,16 @@ class ExportResponse(BaseModel):
     format: str         # 'docx' or 'pdf'
 
 
+class CalloutPatchItem(BaseModel):
+    id: uuid.UUID
+    target_x: int   # 0–100 integer percentage
+    target_y: int   # 0–100 integer percentage
+    was_repositioned: bool
+
+
+class RenderAnnotatedResponse(BaseModel):
+    annotated_screenshot_url: str  # Azure base URL (no SAS)
+
+
 # Public alias so routes can import this without referencing a private symbol
 with_sas = _with_sas

@@ -1,13 +1,14 @@
 import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useSOPStore } from '../hooks/useSOPStore'
 import { useStepSync } from '../hooks/useStepSync'
 import { StepSidebar } from '../components/StepSidebar'
-import { StepDetail } from '../components/StepDetail'
+import { StepCard } from '../components/StepCard'
 import { VideoPlayer } from '../components/VideoPlayer'
 import { TranscriptPanel } from '../components/TranscriptPanel'
-import { fetchSOP, sopKeys } from '../api/client'
+import { SOPPageHeader } from '../components/SOPPageHeader'
+import { fetchSOP, fetchTranscript, sopKeys } from '../api/client'
 
 export const Route = createFileRoute('/sop/$id/procedure')({
   component: ProcedurePage,
@@ -15,17 +16,21 @@ export const Route = createFileRoute('/sop/$id/procedure')({
 
 function ProcedurePage() {
   const { id } = useParams({ from: '/sop/$id/procedure' })
+
   const { data: sop } = useQuery({
     queryKey: sopKeys.detail(id),
     queryFn: () => fetchSOP(id),
   })
+
+  // Lifted transcript query — shared between TranscriptPanel and StepCard
+  const { data: transcriptLines = [] } = useQuery({
+    queryKey: sopKeys.transcript(id),
+    queryFn: () => fetchTranscript(id),
+    enabled: !!sop,
+  })
+
   const { selectedStepId, setSelectedStep } = useSOPStore()
   const { playerRef, handleTimeUpdate, seekTo } = useStepSync(sop?.steps ?? [])
-
-  // Transcript panel open by default on wide screens, collapsed on narrower
-  const [transcriptOpen, setTranscriptOpen] = useState(
-    () => window.innerWidth >= 1280,
-  )
 
   const selectedStep = sop?.steps.find((s) => s.id === selectedStepId) ?? null
 
@@ -39,47 +44,36 @@ function ProcedurePage() {
   if (!sop) return null
 
   return (
-    <div
-      className={`grid gap-0 h-[calc(100vh-11rem)] ${
-        transcriptOpen
-          ? 'grid-cols-[272px_1fr_300px]'
-          : 'grid-cols-[272px_1fr_28px]'
-      }`}
-    >
-      {/* Left: Steps sidebar */}
-      <div className="overflow-y-auto">
-        <StepSidebar steps={sop.steps} />
-      </div>
+    <div className="flex flex-col h-[calc(100vh-4rem)] px-6 py-4">
+      <SOPPageHeader sop={sop} />
 
-      {/* Middle: Video player + Step detail */}
-      <div className="flex flex-col min-h-0 overflow-hidden px-4">
-        <VideoPlayer
-          step={selectedStep}
-          sopVideoUrl={sop.video_url ?? null}
-          playerRef={playerRef}
-          onTimeUpdate={handleTimeUpdate}
-        />
-        <div className="flex-1 overflow-y-auto">
-          <StepDetail step={selectedStep} />
+      <div className="grid grid-cols-[220px_1fr_320px] gap-4 flex-1 min-h-0">
+        {/* Left: Steps + Sections sidebar */}
+        <div className="overflow-y-auto">
+          <StepSidebar steps={sop.steps} sections={sop.sections} />
         </div>
-      </div>
 
-      {/* Right: Transcript panel + collapse toggle */}
-      <div className="relative flex min-h-0">
-        {/* Collapse toggle button */}
-        <button
-          onClick={() => setTranscriptOpen((v) => !v)}
-          className="absolute -left-3 top-4 z-10 w-6 h-6 bg-white border border-gray-200 rounded-full shadow-sm flex items-center justify-center text-gray-400 hover:text-gray-600 hover:shadow-md transition-all"
-          title={transcriptOpen ? 'Collapse transcript' : 'Open transcript'}
-        >
-          {transcriptOpen ? '›' : '‹'}
-        </button>
-
-        {transcriptOpen && (
-          <div className="flex-1 min-h-0 h-full">
-            <TranscriptPanel sopId={id} onSeek={seekTo} />
+        {/* Center: Video + Transcript */}
+        <div className="flex flex-col min-h-0 gap-3 overflow-hidden">
+          <VideoPlayer
+            step={selectedStep}
+            sopVideoUrl={sop.video_url ?? null}
+            playerRef={playerRef}
+            onTimeUpdate={handleTimeUpdate}
+          />
+          <div className="flex-1 min-h-0 rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+            <TranscriptPanel lines={transcriptLines} onSeek={seekTo} />
           </div>
-        )}
+        </div>
+
+        {/* Right: Step detail card */}
+        <div className="min-h-0 overflow-hidden">
+          <StepCard
+            step={selectedStep}
+            transcriptLines={transcriptLines}
+            onSeek={seekTo}
+          />
+        </div>
       </div>
     </div>
   )

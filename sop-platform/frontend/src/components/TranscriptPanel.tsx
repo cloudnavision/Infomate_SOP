@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useQuery } from '@tanstack/react-query'
-import { fetchTranscript, sopKeys } from '../api/client'
 import { useSOPStore } from '../hooks/useSOPStore'
+import type { TranscriptLine } from '../api/types'
 
 interface Props {
-  sopId: string
+  lines: TranscriptLine[]
   onSeek: (seconds: number) => void
 }
 
@@ -15,29 +14,32 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function TranscriptPanel({ sopId, onSeek }: Props) {
+export function TranscriptPanel({ lines, onSeek }: Props) {
   const { selectedStepId } = useSOPStore()
   const [search, setSearch] = useState('')
+  const [speakerFilter, setSpeakerFilter] = useState<string | null>(null)
 
-  const { data: lines = [] } = useQuery({
-    queryKey: sopKeys.transcript(sopId),
-    queryFn: () => fetchTranscript(sopId),
-  })
+  const speakers = useMemo(
+    () => Array.from(new Set(lines.map((l) => l.speaker))).sort(),
+    [lines],
+  )
 
-  // Derived filtered array — never mutates the React Query cache
   const filteredLines = useMemo(() => {
-    if (!search.trim()) return lines
-    const q = search.toLowerCase()
-    return lines.filter(
-      (l) =>
-        l.content.toLowerCase().includes(q) ||
-        l.speaker.toLowerCase().includes(q),
-    )
-  }, [lines, search])
+    let result = lines
+    if (speakerFilter) result = result.filter((l) => l.speaker === speakerFilter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(
+        (l) =>
+          l.content.toLowerCase().includes(q) ||
+          l.speaker.toLowerCase().includes(q),
+      )
+    }
+    return result
+  }, [lines, search, speakerFilter])
 
   const parentRef = useRef<HTMLDivElement>(null)
 
-  // Fixed-height rows: content capped by line-clamp-3, estimateSize reliable
   const virtualizer = useVirtualizer({
     count: filteredLines.length,
     getScrollElement: () => parentRef.current,
@@ -45,7 +47,6 @@ export function TranscriptPanel({ sopId, onSeek }: Props) {
     overscan: 5,
   })
 
-  // Auto-scroll to first line linked to the selected step
   useEffect(() => {
     if (!selectedStepId) return
     const idx = filteredLines.findIndex((l) => l.linked_step_id === selectedStepId)
@@ -56,23 +57,38 @@ export function TranscriptPanel({ sopId, onSeek }: Props) {
 
   if (lines.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-sm text-gray-400 border-l border-gray-100">
+      <div className="h-full flex items-center justify-center text-sm text-gray-400">
         No transcript available.
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col border-l border-gray-100 bg-white">
-      {/* Search */}
-      <div className="px-3 py-2 border-b border-gray-100 shrink-0">
-        <input
-          type="text"
-          placeholder="Search transcript..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
+    <div className="h-full flex flex-col bg-white">
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-gray-100 shrink-0 space-y-2">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Synced transcript
+        </span>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Search transcript..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 text-sm px-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <select
+            value={speakerFilter ?? ''}
+            onChange={(e) => setSpeakerFilter(e.target.value || null)}
+            className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 focus:outline-none"
+          >
+            <option value="">All speakers</option>
+            {speakers.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Virtualised list */}
@@ -104,7 +120,6 @@ export function TranscriptPanel({ sopId, onSeek }: Props) {
                     {line.speaker}
                   </span>
                 </div>
-                {/* line-clamp-3 enforces fixed height matching estimateSize */}
                 <p className="text-sm text-gray-700 leading-snug line-clamp-3">{line.content}</p>
               </div>
             )

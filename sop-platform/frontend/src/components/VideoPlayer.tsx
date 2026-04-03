@@ -28,6 +28,7 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
     const player = videojs(videoElRef.current, {
       controls: true,
       preload: 'auto',
+      fill: true,
     })
 
     playerRef.current = player
@@ -103,10 +104,13 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
         </button>
       </div>
       <div className="p-3">
-        {/* vjs-16-9 applies padding-top:56.25% so the player is always 16:9 and never collapses */}
-        <div className={currentSrc ? 'w-full' : 'hidden'}>
-          <div data-vjs-player>
-            <video ref={videoElRef} className="video-js vjs-big-play-centered vjs-16-9" />
+        {/* Fixed height so transcript panel gets enough space below */}
+        <div
+          className={currentSrc ? 'w-full bg-black' : 'hidden'}
+          style={{ height: '260px' }}
+        >
+          <div data-vjs-player style={{ width: '100%', height: '100%' }}>
+            <video ref={videoElRef} className="video-js vjs-big-play-centered" />
           </div>
         </div>
         {!currentSrc && renderFallback()}

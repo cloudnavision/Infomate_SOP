@@ -1,0 +1,481 @@
+{
+  "name": "Saara - SOP_Workflow 2 - Frame Extraction",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Every 2 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-001",
+              "name": "SUPABASE_URL",
+              "value": "https://hzluuqhbkiblmojxgbab.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "cfg-002",
+              "name": "SUPABASE_ANON_KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6bHV1cWhia2libG1vanhnYmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MDAyNDYsImV4cCI6MjA4OTM3NjI0Nn0.zJErIoi_PlbalqrwW30MtiF05Zxa1yH1MywVJAJMhGY",
+              "type": "string"
+            },
+            {
+              "id": "cfg-003",
+              "name": "SUPABASE_SERVICE_ROLE_KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6bHV1cWhia2libG1vanhnYmFiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzgwMDI0NiwiZXhwIjoyMDg5Mzc2MjQ2fQ.YSNsIxY-pwMKOATmYvA1QkOccO2k_uxY7hb7QNL5x5o",
+              "type": "string"
+            },
+            {
+              "id": "cfg-004",
+              "name": "AZURE_BLOB_SAS_TOKEN",
+              "value": "sv=2024-11-04&ss=bfqt&srt=co&sp=rwdlacuptfx&se=2026-05-29T19:34:00Z&st=2026-03-19T11:19:00Z&spr=https&sig=bZSDd5DD751V7rlhHyRNjVyWkJRxUrr7vyxgho6YdYk%3D",
+              "type": "string"
+            },
+            {
+              "id": "cfg-005",
+              "name": "AZURE_BLOB_ACCOUNT",
+              "value": "cnavinfsop",
+              "type": "string"
+            },
+            {
+              "id": "cfg-006",
+              "name": "AZURE_BLOB_CONTAINER",
+              "value": "infsop",
+              "type": "string"
+            },
+            {
+              "id": "cfg-007",
+              "name": "EXTRACTOR_URL",
+              "value": "https://soptest.cloudnavision.com",
+              "type": "string"
+            },
+            {
+              "id": "cfg-008",
+              "name": "INTERNAL_KEY",
+              "value": "269d3319d2cc891682a5aba6434a51734fea42a03e07e5c6323c3e88e2094ce4",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Setup Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.SUPABASE_URL }}/rest/v1/pipeline_runs",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "eq.extracting_frames"
+            },
+            {
+              "name": "select",
+              "value": "id,sop_id"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Poll Pending Extractions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Any Pending?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-0005-0005-0005-000000000005",
+      "name": "No Work — Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1120, 440]
+    },
+    {
+      "parameters": {
+        "jsCode": "const run = $input.first().json;\n\nreturn [{\n  json: {\n    pipeline_run_id: run.id,\n    sop_id: run.sop_id,\n    SUPABASE_URL: $('Setup Config').first().json.SUPABASE_URL,\n    SUPABASE_ANON_KEY: $('Setup Config').first().json.SUPABASE_ANON_KEY,\n    SUPABASE_SERVICE_ROLE_KEY: $('Setup Config').first().json.SUPABASE_SERVICE_ROLE_KEY,\n    AZURE_BLOB_SAS_TOKEN: $('Setup Config').first().json.AZURE_BLOB_SAS_TOKEN,\n    AZURE_BLOB_ACCOUNT: $('Setup Config').first().json.AZURE_BLOB_ACCOUNT,\n    AZURE_BLOB_CONTAINER: $('Setup Config').first().json.AZURE_BLOB_CONTAINER,\n    EXTRACTOR_URL: $('Setup Config').first().json.EXTRACTOR_URL,\n    INTERNAL_KEY: $('Setup Config').first().json.INTERNAL_KEY\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0006-0006-0006-000000000006",
+      "name": "Extract Run Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.SUPABASE_URL }}/rest/v1/sops",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $json.sop_id }}"
+            },
+            {
+              "name": "select",
+              "value": "id,video_url,screen_share_periods"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0007-0007-0007-000000000007",
+      "name": "Get SOP Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prevJson = $('Extract Run Info').first().json;\nconst sop = $input.first().json;\n\nconst videoUrlWithSas = sop.video_url + '?' + prevJson.AZURE_BLOB_SAS_TOKEN;\n\nlet periods = sop.screen_share_periods;\nif (typeof periods === 'string') {\n  periods = JSON.parse(periods);\n}\n\nperiods = periods.map(p => ({\n  start_time: p.start_time !== undefined ? p.start_time : p.start_sec,\n  end_time: p.end_time !== undefined ? p.end_time : p.end_sec,\n  crop: p.crop\n}));\n\nreturn [{\n  json: {\n    pipeline_run_id: prevJson.pipeline_run_id,\n    sop_id: prevJson.sop_id,\n    SUPABASE_URL: prevJson.SUPABASE_URL,\n    SUPABASE_ANON_KEY: prevJson.SUPABASE_ANON_KEY,\n    SUPABASE_SERVICE_ROLE_KEY: prevJson.SUPABASE_SERVICE_ROLE_KEY,\n    EXTRACTOR_URL: prevJson.EXTRACTOR_URL,\n    INTERNAL_KEY: prevJson.INTERNAL_KEY,\n    extractRequest: {\n      sop_id: prevJson.sop_id,\n      video_url: videoUrlWithSas,\n      screen_share_periods: periods,\n      azure_sas_token: prevJson.AZURE_BLOB_SAS_TOKEN,\n      azure_account: prevJson.AZURE_BLOB_ACCOUNT,\n      azure_container: prevJson.AZURE_BLOB_CONTAINER,\n      pyscenedetect_threshold: 3.0,\n      min_scene_len_sec: 2.0,\n      dedup_hash_threshold: 8,\n      frame_offset_sec: 1.5\n    }\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0008-0008-0008-000000000008",
+      "name": "Build Extract Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.EXTRACTOR_URL }}/api/extract",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-key",
+              "value": "={{ $json.INTERNAL_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.extractRequest) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1b2c3d4-0009-0009-0009-000000000009",
+      "name": "Call Frame Extractor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store job_id and carry forward all context\nconst response = $input.first().json;\nconst prevData = $('Build Extract Request').first().json;\n\nif (!response.job_id) {\n  throw new Error('No job_id returned from extractor: ' + JSON.stringify(response));\n}\n\nreturn [{\n  json: {\n    job_id: response.job_id,\n    poll_count: 0,\n    sop_id: prevData.sop_id,\n    pipeline_run_id: prevData.pipeline_run_id,\n    SUPABASE_URL: prevData.SUPABASE_URL,\n    SUPABASE_ANON_KEY: prevData.SUPABASE_ANON_KEY,\n    SUPABASE_SERVICE_ROLE_KEY: prevData.SUPABASE_SERVICE_ROLE_KEY,\n    EXTRACTOR_URL: prevData.EXTRACTOR_URL,\n    INTERNAL_KEY: prevData.INTERNAL_KEY\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0013-0013-0013-000000000013",
+      "name": "Store Job ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "a1b2c3d4-0014-0014-0014-000000000014",
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2220, 300],
+      "webhookId": "extraction-poll-wait"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.EXTRACTOR_URL }}/api/extract/status/{{ $json.job_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-key",
+              "value": "={{ $json.INTERNAL_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "a1b2c3d4-0015-0015-0015-000000000015",
+      "name": "Poll Job Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const statusResponse = $input.first().json;\nconst prevData = $('Store Job ID').first().json;\n\nconst pollCount = (prevData.poll_count || 0) + 1;\n\n// Max 20 polls = 10 minutes\nif (pollCount > 20) {\n  throw new Error('Extraction timed out after 20 polls for job_id=' + prevData.job_id);\n}\n\nif (statusResponse.status === 'failed') {\n  throw new Error('Extraction failed: ' + statusResponse.error);\n}\n\nreturn [{\n  json: {\n    job_status: statusResponse.status,\n    result: statusResponse.result,\n    job_id: prevData.job_id,\n    poll_count: pollCount,\n    sop_id: prevData.sop_id,\n    pipeline_run_id: prevData.pipeline_run_id,\n    SUPABASE_URL: prevData.SUPABASE_URL,\n    SUPABASE_ANON_KEY: prevData.SUPABASE_ANON_KEY,\n    SUPABASE_SERVICE_ROLE_KEY: prevData.SUPABASE_SERVICE_ROLE_KEY,\n    EXTRACTOR_URL: prevData.EXTRACTOR_URL,\n    INTERNAL_KEY: prevData.INTERNAL_KEY\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0016-0016-0016-000000000016",
+      "name": "Check Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-done",
+              "leftValue": "={{ $json.job_status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0017-0017-0017-000000000017",
+      "name": "Extraction Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build sop_steps insert rows from USEFUL frames\nconst data = $input.first().json;\nconst frames = data.result.frames || [];\n\nif (frames.length === 0) {\n  throw new Error('No frames returned from extractor for sop_id=' + data.sop_id);\n}\n\nconst steps = frames.map((frame, idx) => ({\n  sop_id: data.sop_id,\n  sequence: idx + 1,\n  title: `Step ${idx + 1}`,\n  timestamp_start: frame.timestamp_sec,\n  screenshot_url: frame.azure_url,\n  screenshot_width: frame.width,\n  screenshot_height: frame.height,\n  scene_score: frame.scene_score,\n  frame_classification: frame.classification.toLowerCase()\n}));\n\nreturn [{\n  json: {\n    steps,\n    stats: data.result.stats,\n    sop_id: data.sop_id,\n    pipeline_run_id: data.pipeline_run_id,\n    SUPABASE_URL: data.SUPABASE_URL,\n    SUPABASE_ANON_KEY: data.SUPABASE_ANON_KEY,\n    SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0010-0010-0010-000000000010",
+      "name": "Build Step Inserts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.SUPABASE_URL }}/rest/v1/sop_steps",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.steps) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "alwaysOutputData": true
+        }
+      },
+      "id": "a1b2c3d4-0011-0011-0011-000000000011",
+      "name": "Insert SOP Steps",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3320, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Build Step Inserts').first().json.SUPABASE_URL }}/rest/v1/pipeline_runs",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $('Build Step Inserts').first().json.pipeline_run_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"classifying_frames\",\n  \"current_stage\": \"frame_extraction_complete\",\n  \"stage_results\": {{ JSON.stringify({ frame_extraction: $('Build Step Inserts').first().json.stats }) }}\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Build Step Inserts').first().json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Build Step Inserts').first().json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {
+          "alwaysOutputData": true
+        }
+      },
+      "id": "a1b2c3d4-0012-0012-0012-000000000012",
+      "name": "Update Pipeline Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3540, 300]
+    }
+  ],
+  "connections": {
+    "Every 2 Minutes": {
+      "main": [[{"node": "Setup Config", "type": "main", "index": 0}]]
+    },
+    "Setup Config": {
+      "main": [[{"node": "Poll Pending Extractions", "type": "main", "index": 0}]]
+    },
+    "Poll Pending Extractions": {
+      "main": [[{"node": "Any Pending?", "type": "main", "index": 0}]]
+    },
+    "Any Pending?": {
+      "main": [
+        [{"node": "Extract Run Info", "type": "main", "index": 0}],
+        [{"node": "No Work — Stop", "type": "main", "index": 0}]
+      ]
+    },
+    "Extract Run Info": {
+      "main": [[{"node": "Get SOP Record", "type": "main", "index": 0}]]
+    },
+    "Get SOP Record": {
+      "main": [[{"node": "Build Extract Request", "type": "main", "index": 0}]]
+    },
+    "Build Extract Request": {
+      "main": [[{"node": "Call Frame Extractor", "type": "main", "index": 0}]]
+    },
+    "Call Frame Extractor": {
+      "main": [[{"node": "Store Job ID", "type": "main", "index": 0}]]
+    },
+    "Store Job ID": {
+      "main": [[{"node": "Wait 30s", "type": "main", "index": 0}]]
+    },
+    "Wait 30s": {
+      "main": [[{"node": "Poll Job Status", "type": "main", "index": 0}]]
+    },
+    "Poll Job Status": {
+      "main": [[{"node": "Check Status", "type": "main", "index": 0}]]
+    },
+    "Check Status": {
+      "main": [[{"node": "Extraction Done?", "type": "main", "index": 0}]]
+    },
+    "Extraction Done?": {
+      "main": [
+        [{"node": "Build Step Inserts", "type": "main", "index": 0}],
+        [{"node": "Wait 30s", "type": "main", "index": 0}]
+      ]
+    },
+    "Build Step Inserts": {
+      "main": [[{"node": "Insert SOP Steps", "type": "main", "index": 0}]]
+    },
+    "Insert SOP Steps": {
+      "main": [[{"node": "Update Pipeline Run", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-03-31T00:00:00.000Z",
+  "versionId": "phase3-v2-async"
+}

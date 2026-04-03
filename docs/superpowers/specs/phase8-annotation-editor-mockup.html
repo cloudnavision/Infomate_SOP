@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Phase 8 — Annotation Editor Mockup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Background: blurred procedure page ── */
+    .bg-page {
+      position: fixed; inset: 0;
+      display: grid;
+      grid-template-columns: 220px 1fr 320px;
+      gap: 0;
+      filter: blur(3px) brightness(0.35);
+      pointer-events: none;
+      user-select: none;
+    }
+    .bg-sidebar {
+      background: #1e293b;
+      border-right: 1px solid #334155;
+      padding: 16px;
+    }
+    .bg-center { background: #0f172a; padding: 16px; }
+    .bg-right { background: #1e293b; border-left: 1px solid #334155; padding: 16px; }
+    .bg-step-item {
+      height: 48px; border-radius: 6px; margin-bottom: 6px;
+      background: #334155;
+    }
+    .bg-step-item.active { background: #3b82f6; }
+    .bg-video { height: 180px; background: #000; border-radius: 8px; margin-bottom: 12px; }
+    .bg-transcript { height: 240px; background: #1e293b; border-radius: 8px; }
+    .bg-card-img { height: 160px; background: #334155; border-radius: 8px; margin-bottom: 12px; }
+    .bg-card-text { height: 12px; background: #334155; border-radius: 4px; margin-bottom: 8px; }
+    .bg-card-text.short { width: 60%; }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      width: 92vw;
+      max-width: 1200px;
+      height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+    }
+
+    /* ── Modal header ── */
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid #334155;
+      background: #162032;
+      flex-shrink: 0;
+    }
+    .modal-header .step-badge {
+      background: #3b82f6;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+    .modal-header h2 {
+      font-size: 15px;
+      font-weight: 600;
+      flex: 1;
+      color: #f1f5f9;
+    }
+    .modal-header .confidence-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #fef3c7;
+      color: #92400e;
+      font-weight: 600;
+    }
+    .btn {
+      padding: 7px 16px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-ghost {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid #334155;
+    }
+    .btn-primary {
+      background: #3b82f6;
+      color: #fff;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: #fff;
+    }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    /* ── Modal body ── */
+    .modal-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Canvas area ── */
+    .canvas-area {
+      flex: 1;
+      background: #0a0f1a;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .canvas-toolbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 10;
+    }
+    .tool-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.15s;
+    }
+    .tool-btn:hover { background: #334155; color: #fff; }
+    .tool-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+
+    .canvas-hint {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      color: #94a3b8;
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      pointer-events: none;
+    }
+
+    /* ── The fake screenshot ── */
+    .screenshot-wrapper {
+      position: relative;
+      width: 780px;
+      height: 480px;
+      border-radius: 6px;
+      overflow: visible;
+      box-shadow: 0 0 0 1px #334155, 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .screenshot-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #1a2540 0%, #0d1b35 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Fake UI elements inside the screenshot */
+    .fake-ui {
+      position: absolute; inset: 0;
+    }
+    .fake-topbar {
+      height: 36px;
+      background: linear-gradient(90deg, #1e3a5f, #1a2f50);
+      border-bottom: 1px solid #2d4a6e;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+    }
+    .fake-logo { width: 80px; height: 14px; background: #3b82f6; border-radius: 3px; opacity: 0.8; }
+    .fake-nav { display: flex; gap: 6px; margin-left: auto; }
+    .fake-nav span { width: 48px; height: 10px; background: #4a6b8a; border-radius: 3px; }
+    .fake-content {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .fake-field {
+      background: #fff;
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+    .fake-field-label { height: 7px; width: 60%; background: #94a3b8; border-radius: 2px; margin-bottom: 5px; }
+    .fake-field-value { height: 9px; width: 80%; background: #475569; border-radius: 2px; }
+    .fake-table {
+      grid-column: 1/-1;
+      background: #fff;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .fake-table-header { height: 24px; background: #e2e8f0; display: flex; gap: 0; }
+    .fake-table-header span { flex: 1; border-right: 1px solid #cbd5e1; }
+    .fake-table-row { height: 20px; background: #fff; border-bottom: 1px solid #f1f5f9; display: flex; gap: 0; }
+    .fake-table-row:nth-child(even) { background: #f8fafc; }
+    .fake-table-row span { flex: 1; border-right: 1px solid #f1f5f9; }
+    .fake-btn-row {
+      grid-column: 1/-1;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .fake-btn { width: 64px; height: 22px; border-radius: 4px; background: #3b82f6; }
+    .fake-btn.secondary { background: #94a3b8; }
+
+    /* ── Callout dots ── */
+    .callout-dot {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2.5px solid #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      cursor: grab;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, box-shadow 0.1s;
+      z-index: 20;
+      user-select: none;
+    }
+    .callout-dot:hover {
+      transform: translate(-50%, -50%) scale(1.15);
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.2);
+    }
+    .callout-dot.active {
+      transform: translate(-50%, -50%) scale(1.2);
+      box-shadow: 0 0 0 4px rgba(59,130,246,0.5), 0 0 0 6px rgba(59,130,246,0.2);
+    }
+    .callout-dot.ocr { background: #10b981; }
+    .callout-dot.gemini { background: #f59e0b; }
+    .callout-dot.repositioned { background: #3b82f6; }
+    .callout-dot.dragging { cursor: grabbing; opacity: 0.8; }
+
+    /* ── Callout line connector ── */
+    .connector-line {
+      position: absolute;
+      background: rgba(255,255,255,0.25);
+      height: 1px;
+      transform-origin: left center;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    /* ── Right panel ── */
+    .right-panel {
+      width: 300px;
+      border-left: 1px solid #334155;
+      display: flex;
+      flex-direction: column;
+      background: #162032;
+      flex-shrink: 0;
+    }
+
+    .panel-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #334155;
+    }
+    .panel-header h3 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+    .panel-header p {
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .callout-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .callout-list::-webkit-scrollbar { width: 4px; }
+    .callout-list::-webkit-scrollbar-track { background: transparent; }
+    .callout-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+
+    .callout-item {
+      border-radius: 8px;
+      border: 1px solid #334155;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #1e293b;
+    }
+    .callout-item:hover { border-color: #3b82f6; background: #1a2f50; }
+    .callout-item.active { border-color: #3b82f6; background: #1a2f50; box-shadow: 0 0 0 1px #3b82f6; }
+
+    .callout-item-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .ci-dot {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; color: #fff;
+      flex-shrink: 0;
+    }
+    .ci-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      flex: 1;
+    }
+    .ci-conf {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .ci-conf.ocr { background: #064e3b; color: #6ee7b7; }
+    .ci-conf.gemini { background: #451a03; color: #fde68a; }
+    .ci-conf.repositioned { background: #1e3a5f; color: #93c5fd; }
+
+    .ci-desc {
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+    .ci-coords {
+      font-size: 10px;
+      color: #475569;
+      font-family: monospace;
+    }
+
+    .callout-item-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #334155;
+    }
+
+    /* ── Footer ── */
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #162032;
+      flex-shrink: 0;
+    }
+    .footer-info {
+      flex: 1;
+      font-size: 12px;
+      color: #475569;
+    }
+    .footer-info span { color: #94a3b8; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: #64748b;
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px;
+    }
+
+    /* ── Drag indicator ── */
+    .drag-indicator {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.4);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #93c5fd;
+      z-index: 10;
+      display: none;
+    }
+    .drag-indicator.visible { display: block; }
+
+    /* ── Tooltip ── */
+    .tooltip {
+      position: absolute;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #e2e8f0;
+      pointer-events: none;
+      z-index: 50;
+      white-space: nowrap;
+      display: none;
+    }
+    .tooltip.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- Blurred background: the procedure page -->
+  <div class="bg-page">
+    <div class="bg-sidebar">
+      <div class="bg-step-item active"></div>
+      <div class="bg-step-item"></div>
+      <div class="bg-step-item"></div>
+      <div class="bg-step-item"></div>
+      <div class="bg-step-item"></div>
+      <div class="bg-step-item"></div>
+      <div class="bg-step-item"></div>
+      <div class="bg-step-item"></div>
+    </div>
+    <div class="bg-center">
+      <div class="bg-video"></div>
+      <div class="bg-transcript"></div>
+    </div>
+    <div class="bg-right">
+      <div class="bg-card-img"></div>
+      <div class="bg-card-text"></div>
+      <div class="bg-card-text short"></div>
+      <div class="bg-card-text"></div>
+      <div class="bg-card-text short"></div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay">
+    <div class="modal">
+
+      <!-- Header -->
+      <div class="modal-header">
+        <span class="step-badge">STEP 3</span>
+        <h2>Filter Aged Debtors by Due Date</h2>
+        <span class="confidence-badge">⚠ gemini_only</span>
+        <div style="display:flex;gap:8px;margin-left:8px;">
+          <button class="btn btn-ghost" onclick="alert('Changes discarded')">Cancel</button>
+          <button class="btn btn-primary" onclick="showSaved()">Save Changes</button>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+
+        <!-- Canvas -->
+        <div class="canvas-area" id="canvasArea">
+
+          <!-- Toolbar -->
+          <div class="canvas-toolbar">
+            <div class="tool-btn active" id="toolMove" title="Move callout" onclick="setTool('move')">↖</div>
+            <div class="tool-btn" id="toolAdd" title="Add callout" onclick="setTool('add')">＋</div>
+            <div class="tool-btn" id="toolDelete" title="Delete selected" onclick="deleteSelected()" style="color:#ef4444;">🗑</div>
+            <div style="height:1px;background:#334155;margin:4px 0;width:100%;"></div>
+            <div class="tool-btn" title="Zoom in" onclick="zoom(1.1)">＋</div>
+            <div class="tool-btn" title="Zoom out" onclick="zoom(0.9)">−</div>
+            <div class="tool-btn" title="Reset zoom" onclick="resetZoom()" style="font-size:11px;">1:1</div>
+          </div>
+
+          <!-- Drag indicator -->
+          <div class="drag-indicator" id="dragIndicator">Drag to reposition</div>
+
+          <!-- Tooltip -->
+          <div class="tooltip" id="tooltip"></div>
+
+          <!-- Screenshot wrapper (the "canvas") -->
+          <div class="screenshot-wrapper" id="screenshotWrapper">
+            <div class="screenshot-img" id="screenshotImg">
+              <!-- Fake UI screenshot content -->
+              <div class="fake-ui">
+                <div class="fake-topbar">
+                  <div class="fake-logo"></div>
+                  <div class="fake-nav">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+                <div class="fake-content">
+                  <div class="fake-field">
+                    <div class="fake-field-label"></div>
+                    <div class="fake-field-value"></div>
+                  </div>
+                  <div class="fake-field">
+                    <div class="fake-field-label"></div>
+                    <div class="fake-field-value" style="width:50%"></div>
+                  </div>
+                  <div class="fake-table">
+                    <div class="fake-table-header"><span></span><span></span><span></span><span></span></div>
+                    <div class="fake-table-row"><span></span><span></span><span></span><span></span></div>
+                    <div class="fake-table-row"><span></span><span></span><span></span><span></span></div>
+                    <div class="fake-table-row"><span></span><span></span><span></span><span></span></div>
+                    <div class="fake-table-row"><span></span><span></span><span></span><span></span></div>
+                    <div class="fake-table-row"><span></span><span></span><span></span><span></span></div>
+                    <div class="fake-table-row"><span></span><span></span><span></span><span></span></div>
+                    <div class="fake-table-row"><span></span><span></span><span></span><span></span></div>
+                  </div>
+                  <div class="fake-btn-row">
+                    <div class="fake-btn secondary"></div>
+                    <div class="fake-btn"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Callout dots -->
+            <div class="callout-dot gemini" id="dot-1"
+              style="left:18%;top:12%"
+              data-id="1" data-label="①"
+              onmousedown="startDrag(event,'1')"
+              onmouseenter="showTooltip(event,'Date filter field','Drag to reposition')"
+              onmouseleave="hideTooltip()">①</div>
+
+            <div class="callout-dot gemini" id="dot-2"
+              style="left:52%;top:12%"
+              data-id="2" data-label="②"
+              onmousedown="startDrag(event,'2')"
+              onmouseenter="showTooltip(event,'Days overdue column','Drag to reposition')"
+              onmouseleave="hideTooltip()">②</div>
+
+            <div class="callout-dot repositioned" id="dot-3"
+              style="left:82%;top:68%"
+              data-id="3" data-label="③"
+              onmousedown="startDrag(event,'3')"
+              onmouseenter="showTooltip(event,'Export button','Repositioned by user')"
+              onmouseleave="hideTooltip()">③</div>
+
+            <div class="callout-dot ocr" id="dot-4"
+              style="left:34%;top:52%"
+              data-id="4" data-label="④"
+              onmousedown="startDrag(event,'4')"
+              onmouseenter="showTooltip(event,'Filter row (selected)','High confidence — OCR')"
+              onmouseleave="hideTooltip()">④</div>
+
+            <div class="callout-dot gemini" id="dot-5"
+              style="left:65%;top:84%"
+              data-id="5" data-label="⑤"
+              onmousedown="startDrag(event,'5')"
+              onmouseenter="showTooltip(event,'Apply filter button','Drag to reposition')"
+              onmouseleave="hideTooltip()">⑤</div>
+
+          </div><!-- /screenshot-wrapper -->
+
+          <div class="canvas-hint">Click + drag any callout to reposition • Use ＋ to add a new callout</div>
+        </div>
+
+        <!-- Right panel -->
+        <div class="right-panel">
+          <div class="panel-header">
+            <h3>Callouts — 5 total</h3>
+            <div class="legend" style="margin-top:6px;">
+              <span><span class="legend-dot" style="background:#10b981;"></span>OCR</span>
+              <span><span class="legend-dot" style="background:#f59e0b;"></span>Gemini</span>
+              <span><span class="legend-dot" style="background:#3b82f6;"></span>Repositioned</span>
+            </div>
+          </div>
+
+          <div class="callout-list">
+
+            <div class="callout-item" id="item-1" onclick="selectCallout('1')">
+              <div class="callout-item-header">
+                <div class="ci-dot" style="background:#f59e0b;">①</div>
+                <span class="ci-label">Date filter field</span>
+                <span class="ci-conf gemini">gemini</span>
+              </div>
+              <p class="ci-desc">Enter the date range to filter aged debtors by due date</p>
+              <span class="ci-coords">x: 18% · y: 12%</span>
+              <div class="callout-item-actions">
+                <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="event.stopPropagation();alert('Jump to dot')">Focus</button>
+                <button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="event.stopPropagation();editLabel('1')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCallout('1')">✕</button>
+              </div>
+            </div>
+
+            <div class="callout-item" id="item-2" onclick="selectCallout('2')">
+              <div class="callout-item-header">
+                <div class="ci-dot" style="background:#f59e0b;">②</div>
+                <span class="ci-label">Days overdue column</span>
+                <span class="ci-conf gemini">gemini</span>
+              </div>
+              <p class="ci-desc">Column showing number of days each invoice is past due</p>
+              <span class="ci-coords">x: 52% · y: 12%</span>
+              <div class="callout-item-actions">
+                <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="event.stopPropagation();">Focus</button>
+                <button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="event.stopPropagation();editLabel('2')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCallout('2')">✕</button>
+              </div>
+            </div>
+
+            <div class="callout-item active" id="item-3" onclick="selectCallout('3')">
+              <div class="callout-item-header">
+                <div class="ci-dot" style="background:#3b82f6;">③</div>
+                <span class="ci-label">Export button</span>
+                <span class="ci-conf repositioned">repositioned</span>
+              </div>
+              <p class="ci-desc">Click to export the filtered aged debtors report to Excel</p>
+              <span class="ci-coords">x: 82% · y: 68%</span>
+              <div class="callout-item-actions">
+                <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="event.stopPropagation();">Focus</button>
+                <button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="event.stopPropagation();editLabel('3')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCallout('3')">✕</button>
+              </div>
+            </div>
+
+            <div class="callout-item" id="item-4" onclick="selectCallout('4')">
+              <div class="callout-item-header">
+                <div class="ci-dot" style="background:#10b981;">④</div>
+                <span class="ci-label">Filter row (selected)</span>
+                <span class="ci-conf ocr">ocr_exact</span>
+              </div>
+              <p class="ci-desc">Click to select the debtor row you want to apply filters to</p>
+              <span class="ci-coords">x: 34% · y: 52%</span>
+              <div class="callout-item-actions">
+                <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="event.stopPropagation();">Focus</button>
+                <button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="event.stopPropagation();editLabel('4')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCallout('4')">✕</button>
+              </div>
+            </div>
+
+            <div class="callout-item" id="item-5" onclick="selectCallout('5')">
+              <div class="callout-item-header">
+                <div class="ci-dot" style="background:#f59e0b;">⑤</div>
+                <span class="ci-label">Apply filter button</span>
+                <span class="ci-conf gemini">gemini</span>
+              </div>
+              <p class="ci-desc">Confirms and applies the date filter to the debtors list</p>
+              <span class="ci-coords">x: 65% · y: 84%</span>
+              <div class="callout-item-actions">
+                <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="event.stopPropagation();">Focus</button>
+                <button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="event.stopPropagation();editLabel('5')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCallout('5')">✕</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Panel footer: re-render button -->
+          <div style="padding:12px;border-top:1px solid #334155;">
+            <button class="btn" style="width:100%;background:#7c3aed;color:#fff;font-size:13px;"
+              onclick="alert('Re-renders annotated screenshot PNG and saves to Azure Blob')">
+              ↻ Re-render Annotated PNG
+            </button>
+            <p style="font-size:10px;color:#475569;text-align:center;margin-top:6px;">
+              Regenerates the screenshot with current callout positions
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <div class="footer-info">
+          Step 3 of 9 · <span>5 callouts</span> · Last edited <span>just now</span> ·
+          <span style="color:#fde68a;">⚠ Gemini-only coordinates — verify positions before publishing</span>
+        </div>
+        <div class="legend">
+          <span><span class="legend-dot" style="background:#10b981;"></span>OCR exact (1)</span>
+          <span><span class="legend-dot" style="background:#f59e0b;"></span>Gemini (3)</span>
+          <span><span class="legend-dot" style="background:#3b82f6;"></span>Repositioned (1)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentTool = 'move';
+    let selectedId = '3';
+    let dragging = null;
+    let dragStart = null;
+    let dotStart = null;
+    let zoomLevel = 1;
+
+    // Callout data
+    const callouts = {
+      '1': { label: '①', x: 18, y: 12, color: '#f59e0b', conf: 'gemini' },
+      '2': { label: '②', x: 52, y: 12, color: '#f59e0b', conf: 'gemini' },
+      '3': { label: '③', x: 82, y: 68, color: '#3b82f6', conf: 'repositioned' },
+      '4': { label: '④', x: 34, y: 52, color: '#10b981', conf: 'ocr' },
+      '5': { label: '⑤', x: 65, y: 84, color: '#f59e0b', conf: 'gemini' },
+    };
+
+    function setTool(tool) {
+      currentTool = tool;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tool' + tool.charAt(0).toUpperCase() + tool.slice(1))?.classList.add('active');
+      document.getElementById('canvasArea').style.cursor = tool === 'add' ? 'crosshair' : 'default';
+    }
+
+    function selectCallout(id) {
+      selectedId = id;
+      // Highlight dot
+      document.querySelectorAll('.callout-dot').forEach(d => d.classList.remove('active'));
+      document.getElementById('dot-' + id)?.classList.add('active');
+      // Highlight list item
+      document.querySelectorAll('.callout-item').forEach(i => i.classList.remove('active'));
+      document.getElementById('item-' + id)?.classList.add('active');
+    }
+
+    function startDrag(e, id) {
+      if (currentTool !== 'move') return;
+      e.preventDefault();
+      dragging = id;
+      dragStart = { x: e.clientX, y: e.clientY };
+      const dot = document.getElementById('dot-' + id);
+      const wrapper = document.getElementById('screenshotWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      dotStart = {
+        x: parseFloat(dot.style.left) / 100,
+        y: parseFloat(dot.style.top) / 100
+      };
+      dot.classList.add('dragging');
+      dot.classList.add('active');
+      selectCallout(id);
+      document.getElementById('dragIndicator').classList.add('visible');
+
+      window.addEventListener('mousemove', onDrag);
+      window.addEventListener('mouseup', stopDrag);
+    }
+
+    function onDrag(e) {
+      if (!dragging) return;
+      const wrapper = document.getElementById('screenshotWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      const dx = (e.clientX - dragStart.x) / rect.width;
+      const dy = (e.clientY - dragStart.y) / rect.height;
+      let newX = Math.max(3, Math.min(97, (dotStart.x + dx) * 100));
+      let newY = Math.max(3, Math.min(97, (dotStart.y + dy) * 100));
+
+      const dot = document.getElementById('dot-' + dragging);
+      dot.style.left = newX + '%';
+      dot.style.top = newY + '%';
+
+      // Update coordinate display in list
+      const item = document.getElementById('item-' + dragging);
+      if (item) {
+        const coords = item.querySelector('.ci-coords');
+        if (coords) coords.textContent = `x: ${Math.round(newX)}% · y: ${Math.round(newY)}%`;
+      }
+
+      // Mark as repositioned
+      if (!dot.classList.contains('repositioned')) {
+        dot.style.background = '#3b82f6';
+        const item = document.getElementById('item-' + dragging);
+        if (item) {
+          const conf = item.querySelector('.ci-conf');
+          if (conf) { conf.textContent = 'repositioned'; conf.className = 'ci-conf repositioned'; }
+          const ciDot = item.querySelector('.ci-dot');
+          if (ciDot) ciDot.style.background = '#3b82f6';
+        }
+      }
+    }
+
+    function stopDrag() {
+      if (dragging) {
+        document.getElementById('dot-' + dragging)?.classList.remove('dragging');
+        document.getElementById('dragIndicator').classList.remove('visible');
+        dragging = null;
+      }
+      window.removeEventListener('mousemove', onDrag);
+      window.removeEventListener('mouseup', stopDrag);
+    }
+
+    function deleteSelected() {
+      if (!selectedId) return;
+      if (!confirm('Remove callout ' + callouts[selectedId]?.label + '?')) return;
+      removeCallout(selectedId);
+    }
+
+    function removeCallout(id) {
+      document.getElementById('dot-' + id)?.remove();
+      document.getElementById('item-' + id)?.remove();
+      delete callouts[id];
+      selectedId = null;
+      updateCount();
+    }
+
+    function updateCount() {
+      const count = Object.keys(callouts).length;
+      document.querySelector('.panel-header h3').textContent = `Callouts — ${count} total`;
+    }
+
+    let addCounter = 6;
+    const circledNums = ['⑥','⑦','⑧','⑨','⑩'];
+
+    document.getElementById('canvasArea').addEventListener('click', function(e) {
+      if (currentTool !== 'add') return;
+      if (e.target.classList.contains('callout-dot')) return;
+      const wrapper = document.getElementById('screenshotWrapper');
+      const rect = wrapper.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+      const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+      if (x < 0 || x > 100 || y < 0 || y > 100) return;
+
+      const id = String(addCounter);
+      const label = circledNums[addCounter - 6] || String(addCounter);
+      callouts[id] = { label, x: parseFloat(x), y: parseFloat(y), color: '#f59e0b', conf: 'gemini' };
+
+      // Add dot
+      const dot = document.createElement('div');
+      dot.className = 'callout-dot gemini';
+      dot.id = 'dot-' + id;
+      dot.style.left = x + '%';
+      dot.style.top = y + '%';
+      dot.dataset.id = id;
+      dot.textContent = label;
+      dot.setAttribute('onmousedown', `startDrag(event,'${id}')`);
+      dot.setAttribute('onmouseenter', `showTooltip(event,'New callout','Drag to reposition')`);
+      dot.setAttribute('onmouseleave', 'hideTooltip()');
+      wrapper.appendChild(dot);
+
+      // Add list item
+      const list = document.querySelector('.callout-list');
+      const item = document.createElement('div');
+      item.className = 'callout-item';
+      item.id = 'item-' + id;
+      item.setAttribute('onclick', `selectCallout('${id}')`);
+      item.innerHTML = `
+        <div class="callout-item-header">
+          <div class="ci-dot" style="background:#f59e0b;">${label}</div>
+          <span class="ci-label">New callout</span>
+          <span class="ci-conf gemini">gemini</span>
+        </div>
+        <p class="ci-desc">Click Edit to add a description</p>
+        <span class="ci-coords">x: ${x}% · y: ${y}%</span>
+        <div class="callout-item-actions">
+          <button class="btn btn-ghost btn-sm" style="flex:1;">Focus</button>
+          <button class="btn btn-sm" style="background:#7c3aed;color:#fff;" onclick="event.stopPropagation();editLabel('${id}')">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeCallout('${id}')">✕</button>
+        </div>`;
+      list.appendChild(item);
+
+      addCounter++;
+      updateCount();
+      selectCallout(id);
+      setTool('move');
+    });
+
+    function editLabel(id) {
+      const item = document.getElementById('item-' + id);
+      const label = item?.querySelector('.ci-label');
+      const desc = item?.querySelector('.ci-desc');
+      if (!label) return;
+      const newLabel = prompt('Callout label:', label.textContent);
+      if (newLabel) label.textContent = newLabel;
+      const newDesc = prompt('Description:', desc?.textContent || '');
+      if (newDesc && desc) desc.textContent = newDesc;
+    }
+
+    function showTooltip(e, title, hint) {
+      const t = document.getElementById('tooltip');
+      t.innerHTML = `<strong>${title}</strong><br><span style="color:#64748b">${hint}</span>`;
+      t.style.display = 'block';
+      t.classList.add('visible');
+      const area = document.getElementById('canvasArea').getBoundingClientRect();
+      t.style.left = (e.clientX - area.left + 12) + 'px';
+      t.style.top = (e.clientY - area.top - 40) + 'px';
+    }
+
+    function hideTooltip() {
+      document.getElementById('tooltip').classList.remove('visible');
+    }
+
+    function zoom(factor) {
+      zoomLevel = Math.max(0.5, Math.min(2.5, zoomLevel * factor));
+      document.getElementById('screenshotWrapper').style.transform = `scale(${zoomLevel})`;
+    }
+
+    function resetZoom() {
+      zoomLevel = 1;
+      document.getElementById('screenshotWrapper').style.transform = 'scale(1)';
+    }
+
+    function showSaved() {
+      const btn = event.target;
+      btn.textContent = '✓ Saved';
+      btn.style.background = '#10b981';
+      setTimeout(() => {
+        btn.textContent = 'Save Changes';
+        btn.style.background = '#3b82f6';
+      }, 2000);
+    }
+
+    // Init selection
+    selectCallout('3');
+  </script>
+</body>
+</html>

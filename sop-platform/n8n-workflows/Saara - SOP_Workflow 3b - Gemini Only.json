@@ -1,0 +1,676 @@
+{
+  "name": "Saara - SOP_Workflow 3b - Gemini Only",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "cf3b1001-0001-4000-8000-000000000001",
+      "name": "Every 2 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-001",
+              "name": "SUPABASE_URL",
+              "value": "https://hzluuqhbkiblmojxgbab.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "cfg-002",
+              "name": "SUPABASE_ANON_KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6bHV1cWhia2libG1vanhnYmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MDAyNDYsImV4cCI6MjA4OTM3NjI0Nn0.zJErIoi_PlbalqrwW30MtiF05Zxa1yH1MywVJAJMhGY",
+              "type": "string"
+            },
+            {
+              "id": "cfg-003",
+              "name": "SUPABASE_SERVICE_ROLE_KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6bHV1cWhia2libG1vanhnYmFiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzgwMDI0NiwiZXhwIjoyMDg5Mzc2MjQ2fQ.YSNsIxY-pwMKOATmYvA1QkOccO2k_uxY7hb7QNL5x5o",
+              "type": "string"
+            },
+            {
+              "id": "cfg-004",
+              "name": "AZURE_BLOB_SAS_TOKEN",
+              "value": "sv=2024-11-04&ss=bfqt&srt=co&sp=rwdlacuptfx&se=2026-05-29T19:34:00Z&st=2026-03-19T11:19:00Z&spr=https&sig=bZSDd5DD751V7rlhHyRNjVyWkJRxUrr7vyxgho6YdYk%3D",
+              "type": "string"
+            },
+            {
+              "id": "cfg-005",
+              "name": "GEMINI_API_KEY",
+              "value": "AIzaSyA5sZ5NCITU0HXJWBYgQLQ7oEyqCz-ydds",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf3b1001-0002-4000-8000-000000000002",
+      "name": "Setup Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.SUPABASE_URL }}/rest/v1/pipeline_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "eq.classifying_frames"
+            },
+            {
+              "name": "select",
+              "value": "id,sop_id"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf3b1001-0003-4000-8000-000000000003",
+      "name": "Poll Pending Classifications",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-001",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cf3b1001-0004-4000-8000-000000000004",
+      "name": "Any Pending?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cf3b1001-0005-4000-8000-000000000005",
+      "name": "No Work — Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const run = $input.first().json;\nconst config = $('Setup Config').first().json;\n\nreturn [{\n  json: {\n    pipeline_run_id: run.id,\n    sop_id: run.sop_id,\n    SUPABASE_URL: config.SUPABASE_URL,\n    SUPABASE_ANON_KEY: config.SUPABASE_ANON_KEY,\n    SUPABASE_SERVICE_ROLE_KEY: config.SUPABASE_SERVICE_ROLE_KEY,\n    AZURE_BLOB_SAS_TOKEN: config.AZURE_BLOB_SAS_TOKEN,\n    GEMINI_API_KEY: config.GEMINI_API_KEY,\n  }\n}];"
+      },
+      "id": "cf3b1001-0006-4000-8000-000000000006",
+      "name": "Extract Run Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.SUPABASE_URL }}/rest/v1/sop_steps",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "sop_id",
+              "value": "=eq.{{ $json.sop_id }}"
+            },
+            {
+              "name": "frame_classification",
+              "value": "eq.useful"
+            },
+            {
+              "name": "gemini_description",
+              "value": "is.null"
+            },
+            {
+              "name": "select",
+              "value": "id,sequence,screenshot_url,timestamp_start,screenshot_width,screenshot_height"
+            },
+            {
+              "name": "order",
+              "value": "sequence.asc"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf3b1001-0007-4000-8000-000000000007",
+      "name": "Get SOP Steps",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "cf3b1001-0008-4000-8000-000000000008",
+      "name": "Split Steps",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const step = $input.first().json;\nconst config = $('Setup Config').first().json;\n\nreturn [{\n  json: {\n    step_id: step.id,\n    sequence: step.sequence,\n    timestamp_start: step.timestamp_start,\n    screenshot_url: step.screenshot_url,\n    screenshot_width: step.screenshot_width || 1920,\n    screenshot_height: step.screenshot_height || 1080,\n    screenshot_url_with_sas: step.screenshot_url + '?' + config.AZURE_BLOB_SAS_TOKEN,\n  }\n}];"
+      },
+      "id": "cf3b1001-0009-4000-8000-000000000009",
+      "name": "Build Image URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.screenshot_url_with_sas }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "cf3b1001-0010-4000-8000-000000000010",
+      "name": "Download Frame Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=media&key={{ $('Setup Config').first().json.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/png"
+            },
+            {
+              "name": "X-Goog-Upload-Content-Type",
+              "value": "image/png"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "cf3b1001-0019-4000-8000-000000000019",
+      "name": "Upload to Gemini Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2220,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prevData = $('Build Image URL').first().json;\nconst uploadResult = $('Upload to Gemini Files').first().json;\n\n// fileUri from Gemini Files API — avoids all binary/base64 issues in Code nodes\nconst fileUri = uploadResult.file?.uri || '';\nif (!fileUri) throw new Error('Gemini file upload failed — no URI in response: ' + JSON.stringify(uploadResult));\n\nconst prompt = `You are analyzing a screenshot from a software training video where a trainer is demonstrating a business process step by step.\n\n1. Write one clear action-oriented sentence describing what is happening on screen (e.g., \"The trainer opens the Aged Debtor report by navigating to the shared Credit Check folder\").\n\n2. Identify all interactive UI elements that should be annotated with numbered callouts. For each element provide:\n   - label: the exact visible text of the element as it appears on screen (used to match against OCR)\n   - element_type: one of: button, folder, cell, menu_item, icon, text_field, dropdown, link, tab, checkbox\n   - target_x: estimated X pixel coordinate from left edge of image (used as fallback if OCR match fails)\n   - target_y: estimated Y pixel coordinate from top edge of image (used as fallback if OCR match fails)\n   - region_hint: brief location description (e.g., \"top-right toolbar\", \"left sidebar third item\")\n\nReturn ONLY valid JSON with no markdown code blocks:\n{\n  \"description\": \"...\",\n  \"ui_elements\": [\n    {\n      \"label\": \"...\",\n      \"element_type\": \"...\",\n      \"target_x\": 0,\n      \"target_y\": 0,\n      \"region_hint\": \"...\"\n    }\n  ]\n}`;\n\nreturn [{\n  json: {\n    step_id: prevData.step_id,\n    sequence: prevData.sequence,\n    screenshot_url: prevData.screenshot_url,\n    screenshot_width: prevData.screenshot_width,\n    screenshot_height: prevData.screenshot_height,\n    screenshot_url_with_sas: prevData.screenshot_url_with_sas,\n    geminiBody: {\n      contents: [{\n        parts: [\n          {\n            fileData: {\n              mimeType: \"image/png\",\n              fileUri: fileUri\n            }\n          },\n          { text: prompt }\n        ]\n      }],\n      generationConfig: {\n        temperature: 0.1,\n        responseMimeType: \"application/json\"\n      }\n    }\n  }\n}];"
+      },
+      "id": "cf3b1001-0011-4000-8000-000000000011",
+      "name": "Build Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2440,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={{ $('Setup Config').first().json.GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.geminiBody) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "cf3b1001-0012-4000-8000-000000000012",
+      "name": "Call Gemini Vision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2660,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst prev = $('Build Gemini Request').first().json;\n\nconst raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  const match = raw.match(/\\{[\\s\\S]*\\}/);\n  try {\n    parsed = match ? JSON.parse(match[0]) : { description: raw, ui_elements: [] };\n  } catch (e2) {\n    parsed = { description: raw, ui_elements: [] };\n  }\n}\n\nconst description = parsed.description || '';\nconst elements = Array.isArray(parsed.ui_elements) ? parsed.ui_elements : [];\n\n// All callouts use gemini_only confidence (no OCR matching)\nconst callouts = elements.map((el, idx) => ({\n  step_id: prev.step_id,\n  callout_number: idx + 1,\n  label: el.label || `Element ${idx + 1}`,\n  element_type: el.element_type || 'button',\n  target_x: Math.round(Number(el.target_x) || 0),\n  target_y: Math.round(Number(el.target_y) || 0),\n  gemini_region_hint: el.region_hint || '',\n  confidence: 'gemini_only',\n  match_method: 'gemini_coordinates',\n  ocr_matched_text: null,\n}));\n\nreturn [{\n  json: {\n    step_id: prev.step_id,\n    sequence: prev.sequence,\n    gemini_description: description,\n    callouts: callouts,\n  }\n}];"
+      },
+      "id": "cf3b1001-0013-4000-8000-000000000013",
+      "name": "Parse Gemini Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Setup Config').first().json.SUPABASE_URL }}/rest/v1/sop_steps?id=eq.{{ $json.step_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').first().json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').first().json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ gemini_description: $json.gemini_description }) }}",
+        "options": {}
+      },
+      "id": "cf3b1001-0014-4000-8000-000000000014",
+      "name": "Update SOP Step",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3100,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Setup Config').first().json.SUPABASE_URL }}/rest/v1/step_callouts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').first().json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').first().json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Parse Gemini Response').first().json.callouts) }}",
+        "options": {}
+      },
+      "id": "cf3b1001-0015-4000-8000-000000000015",
+      "name": "Insert Step Callouts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3320,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Setup Config').first().json.SUPABASE_URL }}/rest/v1/pipeline_runs?id=eq.{{ $('Extract Run Info').first().json.pipeline_run_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').first().json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').first().json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"generating_annotations\", \"current_stage\": \"annotation_complete\"}",
+        "options": {}
+      },
+      "id": "cf3b1001-0016-4000-8000-000000000016",
+      "name": "Update Pipeline Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Every 2 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Setup Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Config": {
+      "main": [
+        [
+          {
+            "node": "Poll Pending Classifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Pending Classifications": {
+      "main": [
+        [
+          {
+            "node": "Any Pending?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Pending?": {
+      "main": [
+        [
+          {
+            "node": "Extract Run Info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Work — Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Run Info": {
+      "main": [
+        [
+          {
+            "node": "Get SOP Steps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get SOP Steps": {
+      "main": [
+        [
+          {
+            "node": "Split Steps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Steps": {
+      "main": [
+        [
+          {
+            "node": "Update Pipeline Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Image URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Image URL": {
+      "main": [
+        [
+          {
+            "node": "Download Frame Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Frame Image": {
+      "main": [
+        [
+          {
+            "node": "Upload to Gemini Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Gemini Files": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini Vision": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response": {
+      "main": [
+        [
+          {
+            "node": "Update SOP Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update SOP Step": {
+      "main": [
+        [
+          {
+            "node": "Insert Step Callouts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Step Callouts": {
+      "main": [
+        [
+          {
+            "node": "Split Steps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cf3b1001-ffff-4000-8000-000000000001",
+  "meta": {
+    "instanceId": "sop-platform-workflow-3b"
+  },
+  "id": "workflow-3b-gemini-only",
+  "tags": []
+}

@@ -1,0 +1,129 @@
+# ============================================================
+# SOP Automation Platform — Docker Compose (Production)
+#
+# 4 containers:
+#   sop-frontend   — React SPA (static files, port 5173)
+#   sop-api        — FastAPI REST API (port 8000)
+#   sop-extractor  — FFmpeg + PySceneDetect (internal only, NO host port)
+#   sop-tunnel     — Cloudflare Tunnel (profile: tunnel)
+#
+# External services:
+#   Supabase   — PostgreSQL :6543 (transaction pooler) + Auth
+#   n8n        — Self-hosted at azuren8n.cloudnavision.com
+#   Azure Blob — infsop container (video + frames + exports)
+#
+# Run (dev, no tunnel):    docker compose up --build
+# Run (prod, with tunnel): docker compose --profile tunnel up --build
+# Dev overlay:             docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# ============================================================
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # Cloudflare Tunnel — dedicated container, independent lifecycle
+  # Profile "tunnel" — only starts in production (when --profile tunnel is passed)
+  # Prevents crash-loop on dev machines without a tunnel token.
+  #
+  # Cloudflare Zero Trust dashboard must route:
+  #   soptest.cloudnavision.com → http://sop-api:8000   (Docker DNS)
+  # ──────────────────────────────────────────────────────────
+  sop-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: sop-tunnel
+    restart: always
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - sop-network
+    depends_on:
+      sop-api:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────
+  # React SPA — static file server (prod) / Vite dev server (dev)
+  # ──────────────────────────────────────────────────────────
+  sop-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    container_name: sop-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    ports:
+      - "5173:5173"
+    networks:
+      - sop-network
+
+  # ──────────────────────────────────────────────────────────
+  # FastAPI — lean image (no LibreOffice, no cloudflared)
+  # Connects to Supabase external PostgreSQL :6543
+  # ──────────────────────────────────────────────────────────
+  sop-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: sop-api
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      AZURE_BLOB_BASE_URL: ${AZURE_BLOB_BASE_URL:-}
+      AZURE_BLOB_SAS_TOKEN: ${AZURE_BLOB_SAS_TOKEN:-}
+      N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - sop-network
+
+  # ──────────────────────────────────────────────────────────
+  # Frame Extractor — FFmpeg + PySceneDetect + imagehash
+  # INTERNAL ONLY — no host port mapping in production.
+  # Accessed by sop-api via http://sop-extractor:8001 (Docker DNS).
+  # Chromium/Node (Phase 5 Mermaid) not installed by default.
+  # ──────────────────────────────────────────────────────────
+  sop-extractor:
+    build:
+      context: ./extractor
+      dockerfile: Dockerfile
+      args:
+        INSTALL_MERMAID: "false"
+    container_name: sop-extractor
+    # No ports — internal only. Add 8001:8001 via docker-compose.dev.yml for local testing.
+    volumes:
+      - ./data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - sop-network
+
+# ──────────────────────────────────────────────────────────
+networks:
+  sop-network:
+    driver: bridge

@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies.auth import require_viewer
-from app.models import SOP, SOPStep, SOPStatus, User, UserRole
+from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole
 from app.schemas import SOPListItem, SOPDetail
 
 router = APIRouter(prefix="/api", tags=["sops"])
@@ -34,8 +34,29 @@ async def list_sops(
         .correlate(SOP)
         .scalar_subquery()
     )
+    latest_run_status_subq = (
+        select(PipelineRun.status)
+        .where(PipelineRun.sop_id == SOP.id)
+        .order_by(PipelineRun.started_at.desc())
+        .limit(1)
+        .correlate(SOP)
+        .scalar_subquery()
+    )
+    latest_run_stage_subq = (
+        select(PipelineRun.current_stage)
+        .where(PipelineRun.sop_id == SOP.id)
+        .order_by(PipelineRun.started_at.desc())
+        .limit(1)
+        .correlate(SOP)
+        .scalar_subquery()
+    )
 
-    stmt = select(SOP, step_count_subq.label("step_count")).order_by(SOP.created_at.desc())
+    stmt = select(
+        SOP,
+        step_count_subq.label("step_count"),
+        latest_run_status_subq.label("pipeline_status"),
+        latest_run_stage_subq.label("pipeline_stage"),
+    ).order_by(SOP.created_at.desc())
 
     # Role-based visibility filter (applied before any explicit status query param)
     allowed = _VISIBLE_STATUSES.get(current_user.role.value, [])
@@ -57,6 +78,8 @@ async def list_sops(
             meeting_date=row[0].meeting_date,
             created_at=row[0].created_at,
             step_count=row[1] or 0,
+            pipeline_status=str(row[2].value) if row[2] is not None else None,
+            pipeline_stage=row[3],
         )
         for row in rows
     ]

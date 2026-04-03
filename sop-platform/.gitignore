@@ -19,6 +19,7 @@ data/uploads/*
 data/frames/*
 data/exports/*
 data/templates/*.docx
+!data/templates/sop_template.docx
 !data/**/.gitkeep
 
 # Editor

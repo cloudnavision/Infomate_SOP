@@ -223,6 +223,8 @@ class SOPListItem(BaseModel):
     meeting_date: Optional[date] = None
     created_at: datetime
     step_count: int = 0
+    pipeline_status: Optional[str] = None   # latest pipeline_runs.status
+    pipeline_stage: Optional[str] = None    # latest pipeline_runs.current_stage
 
 
 class SOPDetail(BaseModel):
@@ -256,3 +258,13 @@ class SOPDetail(BaseModel):
     steps: list[StepSchema] = []
     sections: list[SectionSchema] = []
     watchlist: list[WatchlistSchema] = []
+
+
+class ExportResponse(BaseModel):
+    download_url: str   # Azure URL with SAS token appended
+    filename: str
+    format: str         # 'docx' or 'pdf'
+
+
+# Public alias so routes can import this without referencing a private symbol
+with_sas = _with_sas

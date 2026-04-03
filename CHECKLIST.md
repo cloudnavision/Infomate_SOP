@@ -1,6 +1,6 @@
  # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-04-03
+Last updated: 2026-04-03 (Phase 7 complete — 7c deferred)
 
 ---
 
@@ -243,23 +243,27 @@ Last updated: 2026-04-03
 
 ---
 
-## Phase 7: Exports + Polish ⬜
+## Phase 7: Exports + Polish ✅
 
-### 7a: DOCX/PDF Export
-- [ ] n8n Workflow 3 (export) — python-docx template injection
-- [ ] Annotation re-rendering with Pillow
-- [ ] LibreOffice headless PDF conversion
-- [ ] Azure Blob upload + export_history record
+### 7a: DOCX/PDF Export ✅
+- [x] docxtpl template injection (Word template with Jinja2 placeholders)
+- [x] LibreOffice headless PDF conversion (in sop-extractor container)
+- [x] Azure Blob upload → exports/{sop_id}/ + export_history DB record
+- [x] POST /api/render-doc endpoint on sop-extractor
+- [x] POST /api/sops/{id}/export endpoint on sop-api
+- [x] SOPPageHeader Export DOCX / Export PDF buttons wired (with loading state)
+- [x] Placeholder sop_template.docx committed to data/templates/
 
-### 7b: Dashboard Polish
-- [ ] SOP list with pipeline status badges
-- [ ] Full-text search across SOPs
-- [ ] SOPCard actions (export, share)
+### 7b: Dashboard Polish ✅
+- [x] Pipeline status badges on SOPCard (blue Processing / red Failed)
+- [x] Full-text search bar (client-side, filters title + client + process name)
+- [x] SOPCard action buttons: "Open →" + "Export PDF" (disabled until 7a — now wired)
 
-### 7c: Cloudflare ZTNA
-- [ ] Frontend exposed via Cloudflare tunnel
-- [ ] Access policies: viewer/editor/admin roles
-- [ ] Production deployment verified
+### 7c: Cloudflare ZTNA ⬜ (deferred)
+- [ ] Frontend exposed via Cloudflare tunnel (sop.cloudnavision.com)
+- [ ] Access policy: email ends in @keells.com or @cloudnavision.com
+- [ ] .env updated + frontend rebuilt with new VITE_API_URL
+- Note: zero code changes — pure Cloudflare dashboard config, do when TL is ready
 
 ---
 

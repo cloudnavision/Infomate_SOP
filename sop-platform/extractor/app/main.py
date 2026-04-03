@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import requests
 from fastapi import FastAPI, HTTPException
@@ -114,6 +114,21 @@ class ExtractResponse(BaseModel):
     stats: ExtractionStats
 
 
+# ── /api/render-doc models ────────────────────────────────────────────────────
+
+class RenderDocRequest(BaseModel):
+    sop_id: str
+    format: str = "docx"          # 'docx' or 'pdf'
+    azure_blob_base_url: str      # e.g. https://cnavinfsop.blob.core.windows.net/infsop
+    azure_sas_token: str
+    sop_data: dict                # Full SOP payload — see doc_renderer._build_context
+
+
+class RenderDocResponse(BaseModel):
+    docx_url: str                 # Azure base URL (no SAS)
+    pdf_url: Optional[str] = None
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["health"])
@@ -176,6 +191,35 @@ async def test_data_volume() -> dict[str, Any]:
         "data_writable": writable,
         "subdirectories": subdir_status,
     }
+
+
+# ── /api/render-doc ───────────────────────────────────────────────────────────
+
+@app.post("/api/render-doc", response_model=RenderDocResponse, tags=["export"])
+async def render_doc(req: RenderDocRequest) -> RenderDocResponse:
+    """
+    Render a SOP DOCX (and optionally PDF) from the Word template.
+    Called internally by sop-api only — not exposed externally.
+    Template must exist at /data/templates/sop_template.docx.
+    """
+    from .doc_renderer import render_sop  # local import — avoids startup failure if template missing
+
+    try:
+        result = await asyncio.to_thread(
+            render_sop,
+            sop_id=req.sop_id,
+            fmt=req.format,
+            sop_data=req.sop_data,
+            azure_blob_base_url=req.azure_blob_base_url,
+            azure_sas_token=req.azure_sas_token,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Render failed for sop_id=%s", req.sop_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return RenderDocResponse(docx_url=result["docx_url"], pdf_url=result["pdf_url"])
 
 
 # ── /extract ──────────────────────────────────────────────────────────────────

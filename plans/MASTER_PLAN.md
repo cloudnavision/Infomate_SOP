@@ -16,8 +16,8 @@
 | 4 | **Gemini Classification** | n8n Workflow 3b (Gemini Only): gemini_description + step_callouts per frame. Workflow 3 (full hybrid + OCR) adding 2026-04-03 | ✅ Complete ⚠️ |
 | 5 | **Extracting Clips** | n8n Workflow 4: FFmpeg clips per step → Azure Blob → step_clips rows | ✅ Complete |
 | 6 | **Video + Transcript UI** | VideoPlayer, step sync, TranscriptPanel, StepCard, SOPPageHeader, 3-col layout | ✅ Complete |
-| 7 | **Exports + Polish** | DOCX/PDF generation, dashboard, Cloudflare ZTNA | ◀ Next |
-| 8 | **Annotation Editor** | Konva.js drag-and-drop callout editor, confidence colour coding (Editor role) | ⬜ Pending |
+| 7 | **Exports + Polish** | DOCX/PDF generation, dashboard, Cloudflare ZTNA | ✅ Complete (7c deferred) |
+| 8 | **Annotation Editor** | Konva.js drag-and-drop callout editor, confidence colour coding (Editor role) | ◀ Next |
 
 > ⚠️ Phase 4 note: Running on **Workflow 3b (Gemini Only)** — ~60% coordinate accuracy. Full hybrid (Workflow 3) needs GCP Vision API billing enabled ($10 prepayment). `target_y` values unreliable for toolbar elements — all callouts have `confidence = 'gemini_only'`.
 
@@ -117,11 +117,11 @@ Phase 6: Video + Transcript UI              ✅ Complete
   (VideoPlayer, useStepSync, TranscriptPanel, StepCard, SOPPageHeader, 3-col layout)
          │
          ▼
-Phase 7: Exports + Polish                   ◀ Next
+Phase 7: Exports + Polish                   ✅ Complete (7c deferred)
   (DOCX/PDF, dashboard, Cloudflare ZTNA)
          │
          ▼
-Phase 8: Annotation Editor
+Phase 8: Annotation Editor                  ◀ Next
   (Konva.js drag-and-drop callout editor, Editor role only)
 ```
 
@@ -196,3 +196,7 @@ queued → transcribing → detecting_screenshare → extracting_frames
 - [Phase 5 Plan](phase-5-extracting-clips/PHASE_5_PLAN.md)
 - [Phase 5 — 5a Extractor Clip Endpoint](phase-5-extracting-clips/5a_sop_extractor_clip_endpoint.md)
 - [Phase 5 — 5b n8n Workflow 4](phase-5-extracting-clips/5b_n8n_workflow_4.md)
+- [Phase 7 Plan](phase-7-exports-polish/PHASE_7_PLAN.md)
+- [Phase 7 — 7b Dashboard Polish](phase-7-exports-polish/7b_dashboard_polish.md)
+- [Phase 7 — 7a DOCX/PDF Export](phase-7-exports-polish/7a_docx_pdf_export.md)
+- [Phase 7 — 7c Cloudflare ZTNA](phase-7-exports-polish/7c_cloudflare_ztna.md)

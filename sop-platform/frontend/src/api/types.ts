@@ -162,6 +162,8 @@ export interface SOPListItem {
   meeting_date: string | null
   created_at: string
   step_count: number
+  pipeline_status: string | null
+  pipeline_stage: string | null
 }
 
 export interface SOPDetail {

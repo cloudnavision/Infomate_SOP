@@ -52,6 +52,24 @@ export const fetchTranscript = (id: string, speaker?: string) => {
 export const fetchSections = (id: string) => fetchAPI<SOPSection[]>(`/api/sops/${id}/sections`)
 export const fetchWatchlist = (id: string) => fetchAPI<WatchlistItem[]>(`/api/sops/${id}/watchlist`)
 
+export interface ExportResponse {
+  download_url: string
+  filename: string
+  format: string
+}
+
+export async function exportSOP(id: string, format: 'docx' | 'pdf'): Promise<ExportResponse> {
+  const headers = await getAuthHeaders()
+  const res = await fetch(`${API_BASE}/api/sops/${id}/export?format=${format}`, {
+    method: 'POST',
+    headers,
+  })
+  if (!res.ok) {
+    throw new Error(`Export failed: ${res.status} ${res.statusText}`)
+  }
+  return res.json() as Promise<ExportResponse>
+}
+
 // ── User management (admin only) ──────────────────────────────────────────────
 export const fetchUsers = () => fetchAPI<AppUser[]>('/api/users')
 export const createUser = (data: UserCreateInput) => mutateAPI<AppUser>('/api/users', 'POST', data)

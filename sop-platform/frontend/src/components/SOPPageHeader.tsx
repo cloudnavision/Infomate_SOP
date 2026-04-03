@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { SOPDetail } from '../api/types'
+import { exportSOP } from '../api/client'
 
 interface Props {
   sop: SOPDetail
@@ -13,15 +14,33 @@ function formatDate(dateStr: string | null): string {
 
 export function SOPPageHeader({ sop }: Props) {
   const [toast, setToast] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<'docx' | 'pdf' | null>(null)
 
   function showToast(msg: string) {
     setToast(msg)
-    setTimeout(() => setToast(null), 2000)
+    setTimeout(() => setToast(null), 2500)
   }
 
   function handleShare() {
     navigator.clipboard.writeText(window.location.href)
     showToast('Link copied!')
+  }
+
+  async function handleExport(format: 'docx' | 'pdf') {
+    setExporting(format)
+    showToast('Generating…')
+    try {
+      const { download_url, filename } = await exportSOP(sop.id, format)
+      const a = document.createElement('a')
+      a.href = download_url
+      a.download = filename
+      a.click()
+      showToast('Download started!')
+    } catch {
+      showToast('Export failed')
+    } finally {
+      setExporting(null)
+    }
   }
 
   const dateStr = sop.meeting_date
@@ -41,16 +60,18 @@ export function SOPPageHeader({ sop }: Props) {
 
       <div className="flex items-center gap-2 shrink-0 mt-1">
         <button
-          disabled
-          className="px-3 py-1.5 text-sm border border-gray-200 rounded text-gray-400 cursor-not-allowed"
+          onClick={() => handleExport('docx')}
+          disabled={exporting !== null}
+          className="px-3 py-1.5 text-sm border border-gray-200 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Export DOCX
+          {exporting === 'docx' ? 'Generating…' : 'Export DOCX'}
         </button>
         <button
-          disabled
-          className="px-3 py-1.5 text-sm border border-gray-200 rounded text-gray-400 cursor-not-allowed"
+          onClick={() => handleExport('pdf')}
+          disabled={exporting !== null}
+          className="px-3 py-1.5 text-sm border border-gray-200 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Export PDF
+          {exporting === 'pdf' ? 'Generating…' : 'Export PDF'}
         </button>
         <button
           onClick={handleShare}

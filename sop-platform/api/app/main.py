@@ -21,7 +21,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.dependencies.pipeline_auth import require_internal_key
-from app.routes import sops, steps, sections, auth, users
+from app.routes import sops, steps, sections, auth, users, exports
 
 app = FastAPI(
     title="SOP Platform API",
@@ -49,6 +49,9 @@ app.include_router(sections.router)
 
 # ── Admin Routes (Phase 1.5d) ─────────────────────────────────
 app.include_router(users.router)
+
+# ── Export Routes (Phase 7a) ──────────────────────────────────
+app.include_router(exports.router)
 
 
 # ── Health ───────────────────────────────────────────────────

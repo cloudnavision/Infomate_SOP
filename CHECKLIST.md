@@ -1,6 +1,6 @@
  # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-04-03 (Phase 7 complete — 7c deferred)
+Last updated: 2026-04-03 (Phase 8 complete)
 
 ---
 
@@ -267,24 +267,30 @@ Last updated: 2026-04-03 (Phase 7 complete — 7c deferred)
 
 ---
 
-## Phase 8: Annotation Editor (Konva.js) ⬜
+## Phase 8: Annotation Editor (Konva.js) ✅
 
-> Prerequisite: Phase 4b (GCP Vision OCR) must be complete so callout accuracy is ~92% before building editor.
+### 8a: react-konva Setup ✅
+- [x] npm install konva react-konva
 
-### 8a: react-konva Setup
-- [ ] npm install konva react-konva
-- [ ] Lazy loaded for Editor role only
+### 8b: Canvas Callout Editor ✅
+- [x] Full-screen modal with Konva Stage overlaid on screenshot image
+- [x] Numbered callout circles draggable on canvas (raw pixel coordinate system)
+- [x] Confidence colour coding: green (ocr_exact/ocr_fuzzy), amber (gemini_only), blue (repositioned)
+- [x] Active dot highlight (ring on click)
+- [x] Delete callout (Remove button in right panel)
+- [x] Save Changes → PATCH /api/steps/{id}/callouts (bulk update)
+- [x] Natural image dimensions used for pixel ↔ stage coordinate conversion
+- [x] "⚠ gemini_only" warning badge in header when all callouts are Gemini estimates
 
-### 8b: Canvas Callout Editor
-- [ ] Annotated screenshot rendered on Konva Stage
-- [ ] Numbered callout circles draggable on canvas
-- [ ] Confidence colour coding: green (ocr_exact), amber (ocr_fuzzy), red (gemini_only)
-- [ ] Save updated x/y positions to step_callouts via API
+### 8c: Backend ✅
+- [x] PATCH /api/steps/{id}/callouts — bulk update target_x/y, was_repositioned, preserves original_x/y on first reposition (Editor role)
+- [x] POST /api/steps/{id}/render-annotated — proxy to extractor, re-renders PNG, persists annotated_screenshot_url
+- [x] CalloutPatchItem + RenderAnnotatedResponse schemas added
+- [x] extractor/app/annotator.py — Pillow circle renderer (raw pixel coords, blue dots)
+- [x] POST /api/render-annotated endpoint on sop-extractor
 
-### 8c: Backend
-- [ ] PATCH /api/sops/{id}/steps/{step_id}/callouts/{callout_id} — update x, y, match_method=manual
-- [ ] Re-render annotated screenshot PNG via Pillow after position update
-
-### 8d: Integration
-- [ ] Editor role sees canvas editor on procedure page
-- [ ] Viewer role sees static annotated screenshot (no Konva)
+### 8d: Integration ✅
+- [x] "✎ Edit Callouts" button in StepCard (Editor/Admin role only, below screenshot thumbnail)
+- [x] Viewer role sees no editor button — static screenshot unchanged
+- [x] ↻ Re-render Annotated PNG button in editor right panel
+- [x] Query cache invalidated on save + re-render

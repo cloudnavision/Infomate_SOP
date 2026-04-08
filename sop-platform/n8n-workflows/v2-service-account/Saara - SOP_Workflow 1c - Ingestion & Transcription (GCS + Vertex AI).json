@@ -1,0 +1,1188 @@
+{
+  "name": "Saara - SOP_Workflow 1c - Ingestion & Transcription (GCS + Vertex AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "ac0fa7d3-91fa-440d-9227-d752a3d138d9",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1408,
+        -2256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "site-name",
+              "name": "SITE_NAME",
+              "value": "Saara",
+              "type": "string"
+            },
+            {
+              "id": "library-name",
+              "name": "LIBRARY_NAME",
+              "value": "Documents",
+              "type": "string"
+            },
+            {
+              "id": "folder-path",
+              "name": "FOLDER_PATH",
+              "value": "Infomate/SOP",
+              "type": "string"
+            },
+            {
+              "id": "supa-url",
+              "name": "SUPABASE_URL",
+              "value": "https://hzluuqhbkiblmojxgbab.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "supa-anon",
+              "name": "SUPABASE_ANON_KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6bHV1cWhia2libG1vanhnYmFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MDAyNDYsImV4cCI6MjA4OTM3NjI0Nn0.zJErIoi_PlbalqrwW30MtiF05Zxa1yH1MywVJAJMhGY",
+              "type": "string"
+            },
+            {
+              "id": "supa-svc",
+              "name": "SUPABASE_SERVICE_ROLE_KEY",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6bHV1cWhia2libG1vanhnYmFiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzgwMDI0NiwiZXhwIjoyMDg5Mzc2MjQ2fQ.YSNsIxY-pwMKOATmYvA1QkOccO2k_uxY7hb7QNL5x5o",
+              "type": "string"
+            },
+            {
+              "id": "az-sas",
+              "name": "AZURE_BLOB_SAS_TOKEN",
+              "value": "sv=2024-11-04&ss=bfqt&srt=co&sp=rwdlacuptfx&se=2026-05-29T19:34:00Z&st=2026-03-19T11:19:00Z&spr=https&sig=bZSDd5DD751V7rlhHyRNjVyWkJRxUrr7vyxgho6YdYk%3D",
+              "type": "string"
+            },
+            {
+              "id": "az-acct",
+              "name": "AZURE_BLOB_ACCOUNT",
+              "value": "cnavinfsop",
+              "type": "string"
+            },
+            {
+              "id": "az-cont",
+              "name": "AZURE_BLOB_CONTAINER",
+              "value": "infsop",
+              "type": "string"
+            },
+            {
+              "id": "gcp-project",
+              "name": "GCP_PROJECT_ID",
+              "value": "eminent-cycle-488004-r4",
+              "type": "string"
+            },
+            {
+              "id": "gcp-region",
+              "name": "GCP_REGION",
+              "value": "us-central1",
+              "type": "string"
+            },
+            {
+              "id": "gcs-bucket",
+              "name": "GCS_BUCKET",
+              "value": "sop-video-processing",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "02f8b250-1300-4c92-9d01-28fa19b1335c",
+      "name": "Setup Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        -1168,
+        -2256
+      ],
+      "notes": "All config here. No changes needed elsewhere. GCS_BUCKET must exist and service account must have Storage Object Admin role."
+    },
+    {
+      "parameters": {
+        "url": "https://graph.microsoft.com/v1.0/sites/root",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
+      },
+      "id": "b285a9f8-a89a-472f-9aae-e428831124d9",
+      "name": "Get Root Site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -928,
+        -2256
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "YG5RaQSSWryP5CTP",
+          "name": "Saara - Sharepoint"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rootSite = $input.all()[0].json;\nif (!rootSite || !rootSite.id) throw new Error('Could not get root site — check Saara - Sharepoint credential');\nconst webUrl = rootSite.webUrl || '';\nconst match = webUrl.match(/https:\\/\\/([^.]+\\.sharepoint\\.com)/);\nconst tenantDomain = match ? match[1] : null;\nif (!tenantDomain) throw new Error(`Could not extract tenant domain from webUrl: ${webUrl}`);\nconst targetSiteName = $('Setup Config').item.json.SITE_NAME;\nreturn [{ json: { tenantDomain, targetSiteName, constructedSiteUrl: `https://${tenantDomain}/sites/${targetSiteName}`, rootSiteId: rootSite.id } }];"
+      },
+      "id": "4c96e810-aa6f-40d8-8a3f-1ccae7175750",
+      "name": "Analyze Root Site",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        -2256
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.microsoft.com/v1.0/sites/{{ $json.tenantDomain }}:/sites/{{ $('Setup Config').item.json.SITE_NAME }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
+      },
+      "id": "d64007ec-b112-48d1-8578-05b0d97d86c1",
+      "name": "Access Saara Site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -448,
+        -2256
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "YG5RaQSSWryP5CTP",
+          "name": "Saara - Sharepoint"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.microsoft.com/v1.0/sites/{{ $json.id }}/drives",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
+      },
+      "id": "7794417d-1f84-4571-acff-0830e1ba7564",
+      "name": "Get Document Libraries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -208,
+        -2256
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "YG5RaQSSWryP5CTP",
+          "name": "Saara - Sharepoint"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const drives = $input.all()[0].json.value || [];\nconst targetLibraryName = $('Setup Config').item.json.LIBRARY_NAME;\nlet targetDrive = drives.find(drive => drive.name && drive.name.toLowerCase() === targetLibraryName.toLowerCase());\nif (!targetDrive) {\n  const fallbacks = ['Documents', 'Shared Documents', 'Document Library'];\n  targetDrive = drives.find(drive => fallbacks.some(name => drive.name && drive.name.toLowerCase().includes(name.toLowerCase())));\n}\nif (!targetDrive) throw new Error(`Library \"${targetLibraryName}\" not found. Available: ${drives.map(d => d.name).join(', ')}`);\nreturn [{ json: { driveId: targetDrive.id, driveName: targetDrive.name, siteId: $('Access Saara Site').item.json.id } }];"
+      },
+      "id": "b2cc43ef-c61f-457d-8567-e68c3e28843a",
+      "name": "Find Documents Library",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        -2256
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.microsoft.com/v1.0/sites/{{ $json.siteId }}/drives/{{ $json.driveId }}/root:/{{ $('Setup Config').item.json.FOLDER_PATH }}:/children",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$orderby",
+              "value": "lastModifiedDateTime desc"
+            },
+            {
+              "name": "$select",
+              "value": "id,name,size,lastModifiedDateTime,file,folder,webUrl,createdDateTime"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f216bc50-3387-4d40-b134-750e0a843f35",
+      "name": "List SOP Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        272,
+        -2256
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "YG5RaQSSWryP5CTP",
+          "name": "Saara - Sharepoint"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Setup Config').item.json.SUPABASE_URL }}/rest/v1/processed_sharepoint_files",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "file_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').item.json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').item.json.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "483fdfe7-ef9f-4064-8af3-55e8c61f91ad",
+      "name": "Get Processed Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        512,
+        -2256
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const processedIds = new Set($input.all().map(item => item.json.file_id).filter(Boolean));\nconst allItems = $('List SOP Files').all()[0]?.json?.value ?? [];\nif (allItems.length === 0) return [{ json: { hasNewFiles: false, count: 0 } }];\nconst mp4Files = allItems.filter(item => {\n  if (item.folder) return false;\n  const byMime = item.file?.mimeType === 'video/mp4';\n  const byExt = typeof item.name === 'string' && item.name.toLowerCase().endsWith('.mp4');\n  return byMime || byExt;\n});\nconst newFiles = mp4Files.filter(file => !processedIds.has(file.id));\nif (newFiles.length === 0) return [{ json: { hasNewFiles: false, count: 0 } }];\nconst siteId  = $('Find Documents Library').first().json.siteId;\nconst driveId = $('Find Documents Library').first().json.driveId;\nreturn newFiles.map(file => ({ json: { hasNewFiles: true, sharepoint_file_id: file.id, file_name: file.name, file_size_bytes: file.size ?? 0, last_modified: file.lastModifiedDateTime ?? null, download_url: file['@microsoft.graph.downloadUrl'] ?? null, siteId, driveId } }));"
+      },
+      "id": "ee391ef9-27c5-4474-8ef4-578eafee3406",
+      "name": "Filter New MP4 Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        -2256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-has-new",
+              "leftValue": "={{ $json.hasNewFiles }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6efa5da1-2e32-4723-80a2-d3fac6298ca8",
+      "name": "Any New Files?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        992,
+        -2256
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "448014e6-992c-4956-aa3d-e20367b33a2e",
+      "name": "Process One File At a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1248,
+        -2528
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c30d5158-1380-4b3a-8e4d-ef8bc2ce3f1f",
+      "name": "No New Files — Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        -2096
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.microsoft.com/v1.0/sites/{{ $('Find Documents Library').item.json.siteId }}/drives/{{ $('Find Documents Library').item.json.driveId }}/items/{{ $json.sharepoint_file_id }}/content",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 600000
+        }
+      },
+      "id": "d072be52-b052-4a81-9a0d-911e8b824ab7",
+      "name": "Download from SharePoint1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1472,
+        -2416
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "YG5RaQSSWryP5CTP",
+          "name": "Saara - Sharepoint"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuid() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {\n    const r = Math.random() * 16 | 0;\n    const v = c === 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n}\nconst batchItem = $('Process One File At a Time').first().json;\nconst sopId    = uuid();\nconst fileName = batchItem.file_name || 'recording.mp4';\nconst fileSize = batchItem.file_size_bytes || 0;\nconst spFileId = batchItem.sharepoint_file_id;\nconst cleanName = fileName.replace(/\\.(mp4|mkv|avi|mov|webm|wmv)$/i, '').replace(/[_-]/g, ' ').trim();\nconst ext = fileName.split('.').pop().toLowerCase();\nconst mimeMap = { 'mp4': 'video/mp4', 'mkv': 'video/x-matroska', 'avi': 'video/x-msvideo', 'mov': 'video/quicktime', 'webm': 'video/webm', 'wmv': 'video/x-ms-wmv' };\nconst mimeType = mimeMap[ext] || 'video/mp4';\nconst blobAccount   = $('Setup Config').first().json.AZURE_BLOB_ACCOUNT;\nconst blobContainer = $('Setup Config').first().json.AZURE_BLOB_CONTAINER;\nreturn [{ json: { sop_id: sopId, file_name: fileName, file_size_bytes: fileSize, sharepoint_file_id: spFileId, mime_type: mimeType, blob_url: `https://${blobAccount}.blob.core.windows.net/${blobContainer}/${sopId}/original.${ext}`, title: `${cleanName} — Knowledge Transfer`, meeting_date: new Date().toISOString().split('T')[0] }, binary: { data: $input.first().binary?.data ?? Object.values($input.first().binary ?? {})[0] } }];"
+      },
+      "id": "c4c02ae9-a735-450f-85ed-b08da882d630",
+      "name": "Generate SOP ID1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        -2416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.blob_url + '?' + $('Setup Config').first().json.AZURE_BLOB_SAS_TOKEN }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-ms-blob-type",
+              "value": "BlockBlob"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $json.mime_type }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "8b18c923-e11b-4ac2-8d24-346e5df11d86",
+      "name": "Upload to Azure Blob1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2032,
+        -2416
+      ],
+      "alwaysOutputData": true,
+      "notes": "Timeout increased to 10 min for large videos (47+ min recordings ~500MB–1GB)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Setup Config').item.json.SUPABASE_URL }}/rest/v1/sops",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').item.json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').item.json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ id: $('Generate SOP ID1').first().json.sop_id, title: $('Generate SOP ID1').first().json.title, status: 'processing', video_url: $('Generate SOP ID1').first().json.blob_url, video_file_size_bytes: $('Generate SOP ID1').first().json.file_size_bytes, meeting_date: $('Generate SOP ID1').first().json.meeting_date }) }}",
+        "options": {}
+      },
+      "id": "533b6046-5e7b-4cc6-a934-b79123794710",
+      "name": "Create SOP Record1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2352,
+        -2416
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Setup Config').item.json.SUPABASE_URL }}/rest/v1/pipeline_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').item.json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').item.json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ sop_id: $('Generate SOP ID1').first().json.sop_id, status: 'transcribing', current_stage: 'transcribing' }) }}",
+        "options": {}
+      },
+      "id": "2fddd0af-2a6d-4270-bc07-56b4b73c23be",
+      "name": "Create Pipeline Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2608,
+        -2416
+      ],
+      "alwaysOutputData": true,
+      "notes": "Creates pipeline_runs record. Status updated to transcription_complete after Vertex AI finishes."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Setup Config').item.json.SUPABASE_URL }}/rest/v1/processed_sharepoint_files",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').item.json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').item.json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal,resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ file_id: $('Generate SOP ID1').first().json.sharepoint_file_id, file_name: $('Generate SOP ID1').first().json.file_name, file_size_bytes: $('Generate SOP ID1').first().json.file_size_bytes, sop_id: $('Generate SOP ID1').first().json.sop_id }) }}",
+        "options": {}
+      },
+      "id": "9a0f406f-8196-4d3c-b096-9c8259f2fddf",
+      "name": "Mark File Processed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2848,
+        -2416
+      ],
+      "notes": "Runs BEFORE GCS upload — locks the file immediately after blob upload. Upsert prevents duplicate errors on re-runs. Even if Vertex AI fails, file won't be re-uploaded."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://storage.googleapis.com/upload/storage/v1/b/{{ $('Setup Config').first().json.GCS_BUCKET }}/o?uploadType=resumable&name={{ $('Generate SOP ID1').first().json.sop_id }}/original.mp4",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Upload-Content-Type",
+              "value": "video/mp4"
+            },
+            {
+              "name": "X-Upload-Content-Length",
+              "value": "={{ $('Generate SOP ID1').first().json.file_size_bytes }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ contentType: 'video/mp4', name: $('Generate SOP ID1').first().json.sop_id + '/original.mp4' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "N2wSnRrwVfPCSXTU",
+          "name": "Saara - Google Service Account account Workflow 3"
+        }
+      },
+      "id": "cf1c0001-0001-4000-8000-000000000001",
+      "name": "Start GCS Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3088,
+        -2416
+      ],
+      "notes": "POST to GCS JSON API to initiate resumable upload. Response Location header contains the session URI for the actual video upload. Requires service account with Storage Object Admin on the bucket."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Re-attach binary from Download step.\n// Binary is lost after Azure Blob PUT (empty response).\n// Complete GCS Upload needs the video binary to send to GCS.\nreturn [{\n  json: $input.first().json,\n  binary: $('Download from SharePoint1').first().binary\n}];"
+      },
+      "id": "fe849750-07df-48ed-a2fb-7f87868c154c",
+      "name": "Reattach Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3328,
+        -2416
+      ],
+      "notes": "Binary is lost after Azure Blob PUT. This node re-attaches it from the Download step so the GCS video upload can send the video bytes."
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.headers['location'] || $json.headers['Location'] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "video/mp4"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {
+          "timeout": 1200000
+        }
+      },
+      "id": "cf1c0001-0002-4000-8000-000000000002",
+      "name": "Complete GCS Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3568,
+        -2416
+      ],
+      "alwaysOutputData": true,
+      "notes": "PUT video binary to the GCS resumable session URI (from Start GCS Upload Location header). Session URI is self-authenticating — no auth header needed. GCS upload is synchronous — no polling loop required unlike Gemini File API."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Setup Config').first().json.GCP_REGION }}-aiplatform.googleapis.com/v1/projects/{{ $('Setup Config').first().json.GCP_PROJECT_ID }}/locations/{{ $('Setup Config').first().json.GCP_REGION }}/publishers/google/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ contents: [{ role: 'user', parts: [{ fileData: { mimeType: 'video/mp4', fileUri: 'gs://' + $('Setup Config').first().json.GCS_BUCKET + '/' + $('Generate SOP ID1').first().json.sop_id + '/original.mp4' } }, { text: 'Transcribe this meeting recording with precise speaker identification. For each speaker turn, provide: speaker_name, timestamp_start (MM:SS format), timestamp_end, spoken_text. Also identify every moment where the shared screen content changes visually and note the timestamp.\\n\\nReturn ONLY valid JSON in this exact format:\\n{\\n  \"speakers\": [\"name1\", \"name2\"],\\n  \"transcript\": [\\n    {\"speaker\": \"name\", \"start\": \"MM:SS\", \"end\": \"MM:SS\", \"text\": \"spoken words\"}\\n  ],\\n  \"screen_changes\": [\\n    {\"timestamp\": \"MM:SS\", \"description\": \"what is now visible on screen\"}\\n  ],\\n  \"meeting_participants\": [\"full names mentioned\"]\\n}' }] }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 65536 } }) }}",
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "N2wSnRrwVfPCSXTU",
+          "name": "Saara - Google Service Account account Workflow 3"
+        }
+      },
+      "id": "cf1c0001-0003-4000-8000-000000000003",
+      "name": "Vertex AI Transcription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3808,
+        -2528
+      ],
+      "notes": "Vertex AI reads video directly from GCS via gs:// URI — no file upload polling needed. role:'user' required in contents array."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://{{ $('Setup Config').first().json.GCP_REGION }}-aiplatform.googleapis.com/v1/projects/{{ $('Setup Config').first().json.GCP_PROJECT_ID }}/locations/{{ $('Setup Config').first().json.GCP_REGION }}/publishers/google/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ contents: [{ role: 'user', parts: [{ fileData: { mimeType: 'video/mp4', fileUri: 'gs://' + $('Setup Config').first().json.GCS_BUCKET + '/' + $('Generate SOP ID1').first().json.sop_id + '/original.mp4' } }, { text: 'Analyze this Teams meeting recording. For each distinct period where someone is sharing their screen, provide:\\n1. start_time and end_time (in seconds)\\n2. The bounding box of the shared screen content in pixels: x, y (top-left corner), width, height\\n3. Whether webcam thumbnails are visible and where (top/bottom/side)\\n\\nReturn ONLY valid JSON:\\n{\\n  \"screen_share_periods\": [\\n    {\\n      \"start_sec\": 32,\\n      \"end_sec\": 1908,\\n      \"crop\": {\"x\": 170, \"y\": 95, \"w\": 1580, \"h\": 890},\\n      \"webcam_position\": \"right_strip\"\\n    }\\n  ]\\n}' }] }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 65536 } }) }}",
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "N2wSnRrwVfPCSXTU",
+          "name": "Saara - Google Service Account account Workflow 3"
+        }
+      },
+      "id": "cf1c0001-0004-4000-8000-000000000004",
+      "name": "Vertex AI Screen Detection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3808,
+        -2304
+      ],
+      "notes": "Vertex AI reads video directly from GCS via gs:// URI. Runs in parallel with Vertex AI Transcription. role:'user' required in contents array."
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "d6db256c-a20e-40e4-ada5-baf0bef6d40e",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4048,
+        -2416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse transcription response\nconst transcriptRaw = $('Vertex AI Transcription').first().json;\nconst transcriptText = transcriptRaw.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\nlet transcriptData = {};\ntry {\n  transcriptData = JSON.parse(transcriptText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim());\n} catch(e) {\n  // Truncated response — salvage what we can\n  const raw = transcriptText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const lastBracket = raw.lastIndexOf('{\"speaker\"');\n  const partial = lastBracket > 0 ? raw.substring(0, lastBracket - 1) + ']}}' : '{}';\n  try { transcriptData = JSON.parse(partial); } catch(e2) { transcriptData = { transcript: [], speakers: [], screen_changes: [], meeting_participants: [] }; }\n}\n\n// Parse screen share response\nconst screenRaw = $('Vertex AI Screen Detection').first().json;\nconst screenText = screenRaw.candidates?.[0]?.content?.parts?.[0]?.text || '{}';\nlet screenData = {};\ntry {\n  screenData = JSON.parse(screenText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim());\n} catch(e) {\n  screenData = { screen_share_periods: [] };\n}\n\nfunction mmssToSec(mmss) {\n  if (!mmss) return 0;\n  const parts = mmss.split(':').map(Number);\n  return parts[0] * 60 + (parts[1] || 0);\n}\n\nconst sopId    = $('Generate SOP ID1').first().json.sop_id;\nconst spFileId = $('Generate SOP ID1').first().json.sharepoint_file_id;\nconst fileName = $('Generate SOP ID1').first().json.file_name;\n\nconst lines = (transcriptData.transcript || []).map((line, idx) => ({\n  sop_id: sopId,\n  sequence: idx + 1,\n  speaker: line.speaker,\n  timestamp_sec: mmssToSec(line.start),\n  content: line.text\n}));\n\nconst participants = transcriptData.meeting_participants || transcriptData.speakers || [];\n\nconst lastLine = transcriptData.transcript?.[transcriptData.transcript.length - 1];\nconst videoDuration = lastLine ? mmssToSec(lastLine.end || lastLine.start) + 30 : 0;\n\nconst usage1 = transcriptRaw.usageMetadata || {};\nconst usage2 = screenRaw.usageMetadata || {};\nconst inputTokens  = (usage1.promptTokenCount     || 0) + (usage2.promptTokenCount     || 0);\nconst outputTokens = (usage1.candidatesTokenCount || 0) + (usage2.candidatesTokenCount || 0);\nconst apiCost = Math.round(((inputTokens * 0.15 / 1000000) + (outputTokens * 0.60 / 1000000)) * 10000) / 10000;\n\nreturn [{ json: { sop_id: sopId, sharepoint_file_id: spFileId, file_name: fileName, transcript_lines: lines, screen_changes: transcriptData.screen_changes || [], participants, screen_share_periods: screenData.screen_share_periods || [], video_duration_sec: videoDuration, speaker_count: participants.length, line_count: lines.length, api_cost: apiCost, input_tokens: inputTokens, output_tokens: outputTokens } }];"
+      },
+      "id": "2550e486-0555-4e58-a438-1c14d7b66104",
+      "name": "Parse Transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4288,
+        -2416
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Setup Config').item.json.SUPABASE_URL }}/rest/v1/transcript_lines",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').item.json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').item.json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.transcript_lines) }}",
+        "options": {}
+      },
+      "id": "270e1b6a-9822-4fe7-ac41-22dcf00a5a06",
+      "name": "Insert Transcript Lines",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4512,
+        -2416
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Setup Config').item.json.SUPABASE_URL }}/rest/v1/sops?id=eq.{{ $('Parse Transcript').first().json.sop_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').item.json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').item.json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ meeting_participants: $('Parse Transcript').first().json.participants, screen_share_periods: $('Parse Transcript').first().json.screen_share_periods, video_duration_sec: $('Parse Transcript').first().json.video_duration_sec }) }}",
+        "options": {}
+      },
+      "id": "debb8c4f-e2a9-40b7-b544-3b392cc4aa1e",
+      "name": "Update SOP Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4736,
+        -2416
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Setup Config').item.json.SUPABASE_URL }}/rest/v1/pipeline_runs?sop_id=eq.{{ $('Parse Transcript').first().json.sop_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Setup Config').item.json.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Setup Config').item.json.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'extracting_frames', current_stage: 'transcription_complete', total_api_cost: $('Parse Transcript').first().json.api_cost, stage_results: { transcription: { speakers: $('Parse Transcript').first().json.speaker_count, lines: $('Parse Transcript').first().json.line_count, cost: $('Parse Transcript').first().json.api_cost }, screen_detection: { periods: ($('Parse Transcript').first().json.screen_share_periods || []).length } } }) }}",
+        "options": {}
+      },
+      "id": "799443ac-f68c-4d71-97b5-7dcf6e753a3f",
+      "name": "Update Pipeline Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4960,
+        -2416
+      ],
+      "alwaysOutputData": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Setup Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Config": {
+      "main": [
+        [
+          {
+            "node": "Get Root Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Root Site": {
+      "main": [
+        [
+          {
+            "node": "Analyze Root Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Root Site": {
+      "main": [
+        [
+          {
+            "node": "Access Saara Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Access Saara Site": {
+      "main": [
+        [
+          {
+            "node": "Get Document Libraries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Document Libraries": {
+      "main": [
+        [
+          {
+            "node": "Find Documents Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Documents Library": {
+      "main": [
+        [
+          {
+            "node": "List SOP Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List SOP Files": {
+      "main": [
+        [
+          {
+            "node": "Get Processed Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Processed Files": {
+      "main": [
+        [
+          {
+            "node": "Filter New MP4 Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter New MP4 Files": {
+      "main": [
+        [
+          {
+            "node": "Any New Files?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any New Files?": {
+      "main": [
+        [
+          {
+            "node": "Process One File At a Time",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No New Files — Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process One File At a Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Download from SharePoint1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download from SharePoint1": {
+      "main": [
+        [
+          {
+            "node": "Generate SOP ID1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate SOP ID1": {
+      "main": [
+        [
+          {
+            "node": "Upload to Azure Blob1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Azure Blob1": {
+      "main": [
+        [
+          {
+            "node": "Create SOP Record1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create SOP Record1": {
+      "main": [
+        [
+          {
+            "node": "Create Pipeline Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pipeline Run": {
+      "main": [
+        [
+          {
+            "node": "Mark File Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark File Processed": {
+      "main": [
+        [
+          {
+            "node": "Start GCS Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start GCS Upload": {
+      "main": [
+        [
+          {
+            "node": "Reattach Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reattach Binary": {
+      "main": [
+        [
+          {
+            "node": "Complete GCS Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete GCS Upload": {
+      "main": [
+        [
+          {
+            "node": "Vertex AI Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vertex AI Transcription": {
+      "main": [
+        [
+          {
+            "node": "Vertex AI Screen Detection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vertex AI Screen Detection": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Parse Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Transcript": {
+      "main": [
+        [
+          {
+            "node": "Insert Transcript Lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Transcript Lines": {
+      "main": [
+        [
+          {
+            "node": "Update SOP Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update SOP Record": {
+      "main": [
+        [
+          {
+            "node": "Update Pipeline Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cf1c0001-ffff-4000-8000-000000000001",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "44d8d2090dfb7e25516b2bba600ce185adb6e19152f8e5fbccb5c4a8e2404fdc"
+  },
+  "id": "",
+  "tags": []
+}

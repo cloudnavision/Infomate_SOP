@@ -85,6 +85,7 @@ async def export_sop(
             {
                 "section_title": sec.section_title,
                 "content_text": sec.content_text or "",
+                "display_order": sec.display_order,
             }
             for sec in sop_detail.sections
         ],

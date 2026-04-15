@@ -137,6 +137,9 @@ class SOP(Base):
     client_name: Mapped[Optional[str]] = mapped_column(String(255))
     process_name: Mapped[Optional[str]] = mapped_column(String(255))
 
+    # Engagement
+    view_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+
     # Ownership
     created_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"))
     published_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"))
@@ -478,4 +481,18 @@ class ExportHistory(Base):
     sop: Mapped["SOP"] = relationship("SOP", back_populates="exports")
     exporter: Mapped[Optional["User"]] = relationship(
         "User", back_populates="export_history"
+    )
+
+
+class SOPLike(Base):
+    __tablename__ = "sop_likes"
+
+    sop_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sops.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
     )

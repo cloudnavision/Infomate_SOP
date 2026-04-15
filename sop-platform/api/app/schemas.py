@@ -118,7 +118,12 @@ class StepSchema(BaseModel):
     sequence: int
     title: str
     description: Optional[str] = None
-    sub_steps: list[Any] = []
+    sub_steps: Optional[list[Any]] = []
+
+    @field_validator("sub_steps", mode="before")
+    @classmethod
+    def coerce_sub_steps(cls, v: Any) -> list:
+        return v if isinstance(v, list) else []
     timestamp_start: float
     timestamp_end: Optional[float] = None
     screenshot_url: Optional[str] = None
@@ -258,6 +263,37 @@ class SOPDetail(BaseModel):
     steps: list[StepSchema] = []
     sections: list[SectionSchema] = []
     watchlist: list[WatchlistSchema] = []
+
+
+class ExportHistoryItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    format: str
+    file_size_bytes: Optional[int] = None
+    created_at: datetime
+
+
+class SOPMetrics(BaseModel):
+    view_count: int
+    like_count: int
+    user_liked: bool
+    step_count: int
+    approved_step_count: int
+    export_count: int
+    recent_exports: list[ExportHistoryItem]
+
+
+class LikeResponse(BaseModel):
+    liked: bool
+    like_count: int
+
+
+class ActivityEvent(BaseModel):
+    event_type: str   # 'created' | 'pipeline' | 'approved' | 'export'
+    label: str
+    detail: Optional[str] = None
+    timestamp: datetime
 
 
 class ExportResponse(BaseModel):

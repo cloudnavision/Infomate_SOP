@@ -160,6 +160,35 @@ export interface PipelineRun {
   retry_count: number
 }
 
+export interface ActivityEvent {
+  event_type: 'created' | 'pipeline' | 'approved' | 'export'
+  label: string
+  detail: string | null
+  timestamp: string
+}
+
+export interface ExportHistoryItem {
+  id: string
+  format: string
+  file_size_bytes: number | null
+  created_at: string
+}
+
+export interface SOPMetrics {
+  view_count: number
+  like_count: number
+  user_liked: boolean
+  step_count: number
+  approved_step_count: number
+  export_count: number
+  recent_exports: ExportHistoryItem[]
+}
+
+export interface LikeResponse {
+  liked: boolean
+  like_count: number
+}
+
 export interface SOPListItem {
   id: string
   title: string

@@ -1,4 +1,4 @@
-import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout } from './types'
+import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout, SOPMetrics, LikeResponse } from './types'
 import { supabase } from '../lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -12,7 +12,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return headers
 }
 
-async function fetchAPI<T>(path: string): Promise<T> {
+export async function fetchAPI<T>(path: string): Promise<T> {
   const headers = await getAuthHeaders()
   const res = await fetch(`${API_BASE}${path}`, { headers })
   if (!res.ok) {
@@ -91,6 +91,12 @@ export async function renderAnnotated(stepId: string): Promise<RenderAnnotatedRe
   return result
 }
 
+export const approveStep = (stepId: string) => mutateAPI<SOPStep>(`/api/steps/${stepId}/approve`, 'PATCH')
+export const fetchMetrics = (id: string) => fetchAPI<SOPMetrics>(`/api/sops/${id}/metrics`)
+export const trackView = (id: string) => mutateAPI<null>(`/api/sops/${id}/view`, 'POST')
+export const toggleLike = (id: string) => mutateAPI<LikeResponse>(`/api/sops/${id}/like`, 'POST')
+export const deleteSOP = (id: string) => mutateAPI<null>(`/api/sops/${id}`, 'DELETE')
+
 // ── User management (admin only) ──────────────────────────────────────────────
 export const fetchUsers = () => fetchAPI<AppUser[]>('/api/users')
 export const createUser = (data: UserCreateInput) => mutateAPI<AppUser>('/api/users', 'POST', data)
@@ -109,4 +115,5 @@ export const sopKeys = {
   transcript: (id: string) => ['sops', id, 'transcript'] as const,
   sections: (id: string) => ['sops', id, 'sections'] as const,
   watchlist: (id: string) => ['sops', id, 'watchlist'] as const,
+  metrics: (id: string) => ['sops', id, 'metrics'] as const,
 }

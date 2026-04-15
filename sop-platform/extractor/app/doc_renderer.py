@@ -103,15 +103,32 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path) -> dict:
             ],
         })
 
-    sections_ctx = [
-        {
-            "section_title": s.get("section_title", ""),
-            "content_text": s.get("content_text") or "",
-        }
-        for s in (sop_data.get("sections") or [])
+    # Split sections: display_order < 50 appear before the procedure, >= 50 after
+    all_sections = sop_data.get("sections") or []
+    sections_pre = [
+        {"section_title": s.get("section_title", ""), "content_text": s.get("content_text") or ""}
+        for s in all_sections
+        if (s.get("display_order") or 0) < 50
+    ]
+    sections_post = [
+        {"section_title": s.get("section_title", ""), "content_text": s.get("content_text") or ""}
+        for s in all_sections
+        if (s.get("display_order") or 0) >= 50
     ]
 
+    process_map = _generate_process_map(tpl, steps_raw, tmp_dir)
     today = date.today().strftime("%d %b %Y")
+
+    # Build TOC entries: pre-sections → Process Map → Detailed Procedure → steps → post-sections
+    toc_entries = []
+    for s in sections_pre:
+        toc_entries.append({"title": s["section_title"], "indent": False})
+    toc_entries.append({"title": "Process Map", "indent": False})
+    toc_entries.append({"title": "Detailed Procedure", "indent": False})
+    for step in steps_ctx:
+        toc_entries.append({"title": f"Step {step['sequence']}: {step['title']}", "indent": True})
+    for s in sections_post:
+        toc_entries.append({"title": s["section_title"], "indent": False})
 
     return {
         "sop_title": sop_data.get("sop_title", ""),
@@ -121,7 +138,10 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path) -> dict:
         "generated_date": today,
         "step_count": sop_data.get("step_count", len(steps_raw)),
         "steps": steps_ctx,
-        "sections": sections_ctx,
+        "sections_pre": sections_pre,
+        "sections_post": sections_post,
+        "process_map": process_map,
+        "toc_entries": toc_entries,
     }
 
 
@@ -140,6 +160,115 @@ def _download_inline_image(
         return InlineImage(tpl, str(img_path), width=Inches(5.5))
     except Exception as exc:
         logger.warning("Could not download screenshot for step %s: %s", step_id, exc)
+        return None
+
+
+def _generate_process_map(
+    tpl: DocxTemplate,
+    steps: list[dict],
+    tmp_dir: Path,
+) -> Optional[InlineImage]:
+    """
+    Generate a sequential process map PNG using Pillow and return as InlineImage.
+    Draws orange-accented step boxes with downward arrows between them.
+    """
+    if not steps:
+        return None
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+
+        # Layout
+        IMG_W     = 1400
+        PADDING   = 50
+        BOX_H     = 82
+        BOX_R     = 12       # corner radius
+        ARROW_H   = 34
+        CIRCLE_R  = 24
+        HEADER_H  = 72
+
+        # Palette
+        ORANGE      = (232, 92, 26)
+        LIGHT_GREY  = (245, 245, 245)
+        BORDER      = (204, 204, 204)
+        TEXT_DARK   = (26, 26, 26)
+        WHITE       = (255, 255, 255)
+
+        n = len(steps)
+        total_h = HEADER_H + PADDING + n * BOX_H + (n - 1) * ARROW_H + PADDING
+
+        img  = Image.new("RGB", (IMG_W, total_h), WHITE)
+        draw = ImageDraw.Draw(img)
+
+        # Fonts (fall back to default pixel font if DejaVu not present)
+        try:
+            fnt_head = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24
+            )
+            fnt_body = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 19
+            )
+            fnt_num  = ImageFont.truetype(
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 21
+            )
+        except Exception:
+            fnt_head = fnt_body = fnt_num = ImageFont.load_default()
+
+        # Header bar
+        draw.rectangle([(0, 0), (IMG_W, HEADER_H)], fill=ORANGE)
+        draw.text((PADDING, HEADER_H // 2 - 14), "Process Flow", font=fnt_head, fill=WHITE)
+
+        y      = HEADER_H + PADDING
+        box_x1 = PADDING
+        box_x2 = IMG_W - PADDING
+        mid_x  = IMG_W // 2
+
+        for i, step in enumerate(steps):
+            is_last = i == n - 1
+
+            # Step box
+            draw.rounded_rectangle(
+                [(box_x1, y), (box_x2, y + BOX_H)],
+                radius=BOX_R,
+                fill=LIGHT_GREY,
+                outline=ORANGE if is_last else BORDER,
+                width=2,
+            )
+
+            # Numbered circle on the left
+            cx = box_x1 + PADDING // 2 + CIRCLE_R
+            cy = y + BOX_H // 2
+            draw.ellipse(
+                [(cx - CIRCLE_R, cy - CIRCLE_R), (cx + CIRCLE_R, cy + CIRCLE_R)],
+                fill=ORANGE,
+            )
+            num_str = str(step.get("sequence", i + 1))
+            draw.text((cx - CIRCLE_R // 2 - 1, cy - CIRCLE_R // 2 + 1), num_str, font=fnt_num, fill=WHITE)
+
+            # Step title
+            title    = step.get("title", "")
+            title    = title[:72] + ("…" if len(title) > 72 else "")
+            text_x   = cx + CIRCLE_R + 16
+            text_y   = y + BOX_H // 2 - 12
+            draw.text((text_x, text_y), title, font=fnt_body, fill=TEXT_DARK)
+
+            y += BOX_H
+
+            # Arrow between steps
+            if not is_last:
+                arrow_tip = y + ARROW_H
+                draw.line([(mid_x, y), (mid_x, arrow_tip - 10)], fill=BORDER, width=2)
+                draw.polygon(
+                    [(mid_x - 9, arrow_tip - 10), (mid_x + 9, arrow_tip - 10), (mid_x, arrow_tip)],
+                    fill=BORDER,
+                )
+                y += ARROW_H
+
+        map_path = tmp_dir / "process_map.png"
+        img.save(str(map_path), "PNG")
+        return InlineImage(tpl, str(map_path), width=Inches(5.5))
+
+    except Exception as exc:
+        logger.warning("Could not generate process map: %s", exc)
         return None
 
 

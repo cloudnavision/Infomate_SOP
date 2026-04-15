@@ -1,6 +1,6 @@
  # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-04-03 (Phase 8 complete)
+Last updated: 2026-04-09 (Phase 9 — Workflow 5 fixed)
 
 ---
 
@@ -239,7 +239,7 @@ Last updated: 2026-04-03 (Phase 8 complete)
 - [x] Share link → copies URL, toast appears
 
 ### Known Issue (tracked)
-- sopnew SOP has NULL step descriptions/sub_steps — pipeline stage that generates them (Gemini step content workflow) never ran for this recording. See memory note. UI is ready — will display automatically when data exists.
+- ~~sopnew SOP has NULL step descriptions/sub_steps~~ — **Fixed 2026-04-09**: Workflow 5 now generates title/description/sub_steps for all steps.
 
 ---
 
@@ -294,3 +294,17 @@ Last updated: 2026-04-03 (Phase 8 complete)
 - [x] Viewer role sees no editor button — static screenshot unchanged
 - [x] ↻ Re-render Annotated PNG button in editor right panel
 - [x] Query cache invalidated on save + re-render
+
+---
+
+## Phase 9: Step Content Generation ✅
+
+### 9a: Workflow 5 — Generate Step Content ✅
+- [x] Fixed splitInBatches loop connection (main[1] = loop → Prepare Step Context, main[0] = done → Mark Pipeline Complete)
+- [x] Removed broken Check If All Done + All Steps Done? nodes — not needed, done output fires automatically
+- [x] Mark Pipeline Complete uses $('Setup Config') + $('Extract Run Info') references (not $json — unavailable at done output)
+- [x] Fixed all Authorization headers to `={{ 'Bearer ' + $json.SUPABASE_SERVICE_ROLE_KEY }}` format
+- [x] Get Transcript Lines query uses timestamp range (gte/lte) instead of linked_step_id (was NULL for new SOPs)
+- [x] Added gemini_description fallback context for steps with no transcript lines
+- [x] Increased maxOutputTokens from 1024 → 8192 (Gemini 2.5 Flash thinking tokens consumed budget)
+- [x] All 11 steps for SOP 58eeee02 now have title + description + sub_steps populated ✅

@@ -8,7 +8,7 @@ import { StepCard } from '../components/StepCard'
 import { VideoPlayer } from '../components/VideoPlayer'
 import { TranscriptPanel } from '../components/TranscriptPanel'
 import { SOPPageHeader } from '../components/SOPPageHeader'
-import { fetchSOP, fetchTranscript, sopKeys } from '../api/client'
+import { fetchSOP, fetchTranscript, trackView, sopKeys } from '../api/client'
 
 export const Route = createFileRoute('/sop/$id/procedure')({
   component: ProcedurePage,
@@ -33,6 +33,12 @@ function ProcedurePage() {
   const { playerRef, handleTimeUpdate, seekTo } = useStepSync(sop?.steps ?? [])
 
   const selectedStep = sop?.steps.find((s) => s.id === selectedStepId) ?? null
+
+  // Track view once on mount
+  useEffect(() => {
+    trackView(id).catch(() => {/* silent — non-critical */})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   // Auto-select first step on load
   useEffect(() => {

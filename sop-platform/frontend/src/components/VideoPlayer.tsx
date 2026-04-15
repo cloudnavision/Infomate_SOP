@@ -61,23 +61,16 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
   }, [step?.id, videoMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderFallback = () => {
-    if (step?.annotated_screenshot_url) {
+    const imgUrl = step?.annotated_screenshot_url ?? step?.screenshot_url ?? null
+    if (imgUrl) {
       return (
         <div className="relative">
-          <img src={step.annotated_screenshot_url} className="w-full rounded" alt="Annotated screenshot" />
-          <span className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full border border-amber-200">
-            Clip processing...
-          </span>
-        </div>
-      )
-    }
-    if (step?.screenshot_url) {
-      return (
-        <div className="relative">
-          <img src={step.screenshot_url} className="w-full rounded" alt="Screenshot" />
-          <span className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full border border-amber-200">
-            Clip processing...
-          </span>
+          <img src={imgUrl} className="w-full rounded" alt="Screenshot" />
+          {videoMode === 'clip' && (
+            <span className="absolute top-2 right-2 bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full border border-gray-200">
+              No clip for this step
+            </span>
+          )}
         </div>
       )
     }
@@ -107,7 +100,7 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
         {/* Fixed height so transcript panel gets enough space below */}
         <div
           className={currentSrc ? 'w-full bg-black' : 'hidden'}
-          style={{ height: '260px' }}
+          style={{ height: '220px' }}
         >
           <div data-vjs-player style={{ width: '100%', height: '100%' }}>
             <video ref={videoElRef} className="video-js vjs-big-play-centered" />

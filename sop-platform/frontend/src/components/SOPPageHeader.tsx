@@ -47,14 +47,18 @@ export function SOPPageHeader({ sop }: Props) {
     ? formatDate(sop.meeting_date)
     : formatDate(sop.created_at)
 
-  const meta = [sop.client_name, 'v1.x', dateStr ? `Updated ${dateStr}` : null]
+  // Use process_name if available, otherwise strip timestamp noise from raw title
+  const displayTitle = sop.process_name
+    || sop.title.replace(/\b\d{8}\s+\d{6}\b/g, '').replace(/\s{2,}/g, ' ').trim()
+
+  const meta = [sop.client_name, sop.process_name ? null : null, dateStr ? `Updated ${dateStr}` : null]
     .filter(Boolean)
     .join(' | ')
 
   return (
     <div className="flex items-start justify-between pb-4 border-b border-gray-100 mb-4 shrink-0">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{sop.title}</h1>
+        <h1 className="text-xl font-bold text-gray-900 leading-snug">{displayTitle}</h1>
         {meta && <p className="text-sm text-gray-500 mt-0.5">{meta}</p>}
       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Stage, Layer, Circle, Text, Group } from 'react-konva'
+import { Stage, Layer, Shape, Text, Group } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import { useQueryClient } from '@tanstack/react-query'
 import type { StepCallout, CalloutPatchItem } from '../api/types'
@@ -132,7 +132,10 @@ export function AnnotationEditorModal({
   }
 
   const { width: sw, height: sh } = stageDim
-  const displayUrl = rerenderUrl ? `${rerenderUrl}?t=${Date.now()}` : screenshotUrl
+  // rerenderUrl already has SAS (applied by API) — just append cache-buster
+  const displayUrl = rerenderUrl
+    ? `${rerenderUrl}${rerenderUrl.includes('?') ? '&' : '?'}t=${Date.now()}`
+    : screenshotUrl
   const allGemini = local.every((c) => c.confidence === 'gemini_only' && !c.was_repositioned)
 
   return (
@@ -201,19 +204,44 @@ export function AnnotationEditorModal({
                         onDragEnd={(e) => handleDragEnd(c.id, e)}
                         onClick={(e) => { e.cancelBubble = true; setActiveId(c.id) }}
                       >
-                        <Circle
-                          radius={isActive ? 23 : 20}
-                          fill="white"
-                          stroke={isActive ? '#3b82f6' : 'transparent'}
-                          strokeWidth={isActive ? 3 : 0}
+                        {/* Pentagon/arrow badge — points right, centred on (0,0) */}
+                        {isActive && (
+                          <Shape
+                            sceneFunc={(ctx, shape) => {
+                              ctx.beginPath()
+                              ctx.moveTo(-23, -17)
+                              ctx.lineTo(11, -17)
+                              ctx.lineTo(23, 0)
+                              ctx.lineTo(11, 17)
+                              ctx.lineTo(-23, 17)
+                              ctx.closePath()
+                              ctx.fillStrokeShape(shape)
+                            }}
+                            fill="white"
+                            stroke="#3b82f6"
+                            strokeWidth={3}
+                          />
+                        )}
+                        <Shape
+                          sceneFunc={(ctx, shape) => {
+                            const w = 38, h = 28, tip = 13
+                            ctx.beginPath()
+                            ctx.moveTo(-w / 2,        -h / 2)
+                            ctx.lineTo(w / 2 - tip,   -h / 2)
+                            ctx.lineTo(w / 2,          0)
+                            ctx.lineTo(w / 2 - tip,    h / 2)
+                            ctx.lineTo(-w / 2,         h / 2)
+                            ctx.closePath()
+                            ctx.fillStrokeShape(shape)
+                          }}
+                          fill={color}
                         />
-                        <Circle radius={17} fill={color} />
                         <Text
                           text={String(c.callout_number)}
                           fontSize={12}
                           fontStyle="bold"
                           fill="white"
-                          offsetX={4}
+                          offsetX={7}
                           offsetY={6}
                         />
                       </Group>

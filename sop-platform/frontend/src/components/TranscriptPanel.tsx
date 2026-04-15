@@ -3,19 +3,19 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useSOPStore } from '../hooks/useSOPStore'
 import type { TranscriptLine } from '../api/types'
 
-interface Props {
-  lines: TranscriptLine[]
-  onSeek: (seconds: number) => void
-}
-
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+interface Props {
+  lines: TranscriptLine[]
+  onSeek: (seconds: number) => void
+}
+
 export function TranscriptPanel({ lines, onSeek }: Props) {
-  const { selectedStepId } = useSOPStore()
+  const { currentVideoTime } = useSOPStore()
   const [search, setSearch] = useState('')
   const [speakerFilter, setSpeakerFilter] = useState<string | null>(null)
 
@@ -25,7 +25,7 @@ export function TranscriptPanel({ lines, onSeek }: Props) {
   )
 
   const filteredLines = useMemo(() => {
-    let result = lines
+    let result = [...lines].sort((a, b) => a.timestamp_sec - b.timestamp_sec)
     if (speakerFilter) result = result.filter((l) => l.speaker === speakerFilter)
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -38,22 +38,35 @@ export function TranscriptPanel({ lines, onSeek }: Props) {
     return result
   }, [lines, search, speakerFilter])
 
+  // Find the active transcript line: last line whose timestamp <= currentVideoTime
+  const activeLineIndex = useMemo(() => {
+    if (currentVideoTime <= 0) return -1
+    let last = -1
+    for (let i = 0; i < filteredLines.length; i++) {
+      if (filteredLines[i].timestamp_sec <= currentVideoTime) last = i
+      else break
+    }
+    return last
+  }, [filteredLines, currentVideoTime])
+
   const parentRef = useRef<HTMLDivElement>(null)
+  const lastScrolledIndex = useRef(-1)
 
   const virtualizer = useVirtualizer({
     count: filteredLines.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
+    estimateSize: () => 80,
     overscan: 5,
+    measureElement: (el) => el.getBoundingClientRect().height,
   })
 
+  // Auto-scroll to active line as video plays
   useEffect(() => {
-    if (!selectedStepId) return
-    const idx = filteredLines.findIndex((l) => l.linked_step_id === selectedStepId)
-    if (idx >= 0) {
-      virtualizer.scrollToIndex(idx, { align: 'start' })
+    if (activeLineIndex >= 0 && activeLineIndex !== lastScrolledIndex.current) {
+      lastScrolledIndex.current = activeLineIndex
+      virtualizer.scrollToIndex(activeLineIndex, { align: 'start' })
     }
-  }, [selectedStepId, filteredLines]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeLineIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (lines.length === 0) {
     return (
@@ -96,31 +109,32 @@ export function TranscriptPanel({ lines, onSeek }: Props) {
         <div style={{ height: virtualizer.getTotalSize() + 'px', position: 'relative' }}>
           {virtualizer.getVirtualItems().map((virtualItem) => {
             const line = filteredLines[virtualItem.index]
-            const isLinked = line.linked_step_id === selectedStepId
+            const isActive = virtualItem.index === activeLineIndex
 
             return (
               <div
                 key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
                 style={{
                   position: 'absolute',
                   top: virtualItem.start + 'px',
                   width: '100%',
-                  height: '72px',
                 }}
                 onClick={() => onSeek(line.timestamp_sec)}
                 className={`px-3 py-2 cursor-pointer hover:bg-gray-50 border-l-2 transition-colors ${
-                  isLinked ? 'border-blue-400 bg-blue-50' : 'border-transparent'
+                  isActive ? 'border-blue-500 bg-blue-50' : 'border-transparent'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs text-gray-400 font-mono tabular-nums">
+                  <span className={`text-xs font-mono tabular-nums ${isActive ? 'text-blue-500 font-semibold' : 'text-gray-400'}`}>
                     {formatTime(line.timestamp_sec)}
                   </span>
                   <span className="text-xs font-semibold text-gray-600 truncate">
                     {line.speaker}
                   </span>
                 </div>
-                <p className="text-sm text-gray-700 leading-snug line-clamp-3">{line.content}</p>
+                <p className="text-sm text-gray-700 leading-snug pb-2">{line.content}</p>
               </div>
             )
           })}

@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
 from app.models import SOP, SOPStep, StepCallout, User
-from app.schemas import StepSchema, CalloutPatchItem, CalloutSchema, RenderAnnotatedResponse
+from app.schemas import StepSchema, CalloutPatchItem, CalloutSchema, RenderAnnotatedResponse, with_sas
 from app.config import settings
 
 router = APIRouter(prefix="/api", tags=["steps"])
@@ -103,6 +103,36 @@ async def patch_callouts(
     return [CalloutSchema.model_validate(c) for c in callouts]
 
 
+@router.patch("/steps/{step_id}/approve", response_model=StepSchema)
+async def approve_step(
+    step_id: UUID,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle is_approved on a step. Editor/Admin only."""
+    stmt = (
+        select(SOPStep)
+        .where(SOPStep.id == step_id)
+        .options(selectinload(SOPStep.callouts), selectinload(SOPStep.clips), selectinload(SOPStep.discussions))
+    )
+    step = (await db.execute(stmt)).scalar_one_or_none()
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+
+    step.is_approved = not step.is_approved
+    if step.is_approved:
+        step.reviewed_by = current_user.id
+        from datetime import datetime, timezone
+        step.reviewed_at = datetime.now(timezone.utc)
+    else:
+        step.reviewed_by = None
+        step.reviewed_at = None
+
+    await db.commit()
+    await db.refresh(step)
+    return StepSchema.model_validate(step)
+
+
 @router.post("/steps/{step_id}/render-annotated", response_model=RenderAnnotatedResponse)
 async def render_annotated(
     step_id: UUID,
@@ -155,4 +185,4 @@ async def render_annotated(
     step.annotated_screenshot_url = annotated_url
     await db.commit()
 
-    return RenderAnnotatedResponse(annotated_screenshot_url=annotated_url)
+    return RenderAnnotatedResponse(annotated_screenshot_url=with_sas(annotated_url) or annotated_url)

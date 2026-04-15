@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SOPStep, TranscriptLine } from '../api/types'
 import { useAuth } from '../hooks/useAuth'
+import { approveStep, sopKeys } from '../api/client'
 import { CalloutList } from './CalloutList'
 import { DiscussionCard } from './DiscussionCard'
 import { ScreenshotModal } from './ScreenshotModal'
@@ -37,7 +39,22 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const { appUser } = useAuth()
+  const qc = useQueryClient()
   const canEdit = appUser?.role === 'editor' || appUser?.role === 'admin'
+
+  const approveMutation = useMutation({
+    mutationFn: () => approveStep(step!.id),
+    onSuccess: (updated) => {
+      if (!updated) return
+      qc.setQueryData<{ steps: SOPStep[] }>(
+        sopKeys.detail(updated.sop_id),
+        (old: any) => old
+          ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) }
+          : old,
+      )
+      qc.invalidateQueries({ queryKey: sopKeys.metrics(updated.sop_id) })
+    },
+  })
 
   if (!step) {
     return (
@@ -165,6 +182,24 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
           {step.discussions.map((d) => (
             <DiscussionCard key={d.id} discussion={d} />
           ))}
+        </div>
+      )}
+
+      {/* Approve step */}
+      {canEdit && (
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={() => approveMutation.mutate()}
+            disabled={approveMutation.isPending}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              step.is_approved
+                ? 'bg-green-50 border border-green-200 text-green-700 hover:bg-green-100'
+                : 'bg-white border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600'
+            }`}
+          >
+            <span>{step.is_approved ? '✓' : '○'}</span>
+            <span>{step.is_approved ? 'Approved' : 'Mark as Approved'}</span>
+          </button>
         </div>
       )}
     </div>

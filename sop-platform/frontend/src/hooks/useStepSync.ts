@@ -4,7 +4,7 @@ import { useSOPStore } from './useSOPStore'
 import type { SOPStep } from '../api/types'
 
 export function useStepSync(steps: SOPStep[]) {
-  const { selectedStepId, setSelectedStep, videoMode, setVideoMode } = useSOPStore()
+  const { selectedStepId, setSelectedStep, videoMode, setVideoMode, setCurrentVideoTime } = useSOPStore()
 
   const playerRef = useRef<Player | null>(null)
   // Ref-based guard: synchronous, no re-render, immune to timeupdate race condition
@@ -25,6 +25,8 @@ export function useStepSync(steps: SOPStep[]) {
     (time: number) => {
       seekSourceRef.current = null  // reset guard synchronously at top of every call
 
+      setCurrentVideoTime(time)
+
       if (videoMode !== 'full') return
 
       const currentStep = steps.find(
@@ -39,7 +41,7 @@ export function useStepSync(steps: SOPStep[]) {
         // seekSourceRef resets to null on next timeupdate call (~250ms later)
       }
     },
-    [steps, selectedStepId, videoMode, setSelectedStep],
+    [steps, selectedStepId, videoMode, setSelectedStep, setCurrentVideoTime],
   )
 
   // Called by TranscriptPanel when a transcript line is clicked

@@ -141,6 +141,7 @@ class RenderAnnotatedRequest(BaseModel):
     step_id: str
     screenshot_url: str           # SAS URL for download
     callouts: list[AnnotatedCallout]
+    highlight_boxes: list[dict] = []
     azure_blob_base_url: str      # e.g. https://cnavinfsop.blob.core.windows.net/infsop
     azure_sas_token: str
 
@@ -260,6 +261,7 @@ async def render_annotated_endpoint(req: RenderAnnotatedRequest) -> RenderAnnota
             callouts=[c.model_dump() for c in req.callouts],
             azure_blob_base_url=req.azure_blob_base_url,
             azure_sas_token=req.azure_sas_token,
+            highlight_boxes=req.highlight_boxes,
         )
     except Exception as exc:
         logger.exception("render_annotated failed for step_id=%s", req.step_id)
@@ -462,13 +464,26 @@ def _run_clip_job(req: ClipRequest) -> ClipResponse:
 
 # ── Azure / HTTP helpers ──────────────────────────────────────────────────────
 
-def _download_file(url: str, dest: Path) -> None:
-    """Stream-download a file from url to dest. Raises on HTTP error."""
-    with requests.get(url, stream=True, timeout=300) as resp:
-        resp.raise_for_status()
-        with open(dest, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=8 * 1024 * 1024):
-                f.write(chunk)
+def _download_file(url: str, dest: Path, max_retries: int = 5) -> None:
+    """Stream-download a file from url to dest with retry on incomplete read."""
+    for attempt in range(max_retries):
+        try:
+            downloaded = dest.stat().st_size if dest.exists() else 0
+            headers = {"Range": f"bytes={downloaded}-"} if downloaded > 0 else {}
+            with requests.get(url, stream=True, timeout=600, headers=headers) as resp:
+                if resp.status_code == 416:
+                    return  # Range not satisfiable — file already complete
+                resp.raise_for_status()
+                mode = "ab" if downloaded > 0 else "wb"
+                with open(dest, mode) as f:
+                    for chunk in resp.iter_content(chunk_size=8 * 1024 * 1024):
+                        f.write(chunk)
+            return
+        except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError) as e:
+            if attempt < max_retries - 1:
+                logger.warning("Download interrupted (attempt %d/%d): %s — retrying", attempt + 1, max_retries, e)
+            else:
+                raise
 
 
 def _upload_to_azure_blob(local_path: Path, sas_url: str) -> None:

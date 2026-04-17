@@ -17,7 +17,8 @@
 | 5 | **Extracting Clips** | n8n Workflow 4: FFmpeg clips per step → Azure Blob → step_clips rows | ✅ Complete |
 | 6 | **Video + Transcript UI** | VideoPlayer, step sync, TranscriptPanel, StepCard, SOPPageHeader, 3-col layout | ✅ Complete |
 | 7 | **Exports + Polish** | DOCX/PDF generation, dashboard, Cloudflare ZTNA | ✅ Complete (7c deferred) |
-| 8 | **Annotation Editor** | Konva.js drag-and-drop callout editor, confidence colour coding (Editor role) | ◀ Next |
+| 8 | **Annotation Editor** | Konva.js drag-and-drop callout editor, confidence colour coding (Editor role) | ✅ Complete |
+| 9 | **Next Phase** | TBD | ◀ Next |
 
 > ⚠️ Phase 4 note: Running on **Workflow 3b (Gemini Only)** — ~60% coordinate accuracy. Full hybrid (Workflow 3) needs GCP Vision API billing enabled ($10 prepayment). `target_y` values unreliable for toolbar elements — all callouts have `confidence = 'gemini_only'`.
 

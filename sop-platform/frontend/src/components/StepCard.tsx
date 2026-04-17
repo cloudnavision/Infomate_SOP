@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SOPStep, TranscriptLine } from '../api/types'
 import { useAuth } from '../hooks/useAuth'
+import { approveStep, renameStep, updateSubSteps, sopKeys } from '../api/client'
 import { CalloutList } from './CalloutList'
 import { DiscussionCard } from './DiscussionCard'
 import { ScreenshotModal } from './ScreenshotModal'
@@ -36,8 +38,63 @@ function getKTLines(step: SOPStep, lines: TranscriptLine[]): TranscriptLine[] {
 export function StepCard({ step, transcriptLines, onSeek }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [renamingTitle, setRenamingTitle] = useState(false)
+  const [titleInput, setTitleInput] = useState('')
+  const titleInputRef = useRef<HTMLInputElement>(null)
+  const [editingSubSteps, setEditingSubSteps] = useState(false)
+  const [subStepInputs, setSubStepInputs] = useState<string[]>([])
   const { appUser } = useAuth()
+  const qc = useQueryClient()
   const canEdit = appUser?.role === 'editor' || appUser?.role === 'admin'
+
+  const subStepsMutation = useMutation({
+    mutationFn: (items: string[]) => updateSubSteps(step!.id, items),
+    onSuccess: (updated) => {
+      if (!updated) return
+      qc.setQueryData<{ steps: SOPStep[] }>(
+        sopKeys.detail(updated.sop_id),
+        (old: any) => old
+          ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) }
+          : old,
+      )
+      setEditingSubSteps(false)
+    },
+  })
+
+  const renameMutation = useMutation({
+    mutationFn: (title: string) => renameStep(step!.id, title),
+    onSuccess: (updated) => {
+      if (!updated) return
+      qc.setQueryData<{ steps: SOPStep[] }>(
+        sopKeys.detail(updated.sop_id),
+        (old: any) => old
+          ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) }
+          : old,
+      )
+      setRenamingTitle(false)
+    },
+  })
+
+  useEffect(() => {
+    if (renamingTitle && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
+    }
+  }, [renamingTitle])
+
+  const approveMutation = useMutation({
+    mutationFn: () => approveStep(step!.id),
+    onSuccess: (updated) => {
+      if (!updated) return
+      qc.setQueryData<{ steps: SOPStep[] }>(
+        sopKeys.detail(updated.sop_id),
+        (old: any) => old
+          ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) }
+          : old,
+      )
+      qc.invalidateQueries({ queryKey: sopKeys.metrics(updated.sop_id) })
+    },
+  })
 
   if (!step) {
     return (
@@ -58,7 +115,48 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
         <span className="shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">
           {step.sequence}
         </span>
-        <h2 className="text-base font-semibold text-gray-900 leading-snug">{step.title}</h2>
+        {renamingTitle ? (
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              ref={titleInputRef}
+              value={titleInput}
+              onChange={e => setTitleInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') renameMutation.mutate(titleInput.trim())
+                if (e.key === 'Escape') setRenamingTitle(false)
+              }}
+              className="flex-1 text-sm font-semibold border border-violet-300 rounded-lg px-2.5 py-1 outline-none focus:ring-1 focus:ring-violet-200"
+            />
+            <button
+              onClick={() => renameMutation.mutate(titleInput.trim())}
+              disabled={renameMutation.isPending || !titleInput.trim()}
+              className="text-xs px-2.5 py-1 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 font-medium"
+            >
+              {renameMutation.isPending ? '…' : 'Save'}
+            </button>
+            <button
+              onClick={() => setRenamingTitle(false)}
+              className="text-xs px-2.5 py-1 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-start gap-2">
+            <h2 className="text-base font-semibold text-gray-900 leading-snug">{step.title}</h2>
+            {canEdit && (
+              <button
+                onClick={() => { setTitleInput(step.title); setRenamingTitle(true) }}
+                className="text-gray-400 hover:text-violet-600 mt-0.5 shrink-0 transition-colors"
+                title="Rename step"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Description */}
@@ -67,16 +165,81 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
       )}
 
       {/* Sub-steps */}
-      {subSteps.length > 0 && (
+      {(subSteps.length > 0 || canEdit) && (
         <div>
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-            Sub-steps
-          </h4>
-          <ul className="space-y-1 list-disc list-inside text-sm text-gray-700">
-            {subSteps.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
+          <div className="flex items-center justify-between mb-1.5">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sub-steps</h4>
+            {canEdit && !editingSubSteps && (
+              <button
+                onClick={() => { setSubStepInputs(subSteps.length ? [...subSteps] : ['']); setEditingSubSteps(true) }}
+                className="text-gray-400 hover:text-violet-600 transition-colors"
+                title="Edit sub-steps"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {editingSubSteps ? (
+            <div className="space-y-2">
+              {subStepInputs.map((val, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}.</span>
+                  <input
+                    value={val}
+                    onChange={e => setSubStepInputs(prev => prev.map((s, idx) => idx === i ? e.target.value : s))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.preventDefault(); setSubStepInputs(prev => [...prev.slice(0, i + 1), '', ...prev.slice(i + 1)]) }
+                      if (e.key === 'Backspace' && !val && subStepInputs.length > 1) { e.preventDefault(); setSubStepInputs(prev => prev.filter((_, idx) => idx !== i)) }
+                    }}
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-1 outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-100"
+                    placeholder={`Sub-step ${i + 1}`}
+                    autoFocus={i === subStepInputs.length - 1 && val === ''}
+                  />
+                  <button
+                    onClick={() => setSubStepInputs(prev => prev.filter((_, idx) => idx !== i))}
+                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+
+              <button
+                onClick={() => setSubStepInputs(prev => [...prev, ''])}
+                className="text-xs text-violet-600 hover:text-violet-700 flex items-center gap-1 mt-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Add sub-step
+              </button>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => subStepsMutation.mutate(subStepInputs)}
+                  disabled={subStepsMutation.isPending}
+                  className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 font-medium"
+                >
+                  {subStepsMutation.isPending ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setEditingSubSteps(false)}
+                  className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ul className="space-y-1 list-disc list-inside text-sm text-gray-700">
+              {subSteps.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -121,6 +284,7 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
               stepNumber={step.sequence}
               screenshotUrl={screenshotUrl}
               callouts={step.callouts}
+              highlight_boxes={step.highlight_boxes || []}
               onClose={() => setEditorOpen(false)}
             />
           )}
@@ -165,6 +329,24 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
           {step.discussions.map((d) => (
             <DiscussionCard key={d.id} discussion={d} />
           ))}
+        </div>
+      )}
+
+      {/* Approve step */}
+      {canEdit && (
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            onClick={() => approveMutation.mutate()}
+            disabled={approveMutation.isPending}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              step.is_approved
+                ? 'bg-green-50 border border-green-200 text-green-700 hover:bg-green-100'
+                : 'bg-white border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600'
+            }`}
+          >
+            <span>{step.is_approved ? '✓' : '○'}</span>
+            <span>{step.is_approved ? 'Approved' : 'Mark as Approved'}</span>
+          </button>
         </div>
       )}
     </div>

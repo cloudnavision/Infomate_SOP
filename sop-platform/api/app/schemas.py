@@ -118,7 +118,12 @@ class StepSchema(BaseModel):
     sequence: int
     title: str
     description: Optional[str] = None
-    sub_steps: list[Any] = []
+    sub_steps: Optional[list[Any]] = []
+
+    @field_validator("sub_steps", mode="before")
+    @classmethod
+    def coerce_sub_steps(cls, v: Any) -> list:
+        return v if isinstance(v, list) else []
     timestamp_start: float
     timestamp_end: Optional[float] = None
     screenshot_url: Optional[str] = None
@@ -139,6 +144,7 @@ class StepSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    highlight_boxes: list[Any] = []
     callouts: list[CalloutSchema] = []
     clips: list[StepClipSchema] = []
     discussions: list[DiscussionSchema] = []
@@ -225,6 +231,7 @@ class SOPListItem(BaseModel):
     step_count: int = 0
     pipeline_status: Optional[str] = None   # latest pipeline_runs.status
     pipeline_stage: Optional[str] = None    # latest pipeline_runs.current_stage
+    tags: list[dict] = []  # [{name: str, color: str}]
 
 
 class SOPDetail(BaseModel):
@@ -260,6 +267,38 @@ class SOPDetail(BaseModel):
     watchlist: list[WatchlistSchema] = []
 
 
+class ExportHistoryItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    format: str
+    file_size_bytes: Optional[int] = None
+    created_at: datetime
+
+
+class SOPMetrics(BaseModel):
+    view_count: int
+    like_count: int
+    user_liked: bool
+    step_count: int
+    approved_step_count: int
+    export_count: int
+    recent_exports: list[ExportHistoryItem]
+
+
+class LikeResponse(BaseModel):
+    liked: bool
+    like_count: int
+
+
+class ActivityEvent(BaseModel):
+    event_type: str   # 'created' | 'pipeline' | 'approved' | 'export' | 'edit'
+    label: str
+    detail: Optional[str] = None
+    timestamp: datetime
+    actor_name: Optional[str] = None
+
+
 class ExportResponse(BaseModel):
     download_url: str   # Azure URL with SAS token appended
     filename: str
@@ -268,9 +307,25 @@ class ExportResponse(BaseModel):
 
 class CalloutPatchItem(BaseModel):
     id: uuid.UUID
-    target_x: int   # 0–100 integer percentage
-    target_y: int   # 0–100 integer percentage
+    target_x: int
+    target_y: int
     was_repositioned: bool
+    label: Optional[str] = None
+
+
+class NewCalloutItem(BaseModel):
+    callout_number: int
+    label: str = "Manual callout"
+    target_x: int
+    target_y: int
+
+class HighlightBoxItem(BaseModel):
+    id: str
+    x: int
+    y: int
+    w: int
+    h: int
+    color: str = "yellow"
 
 
 class RenderAnnotatedResponse(BaseModel):

@@ -1,6 +1,6 @@
  # SOP Automation Platform — Master Checklist
 
-Last updated: 2026-04-03 (Phase 7 complete — 7c deferred)
+Last updated: 2026-04-09 (Phase 9 — Workflow 5 fixed)
 
 ---
 
@@ -239,7 +239,7 @@ Last updated: 2026-04-03 (Phase 7 complete — 7c deferred)
 - [x] Share link → copies URL, toast appears
 
 ### Known Issue (tracked)
-- sopnew SOP has NULL step descriptions/sub_steps — pipeline stage that generates them (Gemini step content workflow) never ran for this recording. See memory note. UI is ready — will display automatically when data exists.
+- ~~sopnew SOP has NULL step descriptions/sub_steps~~ — **Fixed 2026-04-09**: Workflow 5 now generates title/description/sub_steps for all steps.
 
 ---
 
@@ -267,24 +267,44 @@ Last updated: 2026-04-03 (Phase 7 complete — 7c deferred)
 
 ---
 
-## Phase 8: Annotation Editor (Konva.js) ⬜
+## Phase 8: Annotation Editor (Konva.js) ✅
 
-> Prerequisite: Phase 4b (GCP Vision OCR) must be complete so callout accuracy is ~92% before building editor.
+### 8a: react-konva Setup ✅
+- [x] npm install konva react-konva
 
-### 8a: react-konva Setup
-- [ ] npm install konva react-konva
-- [ ] Lazy loaded for Editor role only
+### 8b: Canvas Callout Editor ✅
+- [x] Full-screen modal with Konva Stage overlaid on screenshot image
+- [x] Numbered callout circles draggable on canvas (raw pixel coordinate system)
+- [x] Confidence colour coding: green (ocr_exact/ocr_fuzzy), amber (gemini_only), blue (repositioned)
+- [x] Active dot highlight (ring on click)
+- [x] Delete callout (Remove button in right panel)
+- [x] Save Changes → PATCH /api/steps/{id}/callouts (bulk update)
+- [x] Natural image dimensions used for pixel ↔ stage coordinate conversion
+- [x] "⚠ gemini_only" warning badge in header when all callouts are Gemini estimates
 
-### 8b: Canvas Callout Editor
-- [ ] Annotated screenshot rendered on Konva Stage
-- [ ] Numbered callout circles draggable on canvas
-- [ ] Confidence colour coding: green (ocr_exact), amber (ocr_fuzzy), red (gemini_only)
-- [ ] Save updated x/y positions to step_callouts via API
+### 8c: Backend ✅
+- [x] PATCH /api/steps/{id}/callouts — bulk update target_x/y, was_repositioned, preserves original_x/y on first reposition (Editor role)
+- [x] POST /api/steps/{id}/render-annotated — proxy to extractor, re-renders PNG, persists annotated_screenshot_url
+- [x] CalloutPatchItem + RenderAnnotatedResponse schemas added
+- [x] extractor/app/annotator.py — Pillow circle renderer (raw pixel coords, blue dots)
+- [x] POST /api/render-annotated endpoint on sop-extractor
 
-### 8c: Backend
-- [ ] PATCH /api/sops/{id}/steps/{step_id}/callouts/{callout_id} — update x, y, match_method=manual
-- [ ] Re-render annotated screenshot PNG via Pillow after position update
+### 8d: Integration ✅
+- [x] "✎ Edit Callouts" button in StepCard (Editor/Admin role only, below screenshot thumbnail)
+- [x] Viewer role sees no editor button — static screenshot unchanged
+- [x] ↻ Re-render Annotated PNG button in editor right panel
+- [x] Query cache invalidated on save + re-render
 
-### 8d: Integration
-- [ ] Editor role sees canvas editor on procedure page
-- [ ] Viewer role sees static annotated screenshot (no Konva)
+---
+
+## Phase 9: Step Content Generation ✅
+
+### 9a: Workflow 5 — Generate Step Content ✅
+- [x] Fixed splitInBatches loop connection (main[1] = loop → Prepare Step Context, main[0] = done → Mark Pipeline Complete)
+- [x] Removed broken Check If All Done + All Steps Done? nodes — not needed, done output fires automatically
+- [x] Mark Pipeline Complete uses $('Setup Config') + $('Extract Run Info') references (not $json — unavailable at done output)
+- [x] Fixed all Authorization headers to `={{ 'Bearer ' + $json.SUPABASE_SERVICE_ROLE_KEY }}` format
+- [x] Get Transcript Lines query uses timestamp range (gte/lte) instead of linked_step_id (was NULL for new SOPs)
+- [x] Added gemini_description fallback context for steps with no transcript lines
+- [x] Increased maxOutputTokens from 1024 → 8192 (Gemini 2.5 Flash thinking tokens consumed budget)
+- [x] All 11 steps for SOP 58eeee02 now have title + description + sub_steps populated ✅

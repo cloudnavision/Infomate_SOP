@@ -8,11 +8,29 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
-from app.models import SOP, SOPStep, StepCallout, User
-from app.schemas import StepSchema, CalloutPatchItem, CalloutSchema, RenderAnnotatedResponse
+from app.models import SOP, SOPStep, StepCallout, User, SOPActivityLog
+from app.schemas import StepSchema, CalloutPatchItem, CalloutSchema, RenderAnnotatedResponse, with_sas, NewCalloutItem, HighlightBoxItem
 from app.config import settings
 
 router = APIRouter(prefix="/api", tags=["steps"])
+
+
+async def _log(
+    db: AsyncSession,
+    sop_id,
+    user_id,
+    event_type: str,
+    label: str,
+    detail: str | None = None,
+):
+    """Add an activity log entry (caller must commit)."""
+    db.add(SOPActivityLog(
+        sop_id=sop_id,
+        user_id=user_id,
+        event_type=event_type,
+        label=label,
+        detail=detail,
+    ))
 
 
 @router.get("/sops/{sop_id}/steps", response_model=list[StepSchema])
@@ -65,6 +83,59 @@ async def get_step(
     return StepSchema.model_validate(step)
 
 
+@router.post("/steps/{step_id}/callouts", response_model=CalloutSchema)
+async def add_callout(
+    step_id: UUID,
+    body: NewCalloutItem,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a new manual callout to a step. Editor/Admin only."""
+    step = await db.scalar(select(SOPStep).where(SOPStep.id == step_id))
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+
+    callout = StepCallout(
+        step_id=step_id,
+        callout_number=body.callout_number,
+        label=body.label,
+        target_x=body.target_x,
+        target_y=body.target_y,
+        was_repositioned=True,
+    )
+    db.add(callout)
+    await _log(db, step.sop_id, current_user.id, "edit",
+               f"Callout #{body.callout_number} added", step.title)
+    await db.commit()
+    await db.refresh(callout)
+    return CalloutSchema.model_validate(callout)
+
+
+@router.patch("/steps/{step_id}/highlight-boxes", response_model=StepSchema)
+async def patch_highlight_boxes(
+    step_id: UUID,
+    items: list[HighlightBoxItem],
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace highlight boxes for a step. Editor/Admin only."""
+    stmt = (
+        select(SOPStep)
+        .where(SOPStep.id == step_id)
+        .options(selectinload(SOPStep.callouts), selectinload(SOPStep.clips), selectinload(SOPStep.discussions))
+    )
+    step = (await db.execute(stmt)).scalar_one_or_none()
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+
+    step.highlight_boxes = [item.model_dump() for item in items]
+    await _log(db, step.sop_id, current_user.id, "edit",
+               "Highlight boxes updated", step.title)
+    await db.commit()
+    await db.refresh(step)
+    return StepSchema.model_validate(step)
+
+
 @router.patch("/steps/{step_id}/callouts", response_model=list[CalloutSchema])
 async def patch_callouts(
     step_id: UUID,
@@ -90,6 +161,16 @@ async def patch_callouts(
         callout.target_x = item.target_x
         callout.target_y = item.target_y
         callout.was_repositioned = item.was_repositioned
+        if item.label is not None:
+            callout.label = item.label
+
+    # Get sop_id for activity log
+    first_callout_step = (await db.execute(
+        select(SOPStep).where(SOPStep.id == step_id)
+    )).scalar_one_or_none()
+    if first_callout_step:
+        await _log(db, first_callout_step.sop_id, current_user.id, "edit",
+                   "Callouts repositioned", first_callout_step.title)
 
     await db.commit()
 
@@ -101,6 +182,101 @@ async def patch_callouts(
     )
     callouts = (await db.execute(stmt)).scalars().all()
     return [CalloutSchema.model_validate(c) for c in callouts]
+
+
+@router.patch("/steps/{step_id}/sub-steps", response_model=StepSchema)
+async def update_sub_steps(
+    step_id: UUID,
+    body: dict,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace sub_steps list for a step. Editor/Admin only."""
+    sub_steps = body.get("sub_steps", [])
+    if not isinstance(sub_steps, list):
+        raise HTTPException(status_code=422, detail="sub_steps must be a list")
+    # Filter out empty strings
+    sub_steps = [s.strip() for s in sub_steps if isinstance(s, str) and s.strip()]
+
+    stmt = (
+        select(SOPStep)
+        .where(SOPStep.id == step_id)
+        .options(selectinload(SOPStep.callouts), selectinload(SOPStep.clips), selectinload(SOPStep.discussions))
+    )
+    step = (await db.execute(stmt)).scalar_one_or_none()
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+
+    step.sub_steps = sub_steps
+    await _log(db, step.sop_id, current_user.id, "edit",
+               "Sub-steps updated", step.title)
+    await db.commit()
+    await db.refresh(step)
+    return StepSchema.model_validate(step)
+
+
+@router.patch("/steps/{step_id}/rename", response_model=StepSchema)
+async def rename_step(
+    step_id: UUID,
+    body: dict,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a step title. Editor/Admin only."""
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Title cannot be empty")
+
+    stmt = (
+        select(SOPStep)
+        .where(SOPStep.id == step_id)
+        .options(selectinload(SOPStep.callouts), selectinload(SOPStep.clips), selectinload(SOPStep.discussions))
+    )
+    step = (await db.execute(stmt)).scalar_one_or_none()
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+
+    old_title = step.title
+    step.title = title
+    await _log(db, step.sop_id, current_user.id, "edit",
+               f"Step {step.sequence} renamed", f'"{old_title}" → "{title}"')
+    await db.commit()
+    await db.refresh(step)
+    return StepSchema.model_validate(step)
+
+
+@router.patch("/steps/{step_id}/approve", response_model=StepSchema)
+async def approve_step(
+    step_id: UUID,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle is_approved on a step. Editor/Admin only."""
+    stmt = (
+        select(SOPStep)
+        .where(SOPStep.id == step_id)
+        .options(selectinload(SOPStep.callouts), selectinload(SOPStep.clips), selectinload(SOPStep.discussions))
+    )
+    step = (await db.execute(stmt)).scalar_one_or_none()
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+
+    step.is_approved = not step.is_approved
+    if step.is_approved:
+        step.reviewed_by = current_user.id
+        from datetime import datetime, timezone
+        step.reviewed_at = datetime.now(timezone.utc)
+        await _log(db, step.sop_id, current_user.id, "approved",
+                   f"Step {step.sequence} approved", step.title)
+    else:
+        step.reviewed_by = None
+        step.reviewed_at = None
+        await _log(db, step.sop_id, current_user.id, "approved",
+                   f"Step {step.sequence} approval revoked", step.title)
+
+    await db.commit()
+    await db.refresh(step)
+    return StepSchema.model_validate(step)
 
 
 @router.post("/steps/{step_id}/render-annotated", response_model=RenderAnnotatedResponse)
@@ -139,6 +315,7 @@ async def render_annotated(
             {"number": c.callout_number, "target_x": c.target_x, "target_y": c.target_y}
             for c in sorted(step.callouts, key=lambda c: c.callout_number)
         ],
+        "highlight_boxes": step.highlight_boxes or [],
         "azure_blob_base_url": settings.azure_blob_base_url,
         "azure_sas_token": settings.azure_blob_sas_token,
     }
@@ -155,4 +332,4 @@ async def render_annotated(
     step.annotated_screenshot_url = annotated_url
     await db.commit()
 
-    return RenderAnnotatedResponse(annotated_screenshot_url=annotated_url)
+    return RenderAnnotatedResponse(annotated_screenshot_url=with_sas(annotated_url) or annotated_url)

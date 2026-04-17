@@ -137,6 +137,11 @@ class SOP(Base):
     client_name: Mapped[Optional[str]] = mapped_column(String(255))
     process_name: Mapped[Optional[str]] = mapped_column(String(255))
 
+    # Tags — [{name: str, color: str}, ...]
+    tags: Mapped[list[Any]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
+
     # Engagement
     view_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
 
@@ -194,6 +199,9 @@ class SOPStep(Base):
     title: Mapped[str] = mapped_column(String(500))
     description: Mapped[Optional[str]] = mapped_column(Text)
     sub_steps: Mapped[list[Any]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )
+    highlight_boxes: Mapped[list[Any]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")
     )
     timestamp_start: Mapped[float] = mapped_column(Float)
@@ -493,6 +501,22 @@ class SOPLike(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
+    )
+
+
+class SOPActivityLog(Base):
+    __tablename__ = "sop_activity_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    sop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sops.id", ondelete="CASCADE"))
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    event_type: Mapped[str] = mapped_column(String(50))
+    label: Mapped[str] = mapped_column(Text)
+    detail: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("NOW()")
     )

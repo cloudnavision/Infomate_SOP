@@ -144,6 +144,7 @@ class StepSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    highlight_boxes: list[Any] = []
     callouts: list[CalloutSchema] = []
     clips: list[StepClipSchema] = []
     discussions: list[DiscussionSchema] = []
@@ -230,6 +231,7 @@ class SOPListItem(BaseModel):
     step_count: int = 0
     pipeline_status: Optional[str] = None   # latest pipeline_runs.status
     pipeline_stage: Optional[str] = None    # latest pipeline_runs.current_stage
+    tags: list[dict] = []  # [{name: str, color: str}]
 
 
 class SOPDetail(BaseModel):
@@ -290,10 +292,11 @@ class LikeResponse(BaseModel):
 
 
 class ActivityEvent(BaseModel):
-    event_type: str   # 'created' | 'pipeline' | 'approved' | 'export'
+    event_type: str   # 'created' | 'pipeline' | 'approved' | 'export' | 'edit'
     label: str
     detail: Optional[str] = None
     timestamp: datetime
+    actor_name: Optional[str] = None
 
 
 class ExportResponse(BaseModel):
@@ -304,9 +307,25 @@ class ExportResponse(BaseModel):
 
 class CalloutPatchItem(BaseModel):
     id: uuid.UUID
-    target_x: int   # 0–100 integer percentage
-    target_y: int   # 0–100 integer percentage
+    target_x: int
+    target_y: int
     was_repositioned: bool
+    label: Optional[str] = None
+
+
+class NewCalloutItem(BaseModel):
+    callout_number: int
+    label: str = "Manual callout"
+    target_x: int
+    target_y: int
+
+class HighlightBoxItem(BaseModel):
+    id: str
+    x: int
+    y: int
+    w: int
+    h: int
+    color: str = "yellow"
 
 
 class RenderAnnotatedResponse(BaseModel):

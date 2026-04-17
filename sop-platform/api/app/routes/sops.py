@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
-from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory
+from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory, SOPActivityLog
 from datetime import datetime, timezone
 from app.schemas import SOPListItem, SOPDetail, SOPMetrics, LikeResponse, ExportHistoryItem, ActivityEvent
 
@@ -81,6 +81,7 @@ async def list_sops(
             step_count=row[1] or 0,
             pipeline_status=str(row[2].value) if row[2] is not None else None,
             pipeline_stage=row[3],
+            tags=row[0].tags or [],
         )
         for row in rows
     ]
@@ -114,6 +115,39 @@ async def get_sop(
     sop.sections.sort(key=lambda s: s.display_order)
 
     return SOPDetail.model_validate(sop)
+
+
+@router.patch("/sops/{sop_id}/tags", response_model=SOPListItem)
+async def update_tags(
+    sop_id: UUID,
+    body: dict,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace the tag list for a SOP. Editor/admin only."""
+    sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
+    if sop is None:
+        raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+    tags = body.get("tags", [])
+    if not isinstance(tags, list):
+        raise HTTPException(status_code=422, detail="tags must be an array")
+    sop.tags = [
+        {"name": str(t.get("name", "")).strip(), "color": str(t.get("color", "blue"))}
+        for t in tags if isinstance(t, dict) and str(t.get("name", "")).strip()
+    ]
+    await db.commit()
+    await db.refresh(sop)
+    return SOPListItem(
+        id=sop.id,
+        title=sop.title,
+        status=sop.status,
+        client_name=sop.client_name,
+        process_name=sop.process_name,
+        meeting_date=sop.meeting_date,
+        created_at=sop.created_at,
+        step_count=0,
+        tags=sop.tags or [],
+    )
 
 
 @router.post("/sops/{sop_id}/view", status_code=204)
@@ -218,19 +252,27 @@ async def get_history(
     current_user: Annotated[User, Depends(require_viewer)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Activity log for a SOP — created, pipeline runs, approvals, exports."""
+    """Activity log for a SOP — created, pipeline runs, approvals, exports, and edit events."""
     sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
     if sop is None:
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
 
     events: list[ActivityEvent] = []
 
+    # Pre-load users for actor names (single query)
+    users_map: dict[UUID, str] = {}
+    all_users = (await db.execute(select(User.id, User.name))).all()
+    for uid, uname in all_users:
+        users_map[uid] = uname
+
     # SOP created
+    creator_name = users_map.get(sop.created_by) if sop.created_by else None
     events.append(ActivityEvent(
         event_type="created",
         label="SOP created",
         detail=sop.title,
         timestamp=sop.created_at,
+        actor_name=creator_name,
     ))
 
     # Pipeline runs
@@ -245,21 +287,7 @@ async def get_history(
             timestamp=run.completed_at or run.started_at,
         ))
 
-    # Steps approved
-    approved_steps = (await db.execute(
-        select(SOPStep)
-        .where(SOPStep.sop_id == sop_id, SOPStep.is_approved == True, SOPStep.reviewed_at.isnot(None))
-        .order_by(SOPStep.reviewed_at)
-    )).scalars().all()
-    for step in approved_steps:
-        events.append(ActivityEvent(
-            event_type="approved",
-            label=f"Step {step.sequence} approved",
-            detail=step.title,
-            timestamp=step.reviewed_at,
-        ))
-
-    # Exports
+    # Exports (with actor name from generated_by)
     exports = (await db.execute(
         select(ExportHistory).where(ExportHistory.sop_id == sop_id).order_by(ExportHistory.created_at)
     )).scalars().all()
@@ -269,6 +297,22 @@ async def get_history(
             label=f"{exp.format.upper()} exported",
             detail=f"{round(exp.file_size_bytes / 1024)} KB" if exp.file_size_bytes else None,
             timestamp=exp.created_at,
+            actor_name=users_map.get(exp.generated_by) if exp.generated_by else None,
+        ))
+
+    # Activity log events (edit, approve actions with actor names)
+    log_entries = (await db.execute(
+        select(SOPActivityLog)
+        .where(SOPActivityLog.sop_id == sop_id)
+        .order_by(SOPActivityLog.created_at)
+    )).scalars().all()
+    for entry in log_entries:
+        events.append(ActivityEvent(
+            event_type=entry.event_type,
+            label=entry.label,
+            detail=entry.detail,
+            timestamp=entry.created_at,
+            actor_name=users_map.get(entry.user_id) if entry.user_id else None,
         ))
 
     events.sort(key=lambda e: e.timestamp, reverse=True)

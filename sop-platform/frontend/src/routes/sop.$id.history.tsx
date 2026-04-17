@@ -12,6 +12,7 @@ const eventConfig: Record<string, { icon: string; color: string }> = {
   pipeline: { icon: '⚙', color: 'text-purple-500 bg-purple-50 border-purple-200' },
   approved: { icon: '✓', color: 'text-green-600 bg-green-50 border-green-200' },
   export:   { icon: '↓', color: 'text-orange-500 bg-orange-50 border-orange-200' },
+  edit:     { icon: '✎', color: 'text-violet-500 bg-violet-50 border-violet-200' },
 }
 
 function HistoryPage() {
@@ -46,6 +47,9 @@ function HistoryPage() {
                     <p className="text-sm font-medium text-gray-800">{event.label}</p>
                     {event.detail && (
                       <p className="text-xs text-gray-400 mt-0.5">{event.detail}</p>
+                    )}
+                    {event.actor_name && (
+                      <p className="text-xs text-gray-400 mt-0.5">by {event.actor_name}</p>
                     )}
                   </div>
                   <time className="shrink-0 text-xs text-gray-400">

@@ -68,40 +68,6 @@ function MatricesPage() {
         <span className="text-sm text-gray-400">{metrics.like_count} {metrics.like_count === 1 ? 'person' : 'people'} liked this</span>
       </div>
 
-      {/* Export history */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Export History</h2>
-        {metrics.recent_exports.length === 0 ? (
-          <p className="text-sm text-gray-400">No exports yet.</p>
-        ) : (
-          <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                <tr>
-                  <th className="text-left px-4 py-2">Format</th>
-                  <th className="text-left px-4 py-2">Size</th>
-                  <th className="text-left px-4 py-2">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {metrics.recent_exports.map((exp) => (
-                  <tr key={exp.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 font-medium uppercase text-blue-600">{exp.format}</td>
-                    <td className="px-4 py-2 text-gray-500">
-                      {exp.file_size_bytes ? `${Math.round(exp.file_size_bytes / 1024)} KB` : '—'}
-                    </td>
-                    <td className="px-4 py-2 text-gray-500">
-                      {new Date(exp.created_at).toLocaleDateString('en-GB', {
-                        day: 'numeric', month: 'short', year: 'numeric',
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   )
 }

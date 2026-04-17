@@ -27,6 +27,15 @@ export type CalloutMatchMethod = 'ocr' | 'gemini' | 'manual'
 export type PipelineStatus = 'pending' | 'running' | 'completed' | 'failed'
 export type SectionContentType = 'text' | 'list' | 'table' | 'mermaid' | 'html'
 
+export interface HighlightBox {
+  id: string
+  x: number
+  y: number
+  w: number
+  h: number
+  color: 'yellow' | 'red' | 'green' | 'blue'
+}
+
 export interface StepCallout {
   id: string
   step_id: string
@@ -95,6 +104,7 @@ export interface SOPStep {
   reviewed_at: string | null
   created_at: string
   updated_at: string
+  highlight_boxes: HighlightBox[]
   callouts: StepCallout[]
   clips: StepClip[]
   discussions: StepDiscussion[]
@@ -161,10 +171,11 @@ export interface PipelineRun {
 }
 
 export interface ActivityEvent {
-  event_type: 'created' | 'pipeline' | 'approved' | 'export'
+  event_type: 'created' | 'pipeline' | 'approved' | 'export' | 'edit'
   label: string
   detail: string | null
   timestamp: string
+  actor_name: string | null
 }
 
 export interface ExportHistoryItem {
@@ -189,6 +200,11 @@ export interface LikeResponse {
   like_count: number
 }
 
+export interface SOPTag {
+  name: string
+  color: string
+}
+
 export interface SOPListItem {
   id: string
   title: string
@@ -200,6 +216,7 @@ export interface SOPListItem {
   step_count: number
   pipeline_status: string | null
   pipeline_stage: string | null
+  tags: SOPTag[]
 }
 
 export interface SOPDetail {

@@ -1,4 +1,4 @@
-import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout, SOPMetrics, LikeResponse } from './types'
+import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout, SOPMetrics, LikeResponse, SOPTag, HighlightBox } from './types'
 import { supabase } from '../lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -91,11 +91,21 @@ export async function renderAnnotated(stepId: string): Promise<RenderAnnotatedRe
   return result
 }
 
+export const addCallout = (stepId: string, body: { callout_number: number; label: string; target_x: number; target_y: number }) =>
+  mutateAPI<StepCallout>(`/api/steps/${stepId}/callouts`, 'POST', body)
+
+export const patchHighlightBoxes = (stepId: string, boxes: HighlightBox[]) =>
+  mutateAPI<SOPStep>(`/api/steps/${stepId}/highlight-boxes`, 'PATCH', boxes)
+
 export const approveStep = (stepId: string) => mutateAPI<SOPStep>(`/api/steps/${stepId}/approve`, 'PATCH')
+export const renameStep = (stepId: string, title: string) => mutateAPI<SOPStep>(`/api/steps/${stepId}/rename`, 'PATCH', { title })
+export const updateSubSteps = (stepId: string, sub_steps: string[]) => mutateAPI<SOPStep>(`/api/steps/${stepId}/sub-steps`, 'PATCH', { sub_steps })
 export const fetchMetrics = (id: string) => fetchAPI<SOPMetrics>(`/api/sops/${id}/metrics`)
 export const trackView = (id: string) => mutateAPI<null>(`/api/sops/${id}/view`, 'POST')
 export const toggleLike = (id: string) => mutateAPI<LikeResponse>(`/api/sops/${id}/like`, 'POST')
 export const deleteSOP = (id: string) => mutateAPI<null>(`/api/sops/${id}`, 'DELETE')
+export const updateSOPTags = (id: string, tags: SOPTag[]) =>
+  mutateAPI<SOPListItem>(`/api/sops/${id}/tags`, 'PATCH', { tags })
 
 // ── User management (admin only) ──────────────────────────────────────────────
 export const fetchUsers = () => fetchAPI<AppUser[]>('/api/users')

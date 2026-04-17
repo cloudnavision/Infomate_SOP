@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Stage, Layer, Shape, Text, Group } from 'react-konva'
+import { Stage, Layer, Shape, Text, Group, Rect, Transformer } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
+import type Konva from 'konva'
 import { useQueryClient } from '@tanstack/react-query'
-import type { StepCallout, CalloutPatchItem } from '../api/types'
-import { patchCallouts, renderAnnotated, sopKeys } from '../api/client'
+import type { StepCallout, CalloutPatchItem, HighlightBox } from '../api/types'
+import { patchCallouts, renderAnnotated, sopKeys, addCallout, patchHighlightBoxes } from '../api/client'
+
+type EditorMode = 'move' | 'add' | 'draw'
 
 interface Props {
   sopId: string
@@ -12,6 +15,7 @@ interface Props {
   stepNumber: number
   screenshotUrl: string
   callouts: StepCallout[]
+  highlight_boxes: HighlightBox[]
   onClose: () => void
 }
 
@@ -20,9 +24,25 @@ interface LocalCallout extends StepCallout {
   y_px: number
 }
 
+interface LocalBox {
+  id: string
+  x_px: number
+  y_px: number
+  w_px: number
+  h_px: number
+  color: 'yellow' | 'red' | 'green' | 'blue'
+}
+
 interface NaturalDims { w: number; h: number }
 
 interface StageDimensions { width: number; height: number }
+
+const BOX_COLORS = {
+  yellow: { fill: 'rgba(234,179,8,0.25)',  stroke: 'rgba(234,179,8,0.9)' },
+  red:    { fill: 'rgba(220,38,38,0.2)',   stroke: 'rgba(220,38,38,0.9)' },
+  green:  { fill: 'rgba(22,163,74,0.2)',   stroke: 'rgba(22,163,74,0.9)' },
+  blue:   { fill: 'rgba(59,130,246,0.2)',  stroke: 'rgba(59,130,246,0.9)' },
+}
 
 function dotColor(c: LocalCallout): string {
   if (c.was_repositioned) return '#3b82f6'
@@ -38,17 +58,29 @@ function confidenceLabel(c: LocalCallout): string {
 }
 
 export function AnnotationEditorModal({
-  sopId, stepId, stepTitle, stepNumber, screenshotUrl, callouts, onClose,
+  sopId, stepId, stepTitle, stepNumber, screenshotUrl, callouts, highlight_boxes, onClose,
 }: Props) {
   const qc = useQueryClient()
 
   const [local, setLocal] = useState<LocalCallout[]>(() =>
     callouts.map((c) => ({ ...c, x_px: c.target_x, y_px: c.target_y })),
   )
+  const [boxes, setBoxes] = useState<LocalBox[]>(() =>
+    (highlight_boxes || []).map(b => ({ id: b.id, x_px: b.x, y_px: b.y, w_px: b.w, h_px: b.h, color: b.color }))
+  )
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeBoxId, setActiveBoxId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const boxRefs = useRef<Map<string, Konva.Rect>>(new Map())
+  const transformerRef = useRef<Konva.Transformer>(null)
   const [rerendering, setRerendering] = useState(false)
   const [rerenderUrl, setRerenderUrl] = useState<string | null>(null)
+
+  const [mode, setMode] = useState<EditorMode>('move')
+  const [drawColor, setDrawColor] = useState<'yellow' | 'red' | 'green' | 'blue'>('yellow')
+  const [drawStart, setDrawStart] = useState<{x: number; y: number} | null>(null)
+  const [drawPreview, setDrawPreview] = useState<{x: number; y: number; w: number; h: number} | null>(null)
+  const [isDrawing, setIsDrawing] = useState(false)
 
   // Stage dimensions = rendered img dimensions (not natural — avoids drag offset)
   const [stageDim, setStageDim] = useState<StageDimensions>({ width: 720, height: 450 })
@@ -71,9 +103,23 @@ export function AnnotationEditorModal({
     return () => window.removeEventListener('resize', measureImg)
   }, [])
 
+  useEffect(() => {
+    if (!transformerRef.current) return
+    if (activeBoxId) {
+      const node = boxRefs.current.get(activeBoxId)
+      if (node) {
+        transformerRef.current.nodes([node])
+        transformerRef.current.getLayer()?.batchDraw()
+      }
+    } else {
+      transformerRef.current.nodes([])
+      transformerRef.current.getLayer()?.batchDraw()
+    }
+  }, [activeBoxId])
+
   // Convert rendered stage pixel → raw pixel coord
-  const toNative = (stagePx: number, stageDim: number, naturalDim: number) =>
-    Math.round((stagePx / stageDim) * naturalDim)
+  const toNative = (stagePx: number, stageDimension: number, naturalDim: number) =>
+    Math.round((stagePx / stageDimension) * naturalDim)
 
   function handleDragEnd(id: string, e: KonvaEventObject<DragEvent>) {
     const { width, height } = stageDim
@@ -99,16 +145,126 @@ export function AnnotationEditorModal({
     if (activeId === id) setActiveId(null)
   }
 
+  // ── Add mode: click to place callout ──────────────────────────────────────
+  function handleStageClick(e: KonvaEventObject<MouseEvent>) {
+    if (mode !== 'add') return
+    const stage = e.target.getStage()
+    if (!stage) return
+    const pos = stage.getPointerPosition()
+    if (!pos) return
+    const { w: nw, h: nh } = naturalDims
+    const { width: sw, height: sh } = stageDim
+    const x_px = toNative(pos.x, sw, nw)
+    const y_px = toNative(pos.y, sh, nh)
+    const nextNum = local.length > 0 ? Math.max(...local.map(c => c.callout_number)) + 1 : 1
+    const tempId = `temp-${Date.now()}`
+    setLocal(prev => [...prev, {
+      id: tempId,
+      step_id: stepId,
+      callout_number: nextNum,
+      label: 'Manual callout',
+      element_type: null,
+      target_x: x_px,
+      target_y: y_px,
+      confidence: 'gemini_only' as const,
+      match_method: 'gemini_coordinates' as unknown as import('../api/types').CalloutMatchMethod,
+      ocr_matched_text: null,
+      gemini_region_hint: null,
+      was_repositioned: true,
+      original_x: null,
+      original_y: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      x_px,
+      y_px,
+    }])
+  }
+
+  // ── Draw mode: drag to create box ─────────────────────────────────────────
+  function handleStageMouseDown(e: KonvaEventObject<MouseEvent>) {
+    if (mode !== 'draw') return
+    const pos = e.target.getStage()?.getPointerPosition()
+    if (!pos) return
+    setDrawStart(pos)
+    setIsDrawing(true)
+    setDrawPreview({ x: pos.x, y: pos.y, w: 0, h: 0 })
+  }
+
+  function handleStageMouseMove(e: KonvaEventObject<MouseEvent>) {
+    if (!isDrawing || !drawStart) return
+    const pos = e.target.getStage()?.getPointerPosition()
+    if (!pos) return
+    setDrawPreview({
+      x: Math.min(drawStart.x, pos.x),
+      y: Math.min(drawStart.y, pos.y),
+      w: Math.abs(pos.x - drawStart.x),
+      h: Math.abs(pos.y - drawStart.y),
+    })
+  }
+
+  function handleStageMouseUp(_e: KonvaEventObject<MouseEvent>) {
+    if (!isDrawing || !drawPreview || !drawStart) return
+    setIsDrawing(false)
+    if (drawPreview.w < 10 || drawPreview.h < 10) {
+      setDrawStart(null)
+      setDrawPreview(null)
+      return
+    }
+    const { w: nw, h: nh } = naturalDims
+    const { width: sw, height: sh } = stageDim
+    const box: LocalBox = {
+      id: `box-${Date.now()}`,
+      x_px: toNative(drawPreview.x, sw, nw),
+      y_px: toNative(drawPreview.y, sh, nh),
+      w_px: toNative(drawPreview.w, sw, nw),
+      h_px: toNative(drawPreview.h, sh, nh),
+      color: drawColor,
+    }
+    setBoxes(prev => [...prev, box])
+    setDrawStart(null)
+    setDrawPreview(null)
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
-      const payload: CalloutPatchItem[] = local.map((c) => ({
+      // 1. POST new callouts — replace temp IDs with real IDs in local state as we go
+      let updatedLocal = [...local]
+      const newCallouts = local.filter(c => c.id.startsWith('temp-'))
+      for (const nc of newCallouts) {
+        const created = await addCallout(stepId, {
+          callout_number: nc.callout_number,
+          label: nc.label,
+          target_x: nc.x_px,
+          target_y: nc.y_px,
+        })
+        if (created) {
+          updatedLocal = updatedLocal.map(c => c.id === nc.id ? { ...c, id: created.id } : c)
+        }
+      }
+      setLocal(updatedLocal)
+
+      // 2. PATCH existing callouts (positions + labels)
+      const existingCallouts = updatedLocal.filter(c => !c.id.startsWith('temp-'))
+      const payload: CalloutPatchItem[] = existingCallouts.map((c) => ({
         id: c.id,
         target_x: c.x_px,
         target_y: c.y_px,
         was_repositioned: c.was_repositioned,
+        label: c.label,
       }))
       await patchCallouts(stepId, payload)
+
+      // 3. PATCH highlight boxes
+      await patchHighlightBoxes(stepId, boxes.map(b => ({
+        id: b.id,
+        x: b.x_px,
+        y: b.y_px,
+        w: b.w_px,
+        h: b.h_px,
+        color: b.color,
+      })))
+
       await qc.invalidateQueries({ queryKey: sopKeys.detail(sopId) })
       onClose()
     } catch (err) {
@@ -168,6 +324,40 @@ export function AnnotationEditorModal({
           </button>
         </div>
 
+        {/* Mode toolbar */}
+        <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 border-b border-slate-700 shrink-0">
+          {(['move', 'add', 'draw'] as EditorMode[]).map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+                mode === m ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              {m === 'move' ? '↕ Move' : m === 'add' ? '+ Callout' : '□ Box'}
+            </button>
+          ))}
+          {mode === 'draw' && (
+            <div className="flex items-center gap-1.5 ml-2">
+              {(['yellow', 'red', 'green', 'blue'] as const).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setDrawColor(c)}
+                  className={`w-5 h-5 rounded border-2 transition-all ${drawColor === c ? 'border-white scale-110' : 'border-transparent'}`}
+                  style={{ background: BOX_COLORS[c].fill, outline: `2px solid ${BOX_COLORS[c].stroke}` }}
+                />
+              ))}
+            </div>
+          )}
+          <span className="text-xs text-slate-500 ml-2">
+            {mode === 'move'
+              ? 'Drag callouts to reposition'
+              : mode === 'add'
+              ? 'Click to place callout'
+              : 'Drag to draw highlight box'}
+          </span>
+        </div>
+
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
 
@@ -185,10 +375,71 @@ export function AnnotationEditorModal({
               <Stage
                 width={sw}
                 height={sh}
-                style={{ position: 'absolute', top: 0, left: 0 }}
-                onClick={() => setActiveId(null)}
+                style={{ position: 'absolute', top: 0, left: 0, cursor: mode === 'move' ? 'default' : 'crosshair' }}
+                onClick={mode === 'add' ? handleStageClick : (() => { setActiveId(null); setActiveBoxId(null) })}
+                onMouseDown={mode === 'draw' ? handleStageMouseDown : undefined}
+                onMouseMove={mode === 'draw' ? handleStageMouseMove : undefined}
+                onMouseUp={mode === 'draw' ? handleStageMouseUp : undefined}
               >
                 <Layer>
+                  {/* Highlight boxes */}
+                  {boxes.map(box => {
+                    const { w: nw, h: nh } = naturalDims
+                    const bx = (box.x_px / nw) * sw
+                    const by = (box.y_px / nh) * sh
+                    const bw = (box.w_px / nw) * sw
+                    const bh = (box.h_px / nh) * sh
+                    const col = BOX_COLORS[box.color]
+                    const isActiveBox = box.id === activeBoxId
+                    return (
+                      <Rect
+                        key={box.id}
+                        ref={(node) => { if (node) boxRefs.current.set(box.id, node); else boxRefs.current.delete(box.id) }}
+                        x={bx} y={by} width={bw} height={bh}
+                        fill={col.fill}
+                        stroke={isActiveBox ? 'white' : col.stroke}
+                        strokeWidth={isActiveBox ? 2 : 2}
+                        draggable={mode === 'move'}
+                        onClick={(e) => { e.cancelBubble = true; setActiveBoxId(box.id); setActiveId(null) }}
+                        onDragEnd={(e) => {
+                          const nx = toNative(e.target.x(), sw, nw)
+                          const ny = toNative(e.target.y(), sh, nh)
+                          setBoxes(prev => prev.map(b => b.id === box.id ? { ...b, x_px: nx, y_px: ny } : b))
+                        }}
+                        onTransformEnd={(e) => {
+                          const node = e.target
+                          const scaleX = node.scaleX()
+                          const scaleY = node.scaleY()
+                          node.scaleX(1)
+                          node.scaleY(1)
+                          setBoxes(prev => prev.map(b => b.id === box.id ? {
+                            ...b,
+                            x_px: toNative(node.x(), sw, nw),
+                            y_px: toNative(node.y(), sh, nh),
+                            w_px: Math.max(10, toNative(node.width() * scaleX, sw, nw)),
+                            h_px: Math.max(10, toNative(node.height() * scaleY, sh, nh)),
+                          } : b))
+                        }}
+                      />
+                    )
+                  })}
+                  <Transformer
+                    ref={transformerRef}
+                    rotateEnabled={false}
+                    boundBoxFunc={(oldBox, newBox) => newBox.width < 10 || newBox.height < 10 ? oldBox : newBox}
+                  />
+                  {/* Draw preview box */}
+                  {drawPreview && drawPreview.w > 5 && drawPreview.h > 5 && (
+                    <Rect
+                      x={drawPreview.x} y={drawPreview.y}
+                      width={drawPreview.w} height={drawPreview.h}
+                      fill={BOX_COLORS[drawColor].fill}
+                      stroke={BOX_COLORS[drawColor].stroke}
+                      strokeWidth={2}
+                      dash={[6, 3]}
+                    />
+                  )}
+                  {/* Callouts */}
                   {local.map((c) => {
                     const { w: nw, h: nh } = naturalDims
                     const x = (c.x_px / nw) * sw
@@ -200,7 +451,7 @@ export function AnnotationEditorModal({
                         key={c.id}
                         x={x}
                         y={y}
-                        draggable
+                        draggable={mode === 'move'}
                         onDragEnd={(e) => handleDragEnd(c.id, e)}
                         onClick={(e) => { e.cancelBubble = true; setActiveId(c.id) }}
                       >
@@ -250,9 +501,6 @@ export function AnnotationEditorModal({
                 </Layer>
               </Stage>
             </div>
-            <p className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-slate-500 bg-black/50 px-3 py-1 rounded-full pointer-events-none">
-              Drag dots to reposition
-            </p>
           </div>
 
           {/* Right panel */}
@@ -281,11 +529,18 @@ export function AnnotationEditorModal({
                     >
                       {c.callout_number}
                     </span>
-                    <span className="text-xs font-semibold text-slate-200 flex-1 truncate">
-                      {c.label}
-                    </span>
+                    <input
+                      value={c.label}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        setLocal(prev => prev.map(x => x.id === c.id ? { ...x, label: e.target.value } : x))
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 text-xs font-semibold bg-slate-700 text-slate-100 border border-slate-600 rounded px-1.5 py-0.5 outline-none focus:border-blue-400 min-w-0"
+                      placeholder="Label…"
+                    />
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
                         c.was_repositioned
                           ? 'bg-blue-900/50 text-blue-300'
                           : c.confidence.startsWith('ocr')
@@ -311,6 +566,41 @@ export function AnnotationEditorModal({
               ))}
             </div>
 
+            {/* Highlight boxes list */}
+            {boxes.length > 0 && (
+              <div className="px-3 py-2 border-t border-slate-700">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Highlight Boxes — {boxes.length}
+                </p>
+                <div className="space-y-1">
+                  {boxes.map(box => (
+                    <div
+                      key={box.id}
+                      onClick={() => { setActiveBoxId(box.id); setActiveId(null) }}
+                      className={`flex items-center gap-2 rounded px-2 py-1.5 border cursor-pointer transition-colors ${
+                        activeBoxId === box.id ? 'border-white bg-slate-700' : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: BOX_COLORS[box.color].stroke }} />
+                      <span className="text-xs text-slate-300 flex-1 capitalize">{box.color}</span>
+                      <span className="text-[10px] font-mono text-slate-500">{box.w_px}×{box.h_px}</span>
+                      {activeBoxId === box.id && (
+                        <span className="text-[10px] text-slate-400">drag handles to resize</span>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setBoxes(prev => prev.filter(b => b.id !== box.id)); if (activeBoxId === box.id) setActiveBoxId(null) }}
+                        className="text-slate-500 hover:text-red-400 shrink-0"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="p-3 border-t border-slate-700">
               <button
                 onClick={handleRerender}
@@ -328,7 +618,7 @@ export function AnnotationEditorModal({
 
         {/* Footer */}
         <div className="px-5 py-2 border-t border-slate-700 bg-slate-900 shrink-0 flex items-center gap-4 text-xs text-slate-500">
-          <span>Step {stepNumber} · {local.length} callouts</span>
+          <span>Step {stepNumber} · {local.length} callouts · {boxes.length} boxes</span>
           {allGemini && (
             <span className="text-yellow-400">
               ⚠ All positions are Gemini estimates — verify before saving

@@ -31,3 +31,6 @@ data/templates/*.docx
 # OS
 .DS_Store
 Thumbs.db
+
+# n8n workflows — local only, not tracked in repo
+n8n-workflows/

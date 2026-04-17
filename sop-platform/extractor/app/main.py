@@ -141,6 +141,7 @@ class RenderAnnotatedRequest(BaseModel):
     step_id: str
     screenshot_url: str           # SAS URL for download
     callouts: list[AnnotatedCallout]
+    highlight_boxes: list[dict] = []
     azure_blob_base_url: str      # e.g. https://cnavinfsop.blob.core.windows.net/infsop
     azure_sas_token: str
 
@@ -260,6 +261,7 @@ async def render_annotated_endpoint(req: RenderAnnotatedRequest) -> RenderAnnota
             callouts=[c.model_dump() for c in req.callouts],
             azure_blob_base_url=req.azure_blob_base_url,
             azure_sas_token=req.azure_sas_token,
+            highlight_boxes=req.highlight_boxes,
         )
     except Exception as exc:
         logger.exception("render_annotated failed for step_id=%s", req.step_id)

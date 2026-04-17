@@ -25,6 +25,32 @@ BADGE_R         = 5                 # corner radius
 HIGHLIGHT_PAD   = 22                # px around target centre for the red box
 FONT_SIZE       = 15
 
+BOX_COLOR_MAP = {
+    'yellow': (234, 179, 8),
+    'red':    (220, 38, 38),
+    'green':  (22, 163, 74),
+    'blue':   (37, 99, 235),
+}
+
+
+def _draw_highlight_boxes(img: Image.Image, boxes: list[dict]) -> Image.Image:
+    """Draw semi-transparent highlight boxes using an RGBA overlay."""
+    if not boxes:
+        return img
+    img_rgba = img.convert('RGBA')
+    overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    iw, ih = img.size
+    for box in boxes:
+        rgb = BOX_COLOR_MAP.get(box.get('color', 'yellow'), (234, 179, 8))
+        x, y, w, h = int(box.get('x', 0)), int(box.get('y', 0)), int(box.get('w', 0)), int(box.get('h', 0))
+        x2, y2 = min(x + w, iw), min(y + h, ih)
+        if x2 <= x or y2 <= y:
+            continue
+        draw.rectangle([x, y, x2, y2], fill=(*rgb, 50), outline=(*rgb, 210), width=3)
+    result = Image.alpha_composite(img_rgba, overlay)
+    return result.convert('RGB')
+
 
 def _draw_callout(
     img: Image.Image,
@@ -97,6 +123,7 @@ def render_annotated(
     callouts: list[dict],          # [{"number": 1, "target_x": 23, "target_y": 14}, ...]
     azure_blob_base_url: str,      # e.g. https://cnavinfsop.blob.core.windows.net/infsop
     azure_sas_token: str,
+    highlight_boxes: list[dict] | None = None,
 ) -> str:
     """
     Download screenshot → draw callout circles → upload PNG to Azure.
@@ -108,6 +135,10 @@ def render_annotated(
     resp.raise_for_status()
     img = Image.open(io.BytesIO(resp.content)).convert("RGB")
     w, h = img.size
+
+    # Draw highlight boxes before callouts (so callouts render on top)
+    if highlight_boxes:
+        img = _draw_highlight_boxes(img, highlight_boxes)
 
     # 2. Draw callouts
     draw = ImageDraw.Draw(img)

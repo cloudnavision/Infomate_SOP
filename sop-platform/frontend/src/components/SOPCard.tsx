@@ -1,32 +1,65 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import type { SOPListItem, SOPStatus } from '../api/types'
-import { deleteSOP, sopKeys } from '../api/client'
+import type { SOPListItem, SOPStatus, SOPTag } from '../api/types'
+import { deleteSOP, updateSOPTags, sopKeys } from '../api/client'
 import { useAuthContext } from '../contexts/AuthContext'
 
 interface Props {
   sop: SOPListItem
 }
 
-const statusConfig: Record<SOPStatus, { label: string; accent: string; badge: string; dot: string }> = {
-  processing: { label: 'Processing', accent: 'bg-amber-400',  badge: 'bg-amber-50 text-amber-700 border-amber-200',  dot: 'bg-amber-400' },
-  draft:      { label: 'Draft',      accent: 'bg-gray-300',   badge: 'bg-gray-50 text-gray-600 border-gray-200',    dot: 'bg-gray-400' },
-  in_review:  { label: 'In Review',  accent: 'bg-blue-500',   badge: 'bg-blue-50 text-blue-700 border-blue-200',    dot: 'bg-blue-500' },
-  published:  { label: 'Published',  accent: 'bg-green-500',  badge: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500' },
-  archived:   { label: 'Archived',   accent: 'bg-gray-200',   badge: 'bg-gray-50 text-gray-400 border-gray-200',    dot: 'bg-gray-300' },
+// Named color keys stored in DB → Tailwind classes
+const TAG_COLOR_MAP: Record<string, string> = {
+  blue:   'bg-blue-100 text-blue-700 border-blue-200',
+  purple: 'bg-purple-100 text-purple-700 border-purple-200',
+  green:  'bg-green-100 text-green-700 border-green-200',
+  orange: 'bg-orange-100 text-orange-700 border-orange-200',
+  pink:   'bg-pink-100 text-pink-700 border-pink-200',
+  teal:   'bg-teal-100 text-teal-700 border-teal-200',
+  indigo: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  rose:   'bg-rose-100 text-rose-700 border-rose-200',
+  amber:  'bg-amber-100 text-amber-700 border-amber-200',
+  cyan:   'bg-cyan-100 text-cyan-700 border-cyan-200',
+}
+
+const TAG_COLOR_KEYS = Object.keys(TAG_COLOR_MAP)
+
+// Swatch dot colors for the picker
+const TAG_DOT_MAP: Record<string, string> = {
+  blue:   'bg-blue-400',
+  purple: 'bg-purple-400',
+  green:  'bg-green-400',
+  orange: 'bg-orange-400',
+  pink:   'bg-pink-400',
+  teal:   'bg-teal-400',
+  indigo: 'bg-indigo-400',
+  rose:   'bg-rose-400',
+  amber:  'bg-amber-400',
+  cyan:   'bg-cyan-400',
+}
+
+function tagClasses(color: string) {
+  return TAG_COLOR_MAP[color] ?? TAG_COLOR_MAP.blue
+}
+
+function nextColor(current: string) {
+  const idx = TAG_COLOR_KEYS.indexOf(current)
+  return TAG_COLOR_KEYS[(idx + 1) % TAG_COLOR_KEYS.length]
+}
+
+const statusConfig: Record<SOPStatus, { label: string; accent: string; avatar: string; badge: string; dot: string }> = {
+  processing: { label: 'Processing', accent: 'bg-gradient-to-r from-violet-500 to-indigo-500', avatar: 'bg-gradient-to-br from-violet-500 to-indigo-500', badge: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-400' },
+  draft:      { label: 'Draft',      accent: 'bg-gradient-to-r from-slate-400 to-slate-500',   avatar: 'bg-gradient-to-br from-slate-400 to-slate-500',   badge: 'bg-slate-50 text-slate-600 border-slate-200',   dot: 'bg-slate-400' },
+  in_review:  { label: 'In Review',  accent: 'bg-gradient-to-r from-blue-500 to-cyan-500',     avatar: 'bg-gradient-to-br from-blue-500 to-cyan-500',     badge: 'bg-blue-50 text-blue-700 border-blue-200',      dot: 'bg-blue-500'  },
+  published:  { label: 'Published',  accent: 'bg-gradient-to-r from-emerald-500 to-teal-500',  avatar: 'bg-gradient-to-br from-emerald-500 to-teal-500',  badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  archived:   { label: 'Archived',   accent: 'bg-gradient-to-r from-gray-300 to-gray-400',     avatar: 'bg-gradient-to-br from-gray-300 to-gray-400',     badge: 'bg-gray-50 text-gray-400 border-gray-200',      dot: 'bg-gray-300'  },
 }
 
 const PIPELINE_STAGES = [
-  'transcribing',
-  'detecting_screenshare',
-  'extracting_frames',
-  'deduplicating',
-  'classifying_frames',
-  'generating_annotations',
-  'extracting_clips',
-  'generating_sections',
+  'transcribing', 'detecting_screenshare', 'extracting_frames', 'deduplicating',
+  'classifying_frames', 'generating_annotations', 'extracting_clips', 'generating_sections',
 ]
 
 const stageLabel: Record<string, string> = {
@@ -45,19 +78,16 @@ function PipelineProgress({ stage }: { stage: string | null }) {
   const idx = PIPELINE_STAGES.indexOf(stage)
   const pct = idx < 0 ? 5 : Math.round(((idx + 1) / PIPELINE_STAGES.length) * 100)
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex justify-between items-center">
-        <span className="text-xs text-blue-600 font-medium flex items-center gap-1.5">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+        <span className="text-xs text-violet-600 font-medium flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
           {stageLabel[stage] ?? stage}…
         </span>
-        <span className="text-xs text-gray-400">{pct}%</span>
+        <span className="text-xs text-gray-400 font-medium">{pct}%</span>
       </div>
-      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-blue-400 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
+      <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-400 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
@@ -65,9 +95,7 @@ function PipelineProgress({ stage }: { stage: string | null }) {
 
 function Initials({ name }: { name: string }) {
   const words = name.trim().split(/\s+/).filter(w => /[a-zA-Z0-9]/.test(w[0]))
-  const letters = words.length >= 2
-    ? `${words[0][0]}${words[1][0]}`
-    : name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2)
+  const letters = words.length >= 2 ? `${words[0][0]}${words[1][0]}` : name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2)
   return letters.toUpperCase()
 }
 
@@ -81,16 +109,52 @@ export function SOPCard({ sop }: Props) {
   const { appUser } = useAuthContext()
   const qc = useQueryClient()
   const [confirming, setConfirming] = useState(false)
+  const [addingTag, setAddingTag] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const [tagColor, setTagColor] = useState('blue')
+  const tagInputRef = useRef<HTMLInputElement>(null)
   const cfg = statusConfig[sop.status] ?? statusConfig.draft
-  const canDelete = appUser?.role === 'editor' || appUser?.role === 'admin'
+  const canEdit = appUser?.role === 'editor' || appUser?.role === 'admin'
+  const canDelete = canEdit
+  const tags: SOPTag[] = sop.tags || []
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteSOP(sop.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: sopKeys.all }),
   })
 
+  const tagMutation = useMutation({
+    mutationFn: (newTags: SOPTag[]) => updateSOPTags(sop.id, newTags),
+    onSuccess: () => qc.invalidateQueries({ queryKey: sopKeys.all }),
+  })
+
+  function removeTag(name: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    tagMutation.mutate(tags.filter(t => t.name !== name))
+  }
+
+  function cycleColor(name: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    tagMutation.mutate(tags.map(t => t.name === name ? { ...t, color: nextColor(t.color) } : t))
+  }
+
+  function commitTag() {
+    const val = tagInput.trim()
+    if (val && !tags.find(t => t.name === val)) {
+      tagMutation.mutate([...tags, { name: val, color: tagColor }])
+    }
+    setTagInput('')
+    setTagColor('blue')
+    setAddingTag(false)
+  }
+
+  function openTagInput(e: React.MouseEvent) {
+    e.stopPropagation()
+    setAddingTag(true)
+    setTimeout(() => tagInputRef.current?.focus(), 0)
+  }
+
   const isPipelineRunning = sop.pipeline_status && sop.pipeline_status !== 'completed' && sop.pipeline_status !== 'failed'
-  // Strip timestamp noise like "20251231 150143" from raw titles
   const cleanTitle = sop.title.replace(/\b\d{8}\s+\d{6}\b/g, '').replace(/\s{2,}/g, ' ').trim()
   const displayName = sop.process_name || cleanTitle
   const subtitle = sop.client_name ?? null
@@ -98,50 +162,127 @@ export function SOPCard({ sop }: Props) {
   return (
     <div
       onClick={() => navigate({ to: '/sop/$id/procedure', params: { id: sop.id } })}
-      className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-gray-200 transition-all duration-200 cursor-pointer overflow-hidden"
+      className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-gray-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden"
     >
-      {/* Top accent */}
-      <div className={clsx('h-1', cfg.accent)} />
+      <div className={clsx('h-1.5', cfg.accent)} />
 
-      <div className="p-5 space-y-4">
-        {/* Header: avatar + title + badge */}
+      <div className="p-5 space-y-3.5">
+        {/* Header */}
         <div className="flex items-start gap-3">
-          {/* Avatar */}
-          <div className={clsx(
-            'shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold',
-            cfg.accent,
-          )}>
+          <div className={clsx('shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-sm', cfg.avatar)}>
             <Initials name={displayName} />
           </div>
-
-          {/* Title block */}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate leading-snug">
-              {displayName}
-            </p>
-            {subtitle && (
-              <p className="text-xs text-gray-400 truncate mt-0.5">{subtitle}</p>
-            )}
+          <div className="flex-1 min-w-0 pt-0.5">
+            <p className="text-sm font-semibold text-gray-900 truncate leading-snug">{displayName}</p>
+            {subtitle && <p className="text-xs text-gray-400 truncate mt-0.5">{subtitle}</p>}
           </div>
-
-          {/* Status badge */}
-          <span className={clsx(
-            'shrink-0 text-xs font-medium px-2 py-0.5 rounded-full border flex items-center gap-1',
-            cfg.badge,
-          )}>
+          <span className={clsx('shrink-0 text-xs font-medium px-2.5 py-1 rounded-full border flex items-center gap-1.5', cfg.badge)}>
             <span className={clsx('w-1.5 h-1.5 rounded-full', cfg.dot)} />
             {cfg.label}
           </span>
         </div>
 
-        {/* Pipeline progress bar */}
-        {isPipelineRunning && sop.pipeline_stage && (
-          <PipelineProgress stage={sop.pipeline_stage} />
-        )}
+        {/* Pipeline progress */}
+        {isPipelineRunning && sop.pipeline_stage && <PipelineProgress stage={sop.pipeline_stage} />}
         {sop.pipeline_status === 'failed' && (
-          <p className="text-xs text-red-500 font-medium flex items-center gap-1">
-            <span>⚠</span> Pipeline failed
+          <p className="text-xs text-red-500 font-medium flex items-center gap-1.5">
+            <span className="w-4 h-4 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-[10px]">⚠</span>
+            Pipeline failed
           </p>
+        )}
+
+        {/* Tags */}
+        {(tags.length > 0 || canEdit) && (
+          <div className="flex flex-wrap gap-1.5 items-center" onClick={e => e.stopPropagation()}>
+            {tags.map(tag => (
+              <span
+                key={tag.name}
+                className={clsx('inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium', tagClasses(tag.color))}
+              >
+                {/* Color swatch — click to cycle */}
+                {canEdit && (
+                  <button
+                    title="Change color"
+                    onClick={e => cycleColor(tag.name, e)}
+                    className={clsx('w-2.5 h-2.5 rounded-full shrink-0 hover:scale-125 transition-transform', TAG_DOT_MAP[tag.color] ?? 'bg-blue-400')}
+                  />
+                )}
+                {tag.name}
+                {canEdit && (
+                  <button onClick={e => removeTag(tag.name, e)} className="opacity-40 hover:opacity-100 leading-none ml-0.5">×</button>
+                )}
+              </span>
+            ))}
+            {canEdit && (
+              addingTag ? (
+                <div
+                  className="w-full mt-1 p-3 bg-white border border-gray-200 rounded-xl shadow-lg"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Live preview */}
+                  <div className="mb-2.5">
+                    <span className={clsx('inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium', tagClasses(tagColor))}>
+                      <span className={clsx('w-2 h-2 rounded-full', TAG_DOT_MAP[tagColor])} />
+                      {tagInput.trim() || 'preview'}
+                    </span>
+                  </div>
+
+                  {/* Name input */}
+                  <input
+                    ref={tagInputRef}
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.preventDefault(); commitTag() }
+                      if (e.key === 'Escape') { setAddingTag(false); setTagInput(''); setTagColor('blue') }
+                    }}
+                    placeholder="Tag name…"
+                    className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 mb-2.5"
+                  />
+
+                  {/* Color swatches */}
+                  <div className="flex gap-1.5 mb-3">
+                    {TAG_COLOR_KEYS.map(c => (
+                      <button
+                        key={c}
+                        onClick={e => { e.stopPropagation(); setTagColor(c) }}
+                        title={c}
+                        className={clsx(
+                          'w-5 h-5 rounded-full transition-all hover:scale-110',
+                          TAG_DOT_MAP[c],
+                          tagColor === c ? 'ring-2 ring-offset-1 ring-gray-500 scale-110' : 'opacity-60 hover:opacity-100'
+                        )}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={e => { e.stopPropagation(); commitTag() }}
+                      disabled={!tagInput.trim()}
+                      className="flex-1 text-xs py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+                    >
+                      Add tag
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setAddingTag(false); setTagInput(''); setTagColor('blue') }}
+                      className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={openTagInput}
+                  className="text-xs px-2.5 py-1 border border-dashed border-gray-300 rounded-full text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors"
+                >
+                  + Add tag
+                </button>
+              )
+            )}
+          </div>
         )}
 
         {/* Footer */}
@@ -151,22 +292,18 @@ export function SOPCard({ sop }: Props) {
             {sop.meeting_date && <span>·</span>}
             {sop.meeting_date && <span>{formatDate(sop.meeting_date)}</span>}
           </div>
-
-          <div
-            className="flex items-center gap-1.5"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
             {!confirming ? (
               <>
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate({ to: '/sop/$id/procedure', params: { id: sop.id } }) }}
+                  onClick={e => { e.stopPropagation(); navigate({ to: '/sop/$id/procedure', params: { id: sop.id } }) }}
                   className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   Open
                 </button>
                 {canDelete && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
+                    onClick={e => { e.stopPropagation(); setConfirming(true) }}
                     className="text-xs w-7 h-7 flex items-center justify-center border border-gray-200 rounded-lg text-gray-300 hover:border-red-200 hover:text-red-400 transition-colors"
                   >
                     ✕
@@ -176,13 +313,13 @@ export function SOPCard({ sop }: Props) {
             ) : (
               <>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
+                  onClick={e => { e.stopPropagation(); setConfirming(false) }}
                   className="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); deleteMutation.mutate() }}
+                  onClick={e => { e.stopPropagation(); deleteMutation.mutate() }}
                   disabled={deleteMutation.isPending}
                   className="text-xs px-2.5 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
                 >

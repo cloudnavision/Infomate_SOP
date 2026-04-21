@@ -41,6 +41,7 @@ def extract_frames(
     min_scene_len_sec: float = 2.0,
     dedup_hash_threshold: int = 8,
     frame_offset_sec: float = 1.5,
+    fallback_interval_sec: float = 120.0,
 ) -> list[ExtractedFrame]:
     """
     Run the full frame extraction pipeline across all screen-share periods.
@@ -67,9 +68,11 @@ def extract_frames(
         segment_path = tmp_dir / f"period_{period_idx}.mp4"
         _ffmpeg_crop_segment(video_path, segment_path, start_time, end_time, x, y, w, h)
 
-        # Stage 2 — PySceneDetect
+        # Stage 2 — PySceneDetect + time-based fallback
         scenes = _detect_scenes(segment_path, pyscenedetect_threshold, min_scene_len_sec)
         logger.info("Period %d: %d scenes detected", period_idx, len(scenes))
+        segment_duration = end_time - start_time
+        scenes = _fill_time_gaps(scenes, segment_duration, fallback_interval_sec)
 
         # Stage 3 + 4 — Extract frame per scene, then dedup
         for scene_start_sec, scene_end_sec in scenes:
@@ -170,6 +173,42 @@ def _extract_single_frame(
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     return result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0
+
+
+# ── Time-based fallback ───────────────────────────────────────────────────────
+
+def _fill_time_gaps(
+    scenes: list[tuple[float, float]],
+    segment_duration: float,
+    fallback_interval_sec: float,
+) -> list[tuple[float, float]]:
+    """
+    Insert synthetic scenes at regular intervals where PySceneDetect found no change.
+    A forced frame is added at every fallback_interval_sec mark that has no existing
+    scene start within half an interval. Ensures coverage of long static screens.
+    """
+    if fallback_interval_sec <= 0 or segment_duration <= 0:
+        return scenes
+
+    scene_starts = [start for start, _ in scenes]
+    half = fallback_interval_sec / 2.0
+
+    forced = []
+    t = fallback_interval_sec
+    while t < segment_duration:
+        if not any(abs(ts - t) <= half for ts in scene_starts):
+            syn_start = max(0.0, t - 1.0)
+            syn_end = min(segment_duration, t + 1.0)
+            forced.append((syn_start, syn_end))
+        t += fallback_interval_sec
+
+    if forced:
+        logger.info(
+            "Time-based fallback: added %d forced frames across %.0fs segment",
+            len(forced), segment_duration,
+        )
+
+    return sorted(scenes + forced, key=lambda s: s[0])
 
 
 # ── PySceneDetect helper ──────────────────────────────────────────────────────

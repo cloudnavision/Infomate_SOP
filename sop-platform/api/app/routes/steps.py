@@ -95,9 +95,17 @@ async def add_callout(
     if step is None:
         raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
 
+    max_num = await db.scalar(
+        select(StepCallout.callout_number)
+        .where(StepCallout.step_id == step_id)
+        .order_by(StepCallout.callout_number.desc())
+        .limit(1)
+    )
+    next_num = (max_num or 0) + 1
+
     callout = StepCallout(
         step_id=step_id,
-        callout_number=body.callout_number,
+        callout_number=next_num,
         label=body.label,
         target_x=body.target_x,
         target_y=body.target_y,
@@ -105,7 +113,7 @@ async def add_callout(
     )
     db.add(callout)
     await _log(db, step.sop_id, current_user.id, "edit",
-               f"Callout #{body.callout_number} added", step.title)
+               f"Callout #{next_num} added", step.title)
     await db.commit()
     await db.refresh(callout)
     return CalloutSchema.model_validate(callout)
@@ -277,6 +285,38 @@ async def approve_step(
     await db.commit()
     await db.refresh(step)
     return StepSchema.model_validate(step)
+
+
+@router.delete("/steps/{step_id}", status_code=204)
+async def delete_step(
+    step_id: UUID,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a step and re-sequence remaining steps. Editor/Admin only."""
+    step = await db.scalar(select(SOPStep).where(SOPStep.id == step_id))
+    if step is None:
+        raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+
+    sop_id = step.sop_id
+    deleted_seq = step.sequence
+    title = step.title
+
+    await db.delete(step)
+    await db.flush()
+
+    # Re-sequence steps that come after the deleted one
+    remaining = (await db.execute(
+        select(SOPStep)
+        .where(SOPStep.sop_id == sop_id, SOPStep.sequence > deleted_seq)
+        .order_by(SOPStep.sequence)
+    )).scalars().all()
+    for s in remaining:
+        s.sequence -= 1
+
+    await _log(db, sop_id, current_user.id, "edit",
+               f"Step {deleted_seq} deleted", f'"{title}"')
+    await db.commit()
 
 
 @router.post("/steps/{step_id}/render-annotated", response_model=RenderAnnotatedResponse)

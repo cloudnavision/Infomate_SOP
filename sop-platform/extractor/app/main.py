@@ -9,6 +9,7 @@ import logging
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -60,6 +61,7 @@ class ExtractRequest(BaseModel):
     min_scene_len_sec: float = 2.0
     dedup_hash_threshold: int = 8
     frame_offset_sec: float = 1.5
+    fallback_interval_sec: float = 120.0
 
 
 class ClipDefinition(BaseModel):
@@ -272,6 +274,7 @@ async def render_annotated_endpoint(req: RenderAnnotatedRequest) -> RenderAnnota
 
 # ── /extract ──────────────────────────────────────────────────────────────────
 
+@app.post("/api/extract", response_model=ExtractResponse, tags=["extraction"])
 @app.post("/extract", response_model=ExtractResponse, tags=["extraction"])
 async def extract(req: ExtractRequest) -> ExtractResponse:
     """
@@ -329,6 +332,7 @@ def _run_extraction(req: ExtractRequest) -> ExtractResponse:
             min_scene_len_sec=req.min_scene_len_sec,
             dedup_hash_threshold=req.dedup_hash_threshold,
             frame_offset_sec=req.frame_offset_sec,
+            fallback_interval_sec=req.fallback_interval_sec,
         )
 
         raw_scenes = len(all_frames)
@@ -505,20 +509,27 @@ def _upload_to_azure_blob(local_path: Path, sas_url: str) -> None:
     resp.raise_for_status()
 
 
-def _upload_to_azure_blob_video(local_path: Path, sas_url: str) -> None:
-    """
-    PUT an MP4 file to Azure Blob Storage using a SAS URL.
-    Raises requests.HTTPError on failure.
-    """
-    with open(local_path, "rb") as f:
-        data = f.read()
-    resp = requests.put(
-        sas_url,
-        data=data,
-        headers={
-            "x-ms-blob-type": "BlockBlob",
-            "Content-Type": "video/mp4",
-        },
-        timeout=120,
-    )
-    resp.raise_for_status()
+def _upload_to_azure_blob_video(local_path: Path, sas_url: str, max_retries: int = 3) -> None:
+    """Stream-upload an MP4 to Azure Blob Storage with retry on connection errors."""
+    file_size = local_path.stat().st_size
+    for attempt in range(max_retries):
+        try:
+            with open(local_path, "rb") as f:
+                resp = requests.put(
+                    sas_url,
+                    data=f,
+                    headers={
+                        "x-ms-blob-type": "BlockBlob",
+                        "Content-Type": "video/mp4",
+                        "Content-Length": str(file_size),
+                    },
+                    timeout=300,
+                )
+            resp.raise_for_status()
+            return
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if attempt < max_retries - 1:
+                logger.warning("Video upload failed (attempt %d/%d): %s — retrying", attempt + 1, max_retries, e)
+                time.sleep(5 * (attempt + 1))
+            else:
+                raise

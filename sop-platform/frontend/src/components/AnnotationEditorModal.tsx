@@ -73,7 +73,6 @@ export function AnnotationEditorModal({
   const [saving, setSaving] = useState(false)
   const boxRefs = useRef<Map<string, Konva.Rect>>(new Map())
   const transformerRef = useRef<Konva.Transformer>(null)
-  const [rerendering, setRerendering] = useState(false)
   const [rerenderUrl, setRerenderUrl] = useState<string | null>(null)
 
   const [mode, setMode] = useState<EditorMode>('move')
@@ -265,6 +264,10 @@ export function AnnotationEditorModal({
         color: b.color,
       })))
 
+      // 4. Re-render annotated PNG automatically
+      const res = await renderAnnotated(stepId)
+      setRerenderUrl(res.annotated_screenshot_url)
+
       await qc.invalidateQueries({ queryKey: sopKeys.detail(sopId) })
       onClose()
     } catch (err) {
@@ -274,18 +277,6 @@ export function AnnotationEditorModal({
     }
   }
 
-  async function handleRerender() {
-    setRerendering(true)
-    try {
-      const res = await renderAnnotated(stepId)
-      setRerenderUrl(res.annotated_screenshot_url)
-      await qc.invalidateQueries({ queryKey: sopKeys.detail(sopId) })
-    } catch (err) {
-      alert(`Re-render failed: ${err instanceof Error ? err.message : String(err)}`)
-    } finally {
-      setRerendering(false)
-    }
-  }
 
   const { width: sw, height: sh } = stageDim
   // rerenderUrl already has SAS (applied by API) — just append cache-buster
@@ -601,18 +592,6 @@ export function AnnotationEditorModal({
               </div>
             )}
 
-            <div className="p-3 border-t border-slate-700">
-              <button
-                onClick={handleRerender}
-                disabled={rerendering}
-                className="w-full py-2 text-xs font-semibold bg-purple-700 text-white rounded hover:bg-purple-600 disabled:opacity-50"
-              >
-                {rerendering ? 'Rendering…' : '↻ Re-render Annotated PNG'}
-              </button>
-              <p className="text-[10px] text-slate-600 text-center mt-1">
-                Regenerates the screenshot PNG with current positions
-              </p>
-            </div>
           </div>
         </div>
 

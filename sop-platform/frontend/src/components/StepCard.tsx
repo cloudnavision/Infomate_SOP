@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SOPStep, TranscriptLine } from '../api/types'
 import { useAuth } from '../hooks/useAuth'
-import { approveStep, renameStep, updateSubSteps, sopKeys } from '../api/client'
+import { approveStep, renameStep, updateSubSteps, deleteStep, sopKeys } from '../api/client'
 import { CalloutList } from './CalloutList'
 import { DiscussionCard } from './DiscussionCard'
 import { ScreenshotModal } from './ScreenshotModal'
@@ -12,30 +12,51 @@ interface Props {
   step: SOPStep | null
   transcriptLines: TranscriptLine[]
   onSeek: (seconds: number) => void
+  onDelete?: (stepId: string) => void
 }
 
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
+function formatTime(s: number): string {
+  const m = Math.floor(s / 60)
+  return `${m}:${Math.floor(s % 60).toString().padStart(2, '0')}`
 }
 
 function getKTLines(step: SOPStep, lines: TranscriptLine[]): TranscriptLine[] {
   const end = step.timestamp_end ?? Infinity
-  const inRange = lines.filter(
-    (l) => l.timestamp_sec >= step.timestamp_start && l.timestamp_sec <= end,
-  )
+  const inRange = lines.filter(l => l.timestamp_sec >= step.timestamp_start && l.timestamp_sec <= end)
   if (inRange.length > 0) return inRange.slice(0, 3)
-  // Fallback: single line nearest to timestamp_start
-  const nearest = [...lines].sort(
-    (a, b) =>
-      Math.abs(a.timestamp_sec - step.timestamp_start) -
-      Math.abs(b.timestamp_sec - step.timestamp_start),
+  const nearest = [...lines].sort((a, b) =>
+    Math.abs(a.timestamp_sec - step.timestamp_start) - Math.abs(b.timestamp_sec - step.timestamp_start)
   )[0]
   return nearest ? [nearest] : []
 }
 
-export function StepCard({ step, transcriptLines, onSeek }: Props) {
+function Section({ icon, label, children, accent = 'gray' }: {
+  icon: React.ReactNode
+  label: string
+  children: React.ReactNode
+  accent?: 'gray' | 'blue' | 'violet' | 'amber' | 'green'
+}) {
+  const accentMap = {
+    gray:   'text-gray-400 bg-gray-50',
+    blue:   'text-blue-500 bg-blue-50',
+    violet: 'text-violet-500 bg-violet-50',
+    amber:  'text-amber-500 bg-amber-50',
+    green:  'text-green-600 bg-green-50',
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${accentMap[accent]}`}>
+          {icon}
+        </span>
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</h4>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [renamingTitle, setRenamingTitle] = useState(false)
@@ -43,35 +64,40 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
   const titleInputRef = useRef<HTMLInputElement>(null)
   const [editingSubSteps, setEditingSubSteps] = useState(false)
   const [subStepInputs, setSubStepInputs] = useState<string[]>([])
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const { appUser } = useAuth()
   const qc = useQueryClient()
   const canEdit = appUser?.role === 'editor' || appUser?.role === 'admin'
 
+  const updateCache = (updated: SOPStep | null) => {
+    if (!updated) return
+    qc.setQueryData<any>(sopKeys.detail(updated.sop_id), (old: any) =>
+      old ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) } : old
+    )
+  }
+
   const subStepsMutation = useMutation({
     mutationFn: (items: string[]) => updateSubSteps(step!.id, items),
-    onSuccess: (updated) => {
-      if (!updated) return
-      qc.setQueryData<{ steps: SOPStep[] }>(
-        sopKeys.detail(updated.sop_id),
-        (old: any) => old
-          ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) }
-          : old,
-      )
-      setEditingSubSteps(false)
+    onSuccess: (u) => { updateCache(u); setEditingSubSteps(false) },
+  })
+  const renameMutation = useMutation({
+    mutationFn: (title: string) => renameStep(step!.id, title),
+    onSuccess: (u) => { updateCache(u); setRenamingTitle(false) },
+  })
+  const approveMutation = useMutation({
+    mutationFn: () => approveStep(step!.id),
+    onSuccess: (u) => {
+      updateCache(u)
+      if (u) qc.invalidateQueries({ queryKey: sopKeys.metrics(u.sop_id) })
     },
   })
 
-  const renameMutation = useMutation({
-    mutationFn: (title: string) => renameStep(step!.id, title),
-    onSuccess: (updated) => {
-      if (!updated) return
-      qc.setQueryData<{ steps: SOPStep[] }>(
-        sopKeys.detail(updated.sop_id),
-        (old: any) => old
-          ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) }
-          : old,
-      )
-      setRenamingTitle(false)
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteStep(step!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: sopKeys.detail(step!.sop_id) })
+      onDelete?.(step!.id)
+      setConfirmDelete(false)
     },
   })
 
@@ -82,24 +108,17 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
     }
   }, [renamingTitle])
 
-  const approveMutation = useMutation({
-    mutationFn: () => approveStep(step!.id),
-    onSuccess: (updated) => {
-      if (!updated) return
-      qc.setQueryData<{ steps: SOPStep[] }>(
-        sopKeys.detail(updated.sop_id),
-        (old: any) => old
-          ? { ...old, steps: old.steps.map((s: SOPStep) => s.id === updated.id ? updated : s) }
-          : old,
-      )
-      qc.invalidateQueries({ queryKey: sopKeys.metrics(updated.sop_id) })
-    },
-  })
-
   if (!step) {
     return (
-      <div className="flex items-center justify-center text-gray-400 text-sm py-16 h-full">
-        Select a step to view details
+      <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-gray-400 bg-white rounded-xl border border-gray-100 shadow-sm p-8">
+        <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12">
+          <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/>
+          <path d="M16 22h16M16 28h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4"/>
+        </svg>
+        <div>
+          <p className="text-sm font-medium text-gray-500">No step selected</p>
+          <p className="text-xs mt-0.5">Click a step in the sidebar to view details</p>
+        </div>
       </div>
     )
   }
@@ -109,245 +128,309 @@ export function StepCard({ step, transcriptLines, onSeek }: Props) {
   const ktLines = getKTLines(step, transcriptLines)
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5 space-y-5 overflow-y-auto h-full">
-      {/* Step badge + title */}
-      <div className="flex items-start gap-3">
-        <span className="shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">
-          {step.sequence}
-        </span>
-        {renamingTitle ? (
-          <div className="flex-1 flex items-center gap-2">
-            <input
-              ref={titleInputRef}
-              value={titleInput}
-              onChange={e => setTitleInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') renameMutation.mutate(titleInput.trim())
-                if (e.key === 'Escape') setRenamingTitle(false)
-              }}
-              className="flex-1 text-sm font-semibold border border-violet-300 rounded-lg px-2.5 py-1 outline-none focus:ring-1 focus:ring-violet-200"
-            />
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-y-auto h-full flex flex-col">
+      {/* ── Step header ──────────────────────────────────────────── */}
+      <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 shrink-0">
+        <div className="flex items-start gap-3">
+          {/* Number badge */}
+          <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ${
+            step.is_approved ? 'bg-green-500 text-white' : 'bg-blue-600 text-white'
+          }`}>
+            {step.is_approved
+              ? <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M12.5 4.5a1 1 0 00-1.414-1.414L6 8.172 4.914 7.086A1 1 0 103.5 8.5l2 2a1 1 0 001.414 0l6-6z" clipRule="evenodd"/></svg>
+              : step.sequence
+            }
+          </span>
+
+          <div className="flex-1 min-w-0">
+            {renamingTitle ? (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={titleInputRef}
+                  value={titleInput}
+                  onChange={e => setTitleInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') renameMutation.mutate(titleInput.trim())
+                    if (e.key === 'Escape') setRenamingTitle(false)
+                  }}
+                  className="flex-1 text-sm font-semibold border border-violet-300 rounded-lg px-2.5 py-1 outline-none focus:ring-1 focus:ring-violet-200"
+                />
+                <button
+                  onClick={() => renameMutation.mutate(titleInput.trim())}
+                  disabled={renameMutation.isPending || !titleInput.trim()}
+                  className="text-xs px-2.5 py-1 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 font-medium"
+                >
+                  {renameMutation.isPending ? '…' : 'Save'}
+                </button>
+                <button onClick={() => setRenamingTitle(false)} className="text-xs px-2 py-1 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">✕</button>
+              </div>
+            ) : (
+              <div className="flex items-start gap-1.5">
+                <h2 className="text-sm font-semibold text-gray-900 leading-snug">{step.title}</h2>
+                {canEdit && (
+                  <button
+                    onClick={() => { setTitleInput(step.title); setRenamingTitle(true) }}
+                    className="mt-0.5 shrink-0 text-gray-300 hover:text-violet-500 transition-colors"
+                    title="Rename step"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Timestamp chip */}
             <button
-              onClick={() => renameMutation.mutate(titleInput.trim())}
-              disabled={renameMutation.isPending || !titleInput.trim()}
-              className="text-xs px-2.5 py-1 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 font-medium"
+              onClick={() => onSeek(step.timestamp_start)}
+              className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors"
             >
-              {renameMutation.isPending ? '…' : 'Save'}
-            </button>
-            <button
-              onClick={() => setRenamingTitle(false)}
-              className="text-xs px-2.5 py-1 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
-            >
-              Cancel
+              <svg viewBox="0 0 12 12" fill="currentColor" className="w-2.5 h-2.5">
+                <path d="M6 0a6 6 0 110 12A6 6 0 016 0zm0 1.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM5.25 3.75a.75.75 0 011.5 0V6h1.5a.75.75 0 010 1.5H6a.75.75 0 01-.75-.75V3.75z"/>
+              </svg>
+              Play from {formatTime(step.timestamp_start)}
             </button>
           </div>
-        ) : (
-          <div className="flex-1 flex items-start gap-2">
-            <h2 className="text-base font-semibold text-gray-900 leading-snug">{step.title}</h2>
+        </div>
+      </div>
+
+      {/* ── Content ──────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+
+        {/* Description */}
+        {step.description && (
+          <p className="text-sm text-gray-700 leading-relaxed">{step.description}</p>
+        )}
+
+        {/* Screenshot */}
+        {screenshotUrl && (
+          <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+            <div className="relative group cursor-pointer bg-gray-100" onClick={() => setModalOpen(true)}>
+              <img
+                src={screenshotUrl}
+                alt={`Step ${step.sequence} screenshot`}
+                className="w-full object-contain"
+                style={{ maxHeight: '160px', display: 'block' }}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+                  <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                    <path d="M7 11a4 4 0 100-8 4 4 0 000 8zm0-1.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/>
+                    <path d="M13.5 13.5l-2.5-2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  Expand
+                </span>
+              </div>
+            </div>
             {canEdit && (
-              <button
-                onClick={() => { setTitleInput(step.title); setRenamingTitle(true) }}
-                className="text-gray-400 hover:text-violet-600 mt-0.5 shrink-0 transition-colors"
-                title="Rename step"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
+              <div className="px-3 py-1.5 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button
+                  onClick={() => setEditorOpen(true)}
+                  className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                  Edit Callouts
+                </button>
+              </div>
             )}
           </div>
         )}
-      </div>
 
-      {/* Description */}
-      {step.description && (
-        <p className="text-sm text-gray-700 leading-relaxed">{step.description}</p>
-      )}
-
-      {/* Sub-steps */}
-      {(subSteps.length > 0 || canEdit) && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sub-steps</h4>
-            {canEdit && !editingSubSteps && (
-              <button
-                onClick={() => { setSubStepInputs(subSteps.length ? [...subSteps] : ['']); setEditingSubSteps(true) }}
-                className="text-gray-400 hover:text-violet-600 transition-colors"
-                title="Edit sub-steps"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {editingSubSteps ? (
-            <div className="space-y-2">
-              {subStepInputs.map((val, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}.</span>
-                  <input
-                    value={val}
-                    onChange={e => setSubStepInputs(prev => prev.map((s, idx) => idx === i ? e.target.value : s))}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') { e.preventDefault(); setSubStepInputs(prev => [...prev.slice(0, i + 1), '', ...prev.slice(i + 1)]) }
-                      if (e.key === 'Backspace' && !val && subStepInputs.length > 1) { e.preventDefault(); setSubStepInputs(prev => prev.filter((_, idx) => idx !== i)) }
-                    }}
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-1 outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-100"
-                    placeholder={`Sub-step ${i + 1}`}
-                    autoFocus={i === subStepInputs.length - 1 && val === ''}
-                  />
-                  <button
-                    onClick={() => setSubStepInputs(prev => prev.filter((_, idx) => idx !== i))}
-                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+        {/* Sub-steps */}
+        {(subSteps.length > 0 || canEdit) && (
+          <Section
+            accent="blue"
+            label="Sub-steps"
+            icon={<svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3"><path d="M2 2h8a1 1 0 010 2H2a1 1 0 010-2zm0 4h8a1 1 0 010 2H2a1 1 0 010-2zm0 4h5a1 1 0 010 2H2a1 1 0 010-2z"/></svg>}
+          >
+            {editingSubSteps ? (
+              <div className="space-y-2">
+                {subStepInputs.map((val, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-4 shrink-0 text-right">{i + 1}.</span>
+                    <input
+                      value={val}
+                      onChange={e => setSubStepInputs(prev => prev.map((s, idx) => idx === i ? e.target.value : s))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); setSubStepInputs(prev => [...prev.slice(0, i + 1), '', ...prev.slice(i + 1)]) }
+                        if (e.key === 'Backspace' && !val && subStepInputs.length > 1) { e.preventDefault(); setSubStepInputs(prev => prev.filter((_, idx) => idx !== i)) }
+                      }}
+                      className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-1 outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-100"
+                      placeholder={`Sub-step ${i + 1}`}
+                      autoFocus={i === subStepInputs.length - 1 && val === ''}
+                    />
+                    <button onClick={() => setSubStepInputs(prev => prev.filter((_, idx) => idx !== i))} className="text-gray-300 hover:text-red-400 transition-colors">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                ))}
+                <button onClick={() => setSubStepInputs(prev => [...prev, ''])} className="text-xs text-violet-600 hover:text-violet-700 flex items-center gap-1 mt-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                  Add sub-step
+                </button>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => subStepsMutation.mutate(subStepInputs)} disabled={subStepsMutation.isPending} className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 font-medium">
+                    {subStepsMutation.isPending ? 'Saving…' : 'Save'}
                   </button>
+                  <button onClick={() => setEditingSubSteps(false)} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                {canEdit && subSteps.length > 0 && (
+                  <button
+                    onClick={() => { setSubStepInputs([...subSteps]); setEditingSubSteps(true) }}
+                    className="absolute top-0 right-0 text-gray-300 hover:text-violet-500 transition-colors"
+                    title="Edit sub-steps"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                  </button>
+                )}
+                {subSteps.length > 0 ? (
+                  <ol className="space-y-1.5">
+                    {subSteps.map((s, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center justify-center mt-0.5">{i + 1}</span>
+                        <span className="leading-snug pt-0.5">{s}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : canEdit ? (
+                  <button
+                    onClick={() => { setSubStepInputs(['']); setEditingSubSteps(true) }}
+                    className="text-xs text-gray-400 hover:text-violet-500 flex items-center gap-1 transition-colors"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Add sub-steps
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </Section>
+        )}
+
+        {/* KT session quotes */}
+        {ktLines.length > 0 && (
+          <Section
+            accent="amber"
+            label="From the KT Session"
+            icon={<svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3"><path d="M10 1H2a1 1 0 00-1 1v6a1 1 0 001 1h1v2l3-2h4a1 1 0 001-1V2a1 1 0 00-1-1z"/></svg>}
+          >
+            <div className="space-y-2.5 bg-amber-50 rounded-xl p-3 border border-amber-100">
+              {ktLines.map(l => (
+                <div key={l.id} className="flex items-start gap-2">
+                  <span className="text-amber-300 text-lg leading-none mt-0.5 shrink-0">"</span>
+                  <div>
+                    <p className="text-sm text-gray-800 leading-snug italic">{l.content}</p>
+                    <p className="text-xs text-amber-600 font-medium mt-0.5">{l.speaker}</p>
+                  </div>
                 </div>
               ))}
-
-              <button
-                onClick={() => setSubStepInputs(prev => [...prev, ''])}
-                className="text-xs text-violet-600 hover:text-violet-700 flex items-center gap-1 mt-1"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Add sub-step
-              </button>
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => subStepsMutation.mutate(subStepInputs)}
-                  disabled={subStepsMutation.isPending}
-                  className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 font-medium"
-                >
-                  {subStepsMutation.isPending ? 'Saving…' : 'Save'}
-                </button>
-                <button
-                  onClick={() => setEditingSubSteps(false)}
-                  className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
-          ) : (
-            <ul className="space-y-1 list-disc list-inside text-sm text-gray-700">
-              {subSteps.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+          </Section>
+        )}
 
-      {/* Screenshot thumbnail */}
-      {screenshotUrl && (
-        <div>
-          <img
-            src={screenshotUrl}
-            alt="Annotated screenshot"
-            className="w-full rounded border border-gray-100 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-            style={{ maxHeight: '160px', objectPosition: 'top' }}
-            onClick={() => setModalOpen(true)}
-          />
-          <div className="mt-1 flex items-center gap-3">
-            <button
-              onClick={() => setModalOpen(true)}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              Click to expand full screenshot
-            </button>
-            {canEdit && (
-              <button
-                onClick={() => setEditorOpen(true)}
-                className="text-xs text-purple-600 hover:underline font-medium"
-              >
-                ✎ Edit Callouts
-              </button>
-            )}
-          </div>
-          {modalOpen && (
-            <ScreenshotModal
-              src={screenshotUrl}
-              alt={`Step ${step.sequence} screenshot`}
-              onClose={() => setModalOpen(false)}
-            />
-          )}
-          {editorOpen && canEdit && (
-            <AnnotationEditorModal
-              sopId={step.sop_id}
-              stepId={step.id}
-              stepTitle={step.title}
-              stepNumber={step.sequence}
-              screenshotUrl={screenshotUrl}
-              callouts={step.callouts}
-              highlight_boxes={step.highlight_boxes || []}
-              onClose={() => setEditorOpen(false)}
-            />
-          )}
-        </div>
-      )}
+        {/* Callouts */}
+        {step.callouts.length > 0 && (
+          <Section
+            accent="violet"
+            label="Callouts"
+            icon={<svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3"><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1.5"/><path d="M6 4v3M6 8.5v.5"/></svg>}
+          >
+            <CalloutList callouts={step.callouts} />
+          </Section>
+        )}
 
-      {/* KT session quote */}
-      {ktLines.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            From the KT session
-          </p>
-          <div className="space-y-2">
-            {ktLines.map((l) => (
-              <div key={l.id}>
-                <p className="text-sm text-gray-700 italic leading-snug">"{l.content}"</p>
-                <p className="text-xs text-gray-400 mt-0.5">{l.speaker}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* Discussions */}
+        {step.discussions.length > 0 && (
+          <Section
+            accent="gray"
+            label="Discussion"
+            icon={<svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3"><path d="M10 1H2a1 1 0 00-1 1v5a1 1 0 001 1h1v2l2.5-2H10a1 1 0 001-1V2a1 1 0 00-1-1z"/></svg>}
+          >
+            <div className="space-y-2">
+              {step.discussions.map(d => <DiscussionCard key={d.id} discussion={d} />)}
+            </div>
+          </Section>
+        )}
+      </div>
 
-      {/* Play from timestamp */}
-      <button
-        onClick={() => onSeek(step.timestamp_start)}
-        className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
-      >
-        <span>▶</span>
-        <span>Play from {formatTime(step.timestamp_start)}</span>
-      </button>
-
-      {/* Callouts */}
-      <CalloutList callouts={step.callouts} />
-
-      {/* Discussions */}
-      {step.discussions.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Discussion
-          </h4>
-          {step.discussions.map((d) => (
-            <DiscussionCard key={d.id} discussion={d} />
-          ))}
-        </div>
-      )}
-
-      {/* Approve step */}
+      {/* ── Footer: approve + delete ─────────────────────────────── */}
       {canEdit && (
-        <div className="pt-2 border-t border-gray-100">
+        <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 shrink-0 space-y-2">
+          {/* Approve button */}
           <button
             onClick={() => approveMutation.mutate()}
-            disabled={approveMutation.isPending}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+            disabled={approveMutation.isPending || deleteMutation.isPending}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ${
               step.is_approved
                 ? 'bg-green-50 border border-green-200 text-green-700 hover:bg-green-100'
-                : 'bg-white border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600'
+                : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            <span>{step.is_approved ? '✓' : '○'}</span>
-            <span>{step.is_approved ? 'Approved' : 'Mark as Approved'}</span>
+            {approveMutation.isPending ? (
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 16 16" fill="currentColor" className={`w-4 h-4 ${step.is_approved ? 'text-green-600' : 'text-white'}`}>
+                <path fillRule="evenodd" d="M12.5 4.5a1 1 0 00-1.414-1.414L6 8.172 4.914 7.086A1 1 0 103.5 8.5l2 2a1 1 0 001.414 0l6-6z" clipRule="evenodd"/>
+              </svg>
+            )}
+            {step.is_approved ? 'Approved' : 'Mark as Approved'}
           </button>
+
+          {/* Delete — confirm inline */}
+          {confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-xs text-red-600 font-medium">Delete this step?</span>
+              <button
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-all"
+              >
+                {deleteMutation.isPending ? 'Deleting…' : 'Yes, delete'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium border border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all"
+            >
+              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H3a1 1 0 000 2h.09l.676 7.44A2 2 0 005.76 15h4.48a2 2 0 001.994-1.56L12.91 6H13a1 1 0 100-2h-2V3a1 1 0 00-1-1H6zm1 2h2V3H7v1zm-1.91 2h7.82l-.637 7H5.727L5.09 6z" clipRule="evenodd"/>
+              </svg>
+              Delete step
+            </button>
+          )}
         </div>
+      )}
+
+      {/* Modals */}
+      {modalOpen && screenshotUrl && (
+        <ScreenshotModal src={screenshotUrl} alt={`Step ${step.sequence} screenshot`} onClose={() => setModalOpen(false)} />
+      )}
+      {editorOpen && canEdit && (step.screenshot_url || screenshotUrl) && (
+        <AnnotationEditorModal
+          sopId={step.sop_id}
+          stepId={step.id}
+          stepTitle={step.title}
+          stepNumber={step.sequence}
+          screenshotUrl={step.screenshot_url ?? screenshotUrl!}
+          callouts={step.callouts}
+          highlight_boxes={step.highlight_boxes || []}
+          onClose={() => setEditorOpen(false)}
+        />
       )}
     </div>
   )

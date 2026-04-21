@@ -185,6 +185,13 @@ export interface ExportHistoryItem {
   created_at: string
 }
 
+export interface LikerItem {
+  id: string
+  name: string
+  email: string
+  liked_at: string
+}
+
 export interface SOPMetrics {
   view_count: number
   like_count: number
@@ -193,6 +200,7 @@ export interface SOPMetrics {
   approved_step_count: number
   export_count: number
   recent_exports: ExportHistoryItem[]
+  likers: LikerItem[]
 }
 
 export interface LikeResponse {
@@ -219,6 +227,23 @@ export interface SOPListItem {
   tags: SOPTag[]
 }
 
+export interface ProcessMapLane {
+  id: string
+  name: string
+  color: string
+}
+
+export interface ProcessMapAssignment {
+  step_id: string
+  lane_id: string
+  is_decision: boolean
+}
+
+export interface ProcessMapConfig {
+  lanes: ProcessMapLane[]
+  assignments: ProcessMapAssignment[]
+}
+
 export interface SOPDetail {
   id: string
   title: string
@@ -239,6 +264,7 @@ export interface SOPDetail {
   updated_at: string
   published_at: string | null
   archived_at: string | null
+  process_map_config: ProcessMapConfig | null
   steps: SOPStep[]
   sections: SOPSection[]
   watchlist: WatchlistItem[]

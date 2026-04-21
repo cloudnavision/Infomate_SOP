@@ -22,7 +22,6 @@ function ProcedurePage() {
     queryFn: () => fetchSOP(id),
   })
 
-  // Lifted transcript query — shared between TranscriptPanel and StepCard
   const { data: transcriptLines = [] } = useQuery({
     queryKey: sopKeys.transcript(id),
     queryFn: () => fetchTranscript(id),
@@ -34,13 +33,22 @@ function ProcedurePage() {
 
   const selectedStep = sop?.steps.find((s) => s.id === selectedStepId) ?? null
 
-  // Track view once on mount
+  function handleStepDeleted(deletedId: string) {
+    const steps = sop?.steps ?? []
+    const idx = steps.findIndex(s => s.id === deletedId)
+    const next = steps[idx + 1] ?? steps[idx - 1] ?? null
+    setSelectedStep(next?.id ?? null)
+  }
+
   useEffect(() => {
-    trackView(id).catch(() => {/* silent — non-critical */})
+    const key = `sop_viewed_${id}`
+    if (!sessionStorage.getItem(key)) {
+      trackView(id).catch(() => {})
+      sessionStorage.setItem(key, '1')
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // Auto-select first step on load
   useEffect(() => {
     if (sop && !selectedStepId && sop.steps.length > 0) {
       setSelectedStep(sop.steps[0].id)
@@ -56,7 +64,7 @@ function ProcedurePage() {
       <div className="grid grid-cols-[220px_1fr_320px] gap-4 flex-1 min-h-0">
         {/* Left: Steps + Sections sidebar */}
         <div className="overflow-y-auto">
-          <StepSidebar steps={sop.steps} sections={sop.sections} />
+          <StepSidebar steps={sop.steps} sections={sop.sections} sopId={id} />
         </div>
 
         {/* Center: Video + Transcript */}
@@ -78,6 +86,7 @@ function ProcedurePage() {
             step={selectedStep}
             transcriptLines={transcriptLines}
             onSeek={seekTo}
+            onDelete={handleStepDeleted}
           />
         </div>
       </div>

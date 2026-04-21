@@ -2,6 +2,7 @@ import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSOP, sopKeys } from '../api/client'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { useAuth } from '../hooks/useAuth'
 
 export const Route = createFileRoute('/sop/$id')({
   component: () => (
@@ -11,15 +12,21 @@ export const Route = createFileRoute('/sop/$id')({
   ),
 })
 
-const tabs = [
-  { label: 'Procedure', path: 'procedure' },
-  { label: 'Overview', path: 'overview' },
-  { label: 'Matrices', path: 'matrices' },
-  { label: 'History', path: 'history' },
+const ALL_TABS = [
+  { label: 'Procedure', path: 'procedure', minRole: 'viewer' },
+  { label: 'Overview', path: 'overview', minRole: 'viewer' },
+  { label: 'Process Map', path: 'processmap', minRole: 'viewer' },
+  { label: 'Metrics', path: 'matrices', minRole: 'editor' },
+  { label: 'History', path: 'history', minRole: 'editor' },
 ] as const
 
 function SOPLayout() {
   const { id } = Route.useParams()
+  const { appUser } = useAuth()
+  const role = appUser?.role ?? 'viewer'
+  const tabs = ALL_TABS.filter(t =>
+    t.minRole === 'viewer' || role === 'editor' || role === 'admin'
+  )
   const { data: sop, isLoading, error } = useQuery({
     queryKey: sopKeys.detail(id),
     queryFn: () => fetchSOP(id),
@@ -39,11 +46,8 @@ function SOPLayout() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">{sop.title}</h1>
-        {sop.client_name && (
-          <p className="text-sm text-gray-500">{sop.client_name}</p>
-        )}
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-800 leading-tight">{sop.title}</h1>
       </div>
 
       <nav className="flex gap-1 border-b border-gray-200 mb-6">

@@ -262,6 +262,8 @@ class SOPDetail(BaseModel):
     published_at: Optional[datetime] = None
     archived_at: Optional[datetime] = None
 
+    process_map_config: Optional[Any] = None
+
     steps: list[StepSchema] = []
     sections: list[SectionSchema] = []
     watchlist: list[WatchlistSchema] = []
@@ -276,6 +278,13 @@ class ExportHistoryItem(BaseModel):
     created_at: datetime
 
 
+class LikerItem(BaseModel):
+    id: uuid.UUID
+    name: str
+    email: str
+    liked_at: datetime
+
+
 class SOPMetrics(BaseModel):
     view_count: int
     like_count: int
@@ -284,6 +293,7 @@ class SOPMetrics(BaseModel):
     approved_step_count: int
     export_count: int
     recent_exports: list[ExportHistoryItem]
+    likers: list[LikerItem] = []
 
 
 class LikeResponse(BaseModel):
@@ -297,6 +307,11 @@ class ActivityEvent(BaseModel):
     detail: Optional[str] = None
     timestamp: datetime
     actor_name: Optional[str] = None
+
+
+class ProcessMapConfigBody(BaseModel):
+    lanes: list[dict]       # [{id, name, color}]
+    assignments: list[dict] # [{step_id, lane_id, is_decision}]
 
 
 class ExportResponse(BaseModel):

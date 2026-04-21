@@ -1,4 +1,4 @@
-import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout, SOPMetrics, LikeResponse, SOPTag, HighlightBox } from './types'
+import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout, SOPMetrics, LikeResponse, SOPTag, HighlightBox, ProcessMapConfig } from './types'
 import { supabase } from '../lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -98,6 +98,8 @@ export const patchHighlightBoxes = (stepId: string, boxes: HighlightBox[]) =>
   mutateAPI<SOPStep>(`/api/steps/${stepId}/highlight-boxes`, 'PATCH', boxes)
 
 export const approveStep = (stepId: string) => mutateAPI<SOPStep>(`/api/steps/${stepId}/approve`, 'PATCH')
+export const deleteStep = (stepId: string) => mutateAPI<null>(`/api/steps/${stepId}`, 'DELETE')
+export const updateSOPStatus = (sopId: string, status: string) => mutateAPI<null>(`/api/sops/${sopId}/status`, 'PATCH', { status })
 export const renameStep = (stepId: string, title: string) => mutateAPI<SOPStep>(`/api/steps/${stepId}/rename`, 'PATCH', { title })
 export const updateSubSteps = (stepId: string, sub_steps: string[]) => mutateAPI<SOPStep>(`/api/steps/${stepId}/sub-steps`, 'PATCH', { sub_steps })
 export const fetchMetrics = (id: string) => fetchAPI<SOPMetrics>(`/api/sops/${id}/metrics`)
@@ -106,6 +108,12 @@ export const toggleLike = (id: string) => mutateAPI<LikeResponse>(`/api/sops/${i
 export const deleteSOP = (id: string) => mutateAPI<null>(`/api/sops/${id}`, 'DELETE')
 export const updateSOPTags = (id: string, tags: SOPTag[]) =>
   mutateAPI<SOPListItem>(`/api/sops/${id}/tags`, 'PATCH', { tags })
+
+export const fetchProcessMap = (id: string) =>
+  fetchAPI<{ process_map_config: ProcessMapConfig | null }>(`/api/sops/${id}/process-map`)
+
+export const saveProcessMap = (id: string, config: ProcessMapConfig) =>
+  mutateAPI<{ process_map_config: ProcessMapConfig }>(`/api/sops/${id}/process-map`, 'PATCH', config)
 
 // ── User management (admin only) ──────────────────────────────────────────────
 export const fetchUsers = () => fetchAPI<AppUser[]>('/api/users')
@@ -126,4 +134,5 @@ export const sopKeys = {
   sections: (id: string) => ['sops', id, 'sections'] as const,
   watchlist: (id: string) => ['sops', id, 'watchlist'] as const,
   metrics: (id: string) => ['sops', id, 'metrics'] as const,
+  processMap: (id: string) => ['sops', id, 'process-map'] as const,
 }

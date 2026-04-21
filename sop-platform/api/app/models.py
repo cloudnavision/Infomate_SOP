@@ -142,6 +142,9 @@ class SOP(Base):
         JSONB, server_default=text("'[]'::jsonb")
     )
 
+    # Process map config — {lanes: [{id,name,color}], assignments: [{step_id,lane_id,is_decision}]}
+    process_map_config: Mapped[Optional[Any]] = mapped_column(JSONB, nullable=True)
+
     # Engagement
     view_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
 

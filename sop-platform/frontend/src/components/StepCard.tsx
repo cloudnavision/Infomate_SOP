@@ -123,7 +123,10 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
     )
   }
 
-  const screenshotUrl = step.annotated_screenshot_url ?? step.screenshot_url
+  const cacheBuster = step.updated_at ? `&_t=${new Date(step.updated_at).getTime()}` : ''
+  const screenshotUrl = step.annotated_screenshot_url
+    ? `${step.annotated_screenshot_url}${cacheBuster}`
+    : step.screenshot_url
   const subSteps = Array.isArray(step.sub_steps) ? (step.sub_steps as string[]) : []
   const ktLines = getKTLines(step, transcriptLines)
 

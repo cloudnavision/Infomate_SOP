@@ -389,8 +389,10 @@ async def render_annotated(
     result = resp.json()
     annotated_url = result["annotated_screenshot_url"]
 
-    # Persist the new URL (base URL, no SAS)
+    # Persist the new URL and bump updated_at for cache-busting
+    from datetime import datetime, timezone
     step.annotated_screenshot_url = annotated_url
+    step.updated_at = datetime.now(timezone.utc)
     await db.commit()
 
     return RenderAnnotatedResponse(annotated_screenshot_url=with_sas(annotated_url) or annotated_url)

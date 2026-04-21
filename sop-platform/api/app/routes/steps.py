@@ -119,6 +119,26 @@ async def add_callout(
     return CalloutSchema.model_validate(callout)
 
 
+@router.delete("/steps/{step_id}/callouts/{callout_id}", status_code=204)
+async def delete_callout(
+    step_id: UUID,
+    callout_id: UUID,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a single callout. Editor/Admin only."""
+    callout = await db.scalar(
+        select(StepCallout).where(StepCallout.id == callout_id, StepCallout.step_id == step_id)
+    )
+    if callout is None:
+        raise HTTPException(status_code=404, detail=f"Callout {callout_id} not found")
+    step = await db.scalar(select(SOPStep).where(SOPStep.id == step_id))
+    await db.delete(callout)
+    if step:
+        await _log(db, step.sop_id, current_user.id, "edit", "Callout removed", step.title)
+    await db.commit()
+
+
 @router.patch("/steps/{step_id}/highlight-boxes", response_model=StepSchema)
 async def patch_highlight_boxes(
     step_id: UUID,
@@ -169,6 +189,7 @@ async def patch_callouts(
         callout.target_x = item.target_x
         callout.target_y = item.target_y
         callout.was_repositioned = item.was_repositioned
+        callout.rotation = item.rotation
         if item.label is not None:
             callout.label = item.label
 
@@ -352,7 +373,7 @@ async def render_annotated(
         "step_id": str(step_id),
         "screenshot_url": sas_screenshot_url,
         "callouts": [
-            {"number": c.callout_number, "target_x": c.target_x, "target_y": c.target_y}
+            {"number": c.callout_number, "target_x": c.target_x, "target_y": c.target_y, "rotation": c.rotation or 0.0}
             for c in sorted(step.callouts, key=lambda c: c.callout_number)
         ],
         "highlight_boxes": step.highlight_boxes or [],

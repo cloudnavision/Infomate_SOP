@@ -1,11 +1,12 @@
 """
 Phase 8: Re-render annotated screenshot PNG with callout annotations.
-Style: red border rectangle around target + orange numbered badge + arrow line.
+Style: pentagon/arrow badge — matches the annotation editor canvas shape.
 Uses Pillow — already in requirements.txt (Pillow==10.4.0).
 """
 
 import io
 import logging
+import math
 import tempfile
 from pathlib import Path
 
@@ -14,16 +15,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
-# Styling
-HIGHLIGHT_COLOR = (220, 38, 38)     # red border around target element
-BADGE_COLOR     = (232, 92, 26)     # orange badge background
-BADGE_TEXT      = (255, 255, 255)   # white number
-ARROW_COLOR     = (232, 92, 26)     # orange arrow line
-BADGE_W         = 34
-BADGE_H         = 26
-BADGE_R         = 5                 # corner radius
-HIGHLIGHT_PAD   = 22                # px around target centre for the red box
-FONT_SIZE       = 15
+# Styling — matches the editor's green pentagon badge (ocr_exact default)
+BADGE_FILL  = (16, 185, 129)    # green (#10b981) — matches ocr_exact callout colour
+BADGE_TEXT  = (255, 255, 255)   # white number
+BADGE_W     = 38                # badge width (px at render resolution)
+BADGE_H     = 28                # badge height
+BADGE_TIP   = 13                # arrow tip extension
+FONT_SIZE   = 15
 
 BOX_COLOR_MAP = {
     'yellow': (234, 179, 8),
@@ -52,58 +50,47 @@ def _draw_highlight_boxes(img: Image.Image, boxes: list[dict]) -> Image.Image:
     return result.convert('RGB')
 
 
+def _rotate_pt(px: float, py: float, cx: float, cy: float, angle_deg: float):
+    """Rotate point (px, py) around centre (cx, cy) by angle_deg degrees."""
+    rad = math.radians(angle_deg)
+    cos_a, sin_a = math.cos(rad), math.sin(rad)
+    dx, dy = px - cx, py - cy
+    return cx + dx * cos_a - dy * sin_a, cy + dx * sin_a + dy * cos_a
+
+
 def _draw_callout(
     img: Image.Image,
     draw: ImageDraw.Draw,
     cx: int,
     cy: int,
     number: int,
+    rotation: float = 0.0,
 ) -> None:
     """
-    Draw a rectangular callout:
-      1. Red border box around the target point
-      2. Orange rounded-rectangle badge with the callout number
-      3. Arrow line from badge to the target box
+    Draw a rotated pentagon/arrow badge at (cx, cy) — matches the editor canvas shape.
+    rotation is in degrees (0 = arrow points right, 90 = down, 180 = left, 270 = up).
     """
-    w, h = img.size
-    pad = HIGHLIGHT_PAD
+    iw, ih = img.size
+    hw = BADGE_W // 2
+    hh = BADGE_H // 2
+    tip = BADGE_TIP
 
-    # 1. Red highlight box around target
-    rx1, ry1 = cx - pad, cy - pad
-    rx2, ry2 = cx + pad, cy + pad
-    draw.rectangle([rx1, ry1, rx2, ry2], outline=HIGHLIGHT_COLOR, width=3)
+    # Clamp centre so badge stays inside image
+    bx = float(min(max(hw + 2, cx), iw - hw - 2))
+    by = float(min(max(hh + 2, cy), ih - hh - 2))
 
-    # 2. Badge position — prefer above-left; clamp to image edges
-    bx = cx - pad - BADGE_W - 4
-    by = cy - pad - BADGE_H - 4
-    bx = max(4, min(bx, w - BADGE_W - 4))
-    by = max(4, min(by, h - BADGE_H - 4))
+    # Pentagon vertices centred on (bx, by), arrow tip points right at 0°
+    raw_pts = [
+        (bx - hw,         by - hh),
+        (bx + hw - tip,   by - hh),
+        (bx + hw,         by),
+        (bx + hw - tip,   by + hh),
+        (bx - hw,         by + hh),
+    ]
+    pts = [_rotate_pt(px, py, bx, by, rotation) for px, py in raw_pts]
+    draw.polygon(pts, fill=BADGE_FILL)
 
-    # Badge centre
-    bcx = bx + BADGE_W // 2
-    bcy = by + BADGE_H // 2
-
-    # 3. Arrow from badge centre-bottom to nearest corner of highlight box
-    ax = rx1 if bcx < cx else rx2
-    ay = ry1 if bcy < cy else ry2
-    draw.line([(bcx, bcy), (ax, ay)], fill=ARROW_COLOR, width=2)
-
-    # 4. Pentagon/arrow badge pointing right (drawn on top of arrow start)
-    arrow_tip_x = bx + BADGE_W
-    arrow_tip_y = by + BADGE_H // 2
-    arrow_notch = BADGE_H // 2  # how far the arrow point extends
-    draw.polygon(
-        [
-            (bx,                           by),
-            (bx + BADGE_W - arrow_notch,   by),
-            (arrow_tip_x,                  arrow_tip_y),
-            (bx + BADGE_W - arrow_notch,   by + BADGE_H),
-            (bx,                           by + BADGE_H),
-        ],
-        fill=BADGE_COLOR,
-    )
-
-    # 5. Number centred in badge
+    # Number centred at (bx, by), also rotated — use a small sub-image for text rotation
     text = str(number)
     try:
         font = ImageFont.truetype(
@@ -114,7 +101,12 @@ def _draw_callout(
 
     bbox = draw.textbbox((0, 0), text, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    draw.text((bcx - tw // 2, bcy - th // 2), text, fill=BADGE_TEXT, font=font)
+    # Draw text at unrotated position — for 0° rotation just centre it
+    tx, ty = bx - hw // 2 - tw // 2 + 2, by - th // 2
+    if rotation:
+        tx_r, ty_r = _rotate_pt(tx + tw / 2, ty + th / 2, bx, by, rotation)
+        tx, ty = tx_r - tw / 2, ty_r - th / 2
+    draw.text((tx, ty), text, fill=BADGE_TEXT, font=font)
 
 
 def render_annotated(
@@ -146,8 +138,9 @@ def render_annotated(
         # target_x/y are raw pixel coordinates from the pipeline
         cx = min(max(0, c["target_x"]), w)
         cy = min(max(0, c["target_y"]), h)
-        _draw_callout(img, draw, cx, cy, c["number"])
-        logger.debug("Drew callout #%d at (%d, %d)", c["number"], cx, cy)
+        rotation = float(c.get("rotation", 0.0))
+        _draw_callout(img, draw, cx, cy, c["number"], rotation)
+        logger.debug("Drew callout #%d at (%d, %d) rot=%.1f°", c["number"], cx, cy, rotation)
 
     # 3. Save to temp file
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:

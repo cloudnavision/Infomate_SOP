@@ -51,6 +51,7 @@ export interface StepCallout {
   was_repositioned: boolean
   original_x: number | null
   original_y: number | null
+  rotation: number
   created_at: string
   updated_at: string
 }

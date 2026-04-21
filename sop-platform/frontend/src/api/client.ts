@@ -94,6 +94,9 @@ export async function renderAnnotated(stepId: string): Promise<RenderAnnotatedRe
 export const addCallout = (stepId: string, body: { callout_number: number; label: string; target_x: number; target_y: number }) =>
   mutateAPI<StepCallout>(`/api/steps/${stepId}/callouts`, 'POST', body)
 
+export const deleteCallout = (stepId: string, calloutId: string) =>
+  mutateAPI<null>(`/api/steps/${stepId}/callouts/${calloutId}`, 'DELETE')
+
 export const patchHighlightBoxes = (stepId: string, boxes: HighlightBox[]) =>
   mutateAPI<SOPStep>(`/api/steps/${stepId}/highlight-boxes`, 'PATCH', boxes)
 

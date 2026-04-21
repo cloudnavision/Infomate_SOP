@@ -247,7 +247,7 @@ def build(force: bool = False):
         _set_run_font(run, 13, bold=True, color=ORANGE)
     _set_para_spacing(h2, before_pt=18, after_pt=6)
 
-    p_content = doc.add_paragraph("{{ section.content_text | default('') }}")
+    p_content = doc.add_paragraph("{{r section.content_text }}")
     p_content.style = "Normal"
 
     p = doc.add_paragraph("{%- endfor %}")
@@ -342,7 +342,7 @@ def build(force: bool = False):
         _set_run_font(run, 13, bold=True, color=ORANGE)
     _set_para_spacing(h2_post, before_pt=18, after_pt=6)
 
-    p_post = doc.add_paragraph("{{ section.content_text | default('') }}")
+    p_post = doc.add_paragraph("{{r section.content_text }}")
     p_post.style = "Normal"
 
     p = doc.add_paragraph("{%- endfor %}")

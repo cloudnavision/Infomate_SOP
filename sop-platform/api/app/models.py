@@ -278,6 +278,7 @@ class StepCallout(Base):
     was_repositioned: Mapped[bool] = mapped_column(Boolean, server_default=text("FALSE"))
     original_x: Mapped[Optional[int]] = mapped_column(Integer)
     original_y: Mapped[Optional[int]] = mapped_column(Integer)
+    rotation: Mapped[float] = mapped_column(Float, server_default=text("0.0"))
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("NOW()")
     )

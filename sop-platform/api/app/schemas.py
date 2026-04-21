@@ -76,6 +76,7 @@ class CalloutSchema(BaseModel):
     was_repositioned: bool
     original_x: Optional[int] = None
     original_y: Optional[int] = None
+    rotation: float = 0.0
     created_at: datetime
     updated_at: datetime
 
@@ -326,6 +327,7 @@ class CalloutPatchItem(BaseModel):
     target_y: int
     was_repositioned: bool
     label: Optional[str] = None
+    rotation: float = 0.0
 
 
 class NewCalloutItem(BaseModel):

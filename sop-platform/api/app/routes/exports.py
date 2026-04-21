@@ -84,7 +84,9 @@ async def export_sop(
         "sections": [
             {
                 "section_title": sec.section_title,
+                "content_type": sec.content_type,
                 "content_text": sec.content_text or "",
+                "content_json": sec.content_json,
                 "display_order": sec.display_order,
             }
             for sec in sop_detail.sections
@@ -102,7 +104,7 @@ async def export_sop(
 
     # 4. Call extractor
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(
                 f"{settings.extractor_url}/api/render-doc",
                 json=render_payload,

@@ -7,4 +7,5 @@ opencv-python-headless==4.10.0.84
 numpy==1.26.4
 requests==2.32.3
 docxtpl>=0.16.0
+docxcompose>=1.4.0
 httpx>=0.27.0

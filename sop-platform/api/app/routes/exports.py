@@ -89,6 +89,7 @@ async def export_sop(
             }
             for sec in sop_detail.sections
         ],
+        "process_map_config": sop_detail.process_map_config,
     }
 
     render_payload = {

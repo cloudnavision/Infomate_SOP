@@ -18,6 +18,7 @@ import { Route as SopIdRouteImport } from './routes/sop.$id'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as SopIdProcedureRouteImport } from './routes/sop.$id.procedure'
 import { Route as SopIdOverviewRouteImport } from './routes/sop.$id.overview'
+import { Route as SopIdProcessmapRouteImport } from './routes/sop.$id.processmap'
 import { Route as SopIdMatricesRouteImport } from './routes/sop.$id.matrices'
 import { Route as SopIdHistoryRouteImport } from './routes/sop.$id.history'
 
@@ -66,6 +67,11 @@ const SopIdOverviewRoute = SopIdOverviewRouteImport.update({
   path: '/overview',
   getParentRoute: () => SopIdRoute,
 } as any)
+const SopIdProcessmapRoute = SopIdProcessmapRouteImport.update({
+  id: '/processmap',
+  path: '/processmap',
+  getParentRoute: () => SopIdRoute,
+} as any)
 const SopIdMatricesRoute = SopIdMatricesRouteImport.update({
   id: '/matrices',
   path: '/matrices',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/sop/$id/history': typeof SopIdHistoryRoute
   '/sop/$id/matrices': typeof SopIdMatricesRoute
   '/sop/$id/overview': typeof SopIdOverviewRoute
+  '/sop/$id/processmap': typeof SopIdProcessmapRoute
   '/sop/$id/procedure': typeof SopIdProcedureRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/sop/$id/history': typeof SopIdHistoryRoute
   '/sop/$id/matrices': typeof SopIdMatricesRoute
   '/sop/$id/overview': typeof SopIdOverviewRoute
+  '/sop/$id/processmap': typeof SopIdProcessmapRoute
   '/sop/$id/procedure': typeof SopIdProcedureRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/sop/$id/history': typeof SopIdHistoryRoute
   '/sop/$id/matrices': typeof SopIdMatricesRoute
   '/sop/$id/overview': typeof SopIdOverviewRoute
+  '/sop/$id/processmap': typeof SopIdProcessmapRoute
   '/sop/$id/procedure': typeof SopIdProcedureRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/sop/$id/history'
     | '/sop/$id/matrices'
     | '/sop/$id/overview'
+    | '/sop/$id/processmap'
     | '/sop/$id/procedure'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/sop/$id/history'
     | '/sop/$id/matrices'
     | '/sop/$id/overview'
+    | '/sop/$id/processmap'
     | '/sop/$id/procedure'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/sop/$id/history'
     | '/sop/$id/matrices'
     | '/sop/$id/overview'
+    | '/sop/$id/processmap'
     | '/sop/$id/procedure'
   fileRoutesById: FileRoutesById
 }
@@ -234,6 +246,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SopIdOverviewRouteImport
       parentRoute: typeof SopIdRoute
     }
+    '/sop/$id/processmap': {
+      id: '/sop/$id/processmap'
+      path: '/processmap'
+      fullPath: '/sop/$id/processmap'
+      preLoaderRoute: typeof SopIdProcessmapRouteImport
+      parentRoute: typeof SopIdRoute
+    }
     '/sop/$id/matrices': {
       id: '/sop/$id/matrices'
       path: '/matrices'
@@ -255,6 +274,7 @@ interface SopIdRouteChildren {
   SopIdHistoryRoute: typeof SopIdHistoryRoute
   SopIdMatricesRoute: typeof SopIdMatricesRoute
   SopIdOverviewRoute: typeof SopIdOverviewRoute
+  SopIdProcessmapRoute: typeof SopIdProcessmapRoute
   SopIdProcedureRoute: typeof SopIdProcedureRoute
 }
 
@@ -262,6 +282,7 @@ const SopIdRouteChildren: SopIdRouteChildren = {
   SopIdHistoryRoute: SopIdHistoryRoute,
   SopIdMatricesRoute: SopIdMatricesRoute,
   SopIdOverviewRoute: SopIdOverviewRoute,
+  SopIdProcessmapRoute: SopIdProcessmapRoute,
   SopIdProcedureRoute: SopIdProcedureRoute,
 }
 

@@ -177,7 +177,7 @@ class _ClipRequest(BaseModel):
 
 async def _run_clip_job(job_id: str, body: _ClipRequest) -> None:
     try:
-        async with httpx.AsyncClient(timeout=600.0) as client:
+        async with httpx.AsyncClient(timeout=1800.0) as client:
             response = await client.post(
                 "http://sop-extractor:8001/clip",
                 json=body.model_dump(),

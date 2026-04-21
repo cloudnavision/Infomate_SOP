@@ -82,18 +82,31 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-4 shrink-0">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          {videoMode === 'clip' ? 'Step Clip' : 'Full Recording'}
-        </span>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/60">
+        <div className="flex items-center gap-1.5">
+          <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${videoMode === 'clip' ? 'bg-blue-100' : 'bg-violet-100'}`}>
+            {videoMode === 'clip' ? (
+              <svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3 text-blue-500">
+                <path d="M2 2a1 1 0 00-1 1v6a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1H2zm7.5 1.5l2-1.5v8l-2-1.5V3.5z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3 text-violet-500">
+                <path d="M2 2a1 1 0 00-1 1v6a1 1 0 001 1h8a1 1 0 001-1V3a1 1 0 00-1-1H2zm7.5 1.5l1.5-1v7l-1.5-1V3.5z"/>
+              </svg>
+            )}
+          </span>
+          <span className="text-xs font-bold uppercase tracking-wide text-gray-600">
+            {videoMode === 'clip' ? 'Step Clip' : 'Full Recording'}
+          </span>
+        </div>
         <button
           onClick={() => setVideoMode(videoMode === 'clip' ? 'full' : 'clip')}
           disabled={!hasFullVideo && videoMode === 'clip'}
           title={!hasFullVideo ? 'Full video not available' : undefined}
-          className="text-xs px-3 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-white hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium"
         >
-          {videoMode === 'clip' ? 'Full Video ▾' : 'Step Clip ▴'}
+          {videoMode === 'clip' ? 'Switch to Full' : 'Switch to Clip'}
         </button>
       </div>
       <div className="p-3">

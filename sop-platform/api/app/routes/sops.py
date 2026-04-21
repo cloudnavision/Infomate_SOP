@@ -10,7 +10,7 @@ from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
 from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory, SOPActivityLog
 from datetime import datetime, timezone
-from app.schemas import SOPListItem, SOPDetail, SOPMetrics, LikeResponse, ExportHistoryItem, ActivityEvent
+from app.schemas import SOPListItem, SOPDetail, SOPMetrics, LikeResponse, ExportHistoryItem, ActivityEvent, ProcessMapConfigBody, LikerItem
 
 router = APIRouter(prefix="/api", tags=["sops"])
 
@@ -115,6 +115,33 @@ async def get_sop(
     sop.sections.sort(key=lambda s: s.display_order)
 
     return SOPDetail.model_validate(sop)
+
+
+@router.patch("/sops/{sop_id}/status", status_code=204)
+async def update_status(
+    sop_id: UUID,
+    body: dict,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Change SOP status. Editor/Admin only."""
+    new_status = body.get("status", "")
+    valid = {s.value for s in SOPStatus}
+    if new_status not in valid:
+        raise HTTPException(status_code=422, detail=f"Invalid status. Must be one of: {valid}")
+    sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
+    if sop is None:
+        raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+    old_status = sop.status.value
+    sop.status = SOPStatus(new_status)
+    db.add(SOPActivityLog(
+        sop_id=sop_id,
+        user_id=current_user.id,
+        event_type="edit",
+        label=f"Status changed to {new_status}",
+        detail=f"{old_status} → {new_status}",
+    ))
+    await db.commit()
 
 
 @router.patch("/sops/{sop_id}/tags", response_model=SOPListItem)
@@ -235,6 +262,20 @@ async def get_metrics(
         .limit(10)
     )).scalars().all()
 
+    # Likers list — admin only
+    likers: list[LikerItem] = []
+    if current_user.role == UserRole.admin:
+        liker_rows = (await db.execute(
+            select(User.id, User.name, User.email, SOPLike.created_at)
+            .join(SOPLike, SOPLike.user_id == User.id)
+            .where(SOPLike.sop_id == sop_id)
+            .order_by(SOPLike.created_at.desc())
+        )).all()
+        likers = [
+            LikerItem(id=row[0], name=row[1], email=row[2], liked_at=row[3])
+            for row in liker_rows
+        ]
+
     return SOPMetrics(
         view_count=sop.view_count or 0,
         like_count=like_count,
@@ -243,6 +284,7 @@ async def get_metrics(
         approved_step_count=approved_count,
         export_count=export_count,
         recent_exports=[ExportHistoryItem.model_validate(e) for e in recent_exports],
+        likers=likers,
     )
 
 
@@ -275,17 +317,83 @@ async def get_history(
         actor_name=creator_name,
     ))
 
-    # Pipeline runs
+    # Pipeline runs — expand stage_results into individual stage events
+    _STAGE_MAP = {
+        "transcription": (
+            "Transcription complete",
+            lambda d: f"{d.get('lines', '?')} transcript lines · {d.get('speakers', '?')} speakers",
+        ),
+        "screen_detection": (
+            "Screen-share detection complete",
+            lambda d: f"{d.get('periods', '?')} screen-share period(s) found",
+        ),
+        "frame_extraction": (
+            "Frame extraction complete",
+            lambda d: f"{d.get('after_dedup', '?')} frames extracted ({d.get('raw_scenes', '?')} raw scenes)",
+        ),
+        "annotation": (
+            "Frame annotation complete",
+            lambda d: f"{d.get('annotated', '?')} frames annotated",
+        ),
+        "clips": (
+            "Clips extracted",
+            lambda d: f"{d.get('clips', '?')} clips generated",
+        ),
+        "step_content": (
+            "Step content generated",
+            lambda d: f"{d.get('steps', '?')} steps processed",
+        ),
+    }
+
     runs = (await db.execute(
         select(PipelineRun).where(PipelineRun.sop_id == sop_id).order_by(PipelineRun.started_at)
     )).scalars().all()
     for run in runs:
         events.append(ActivityEvent(
             event_type="pipeline",
-            label=f"Pipeline {run.status.value}",
-            detail=run.current_stage,
-            timestamp=run.completed_at or run.started_at,
+            label="Processing started",
+            detail=None,
+            timestamp=run.started_at,
+            actor_name="System",
         ))
+        stage_results = run.stage_results or {}
+        for key, (label, detail_fn) in _STAGE_MAP.items():
+            if key in stage_results:
+                try:
+                    detail = detail_fn(stage_results[key]) if isinstance(stage_results[key], dict) else None
+                except Exception:
+                    detail = None
+                events.append(ActivityEvent(
+                    event_type="pipeline",
+                    label=label,
+                    detail=detail,
+                    timestamp=run.completed_at or run.started_at,
+                    actor_name="System",
+                ))
+        if run.status.value == "completed":
+            events.append(ActivityEvent(
+                event_type="pipeline",
+                label="Pipeline completed",
+                detail=None,
+                timestamp=run.completed_at or run.started_at,
+                actor_name="System",
+            ))
+        elif run.status.value == "failed":
+            events.append(ActivityEvent(
+                event_type="pipeline",
+                label=f"Pipeline failed — {run.error_stage or 'unknown stage'}",
+                detail=run.error_message,
+                timestamp=run.completed_at or run.started_at,
+                actor_name="System",
+            ))
+        else:
+            events.append(ActivityEvent(
+                event_type="pipeline",
+                label=f"Pipeline in progress — {run.status.value.replace('_', ' ')}",
+                detail=run.current_stage,
+                timestamp=run.started_at,
+                actor_name="System",
+            ))
 
     # Exports (with actor name from generated_by)
     exports = (await db.execute(
@@ -317,6 +425,36 @@ async def get_history(
 
     events.sort(key=lambda e: e.timestamp, reverse=True)
     return events
+
+
+@router.get("/sops/{sop_id}/process-map")
+async def get_process_map(
+    sop_id: UUID,
+    current_user: Annotated[User, Depends(require_viewer)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the current process map config for a SOP (null if not set yet)."""
+    sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
+    if sop is None:
+        raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+    return {"process_map_config": sop.process_map_config}
+
+
+@router.patch("/sops/{sop_id}/process-map")
+async def save_process_map(
+    sop_id: UUID,
+    body: ProcessMapConfigBody,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Save (or update) the swim-lane process map config for a SOP. Editor/Admin only."""
+    sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
+    if sop is None:
+        raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+    sop.process_map_config = {"lanes": body.lanes, "assignments": body.assignments}
+    sop.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"process_map_config": sop.process_map_config}
 
 
 @router.delete("/sops/{sop_id}", status_code=204)

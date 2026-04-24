@@ -21,6 +21,9 @@ data/exports/*
 data/templates/*.docx
 !data/templates/sop_template.docx
 !data/**/.gitkeep
+# Extractor temp dirs (created in /data to avoid container /tmp size limit)
+data/sop_*/
+data/sop_clips_*/
 
 # Editor
 .vscode/

@@ -6,6 +6,7 @@ Phase 5: /clip endpoint — per-step MP4 clip cutting
 
 import asyncio
 import logging
+import os
 import shutil
 import subprocess
 import tempfile
@@ -19,7 +20,12 @@ from pydantic import BaseModel
 
 from .scene_detector import extract_frames
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+# Env-var fallback for Supabase credentials — used when n8n doesn't pass them
+_ENV_SUPABASE_URL = os.environ.get("SUPABASE_URL")
+_ENV_SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
 # ── Concurrency guard ─────────────────────────────────────────────────────────
 # One extraction job at a time — a single 45-min recording can be 2-3 GB.
@@ -56,12 +62,16 @@ class ExtractRequest(BaseModel):
     screen_share_periods: list[ScreenSharePeriod]
     azure_sas_token: str              # SAS token for frame uploads
     azure_account: str                # e.g. "cnavinfsop"
-    azure_container: str              # e.g. "infsop"
+    azure_container: str             # e.g. "infsop"
     pyscenedetect_threshold: float = 3.0
     min_scene_len_sec: float = 2.0
     dedup_hash_threshold: int = 8
     frame_offset_sec: float = 1.5
     fallback_interval_sec: float = 120.0
+    # Optional: if provided, extractor writes steps + updates pipeline_run directly
+    supabase_url: str | None = None
+    supabase_service_key: str | None = None
+    pipeline_run_id: str | None = None
 
 
 class ClipDefinition(BaseModel):
@@ -305,7 +315,7 @@ async def extract(req: ExtractRequest) -> ExtractResponse:
 
 def _run_extraction(req: ExtractRequest) -> ExtractResponse:
     """Blocking implementation — runs in a thread pool via asyncio.to_thread."""
-    with tempfile.TemporaryDirectory(prefix=f"sop_{req.sop_id}_") as tmp_str:
+    with tempfile.TemporaryDirectory(prefix=f"sop_{req.sop_id}_", dir="/data") as tmp_str:
         tmp_dir = Path(tmp_str)
         video_path = tmp_dir / "original.mp4"
 
@@ -367,7 +377,7 @@ def _run_extraction(req: ExtractRequest) -> ExtractResponse:
                 height=frame.height,
             ))
 
-        return ExtractResponse(
+        result = ExtractResponse(
             sop_id=req.sop_id,
             frames=frame_results,
             stats=ExtractionStats(
@@ -376,6 +386,17 @@ def _run_extraction(req: ExtractRequest) -> ExtractResponse:
                 periods_processed=len(req.screen_share_periods),
             ),
         )
+
+        # Write steps directly to Supabase — use env vars as fallback when n8n doesn't pass creds
+        supabase_url = req.supabase_url or _ENV_SUPABASE_URL
+        supabase_key = req.supabase_service_key or _ENV_SUPABASE_SERVICE_KEY
+        logger.info("Supabase write check: url=%s key=%s frames=%d (req_url=%s req_key=%s)",
+                    bool(supabase_url), bool(supabase_key), len(frame_results),
+                    bool(req.supabase_url), bool(req.supabase_service_key))
+        if supabase_url and supabase_key and frame_results:
+            _write_steps_to_supabase(req, result, supabase_url, supabase_key)
+
+        return result
 
 
 # ── /clip ─────────────────────────────────────────────────────────────────────
@@ -409,7 +430,7 @@ async def clip(req: ClipRequest) -> ClipResponse:
 
 def _run_clip_job(req: ClipRequest) -> ClipResponse:
     """Blocking implementation — runs in a thread pool via asyncio.to_thread."""
-    with tempfile.TemporaryDirectory(prefix=f"sop_clips_{req.sop_id}_") as tmp_str:
+    with tempfile.TemporaryDirectory(prefix=f"sop_clips_{req.sop_id}_", dir="/data") as tmp_str:
         tmp_dir = Path(tmp_str)
         video_path = tmp_dir / "original.mp4"
 
@@ -466,6 +487,92 @@ def _run_clip_job(req: ClipRequest) -> ClipResponse:
         )
 
 
+# ── Supabase direct write ─────────────────────────────────────────────────────
+
+def _write_steps_to_supabase(req: "ExtractRequest", result: "ExtractResponse", supabase_url: str, supabase_key: str) -> None:
+    """Insert sop_steps and update pipeline_run directly — bypasses Cloudflare timeout."""
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+
+    steps = [
+        {
+            "sop_id": req.sop_id,
+            "sequence": idx + 1,
+            "title": f"Step {idx + 1}",
+            "timestamp_start": frame.timestamp_sec,
+            "screenshot_url": frame.azure_url,
+            "screenshot_width": frame.width,
+            "screenshot_height": frame.height,
+            "scene_score": frame.scene_score,
+            "frame_classification": frame.classification.lower(),
+        }
+        for idx, frame in enumerate(result.frames)
+    ]
+
+    chunk_size = 20
+    inserted = 0
+    for i in range(0, len(steps), chunk_size):
+        chunk = steps[i : i + chunk_size]
+        for attempt in range(3):
+            try:
+                resp = requests.post(
+                    f"{supabase_url}/rest/v1/sop_steps",
+                    json=chunk,
+                    headers=headers,
+                    timeout=30,
+                )
+                if resp.ok:
+                    inserted += len(chunk)
+                    break
+                logger.error("Supabase step insert chunk %d failed (attempt %d): %s", i // chunk_size, attempt + 1, resp.text[:300])
+            except Exception as exc:
+                logger.error("Supabase step insert chunk %d error (attempt %d): %s", i // chunk_size, attempt + 1, exc)
+            if attempt < 2:
+                import time; time.sleep(2)
+    logger.info("Supabase: inserted %d/%d steps for sop_id=%s", inserted, len(steps), req.sop_id)
+
+    # Resolve pipeline_run_id — use what n8n passed, or look it up by sop_id
+    pipeline_run_id = req.pipeline_run_id
+    if not pipeline_run_id:
+        try:
+            lookup = requests.get(
+                f"{supabase_url}/rest/v1/pipeline_runs",
+                params={"sop_id": f"eq.{req.sop_id}", "select": "id", "limit": "1"},
+                headers=headers,
+                timeout=10,
+            )
+            if lookup.ok and lookup.json():
+                pipeline_run_id = lookup.json()[0]["id"]
+                logger.info("Resolved pipeline_run_id=%s for sop_id=%s", pipeline_run_id, req.sop_id)
+        except Exception as exc:
+            logger.error("pipeline_run_id lookup failed: %s", exc)
+
+    if pipeline_run_id:
+        patch_resp = requests.patch(
+            f"{supabase_url}/rest/v1/pipeline_runs",
+            params={"id": f"eq.{pipeline_run_id}"},
+            json={
+                "status": "classifying_frames",
+                "current_stage": "frame_extraction_complete",
+                "stage_results": {"frame_extraction": {
+                    "raw_scenes": result.stats.raw_scenes,
+                    "after_dedup": result.stats.after_dedup,
+                    "periods_processed": result.stats.periods_processed,
+                }},
+            },
+            headers=headers,
+            timeout=15,
+        )
+        if not patch_resp.ok:
+            logger.error("Supabase pipeline_run update failed: %s", patch_resp.text[:300])
+        else:
+            logger.info("Supabase: pipeline_run %s → classifying_frames", pipeline_run_id)
+
+
 # ── Azure / HTTP helpers ──────────────────────────────────────────────────────
 
 def _download_file(url: str, dest: Path, max_retries: int = 5) -> None:
@@ -490,23 +597,29 @@ def _download_file(url: str, dest: Path, max_retries: int = 5) -> None:
                 raise
 
 
-def _upload_to_azure_blob(local_path: Path, sas_url: str) -> None:
-    """
-    PUT a file to Azure Blob Storage using a SAS URL.
-    Raises requests.HTTPError on failure.
-    """
+def _upload_to_azure_blob(local_path: Path, sas_url: str, max_retries: int = 3) -> None:
+    """PUT a PNG frame to Azure Blob Storage with retry on connection errors."""
     with open(local_path, "rb") as f:
         data = f.read()
-    resp = requests.put(
-        sas_url,
-        data=data,
-        headers={
-            "x-ms-blob-type": "BlockBlob",
-            "Content-Type": "image/png",
-        },
-        timeout=60,
-    )
-    resp.raise_for_status()
+    for attempt in range(max_retries):
+        try:
+            resp = requests.put(
+                sas_url,
+                data=data,
+                headers={
+                    "x-ms-blob-type": "BlockBlob",
+                    "Content-Type": "image/png",
+                },
+                timeout=60,
+            )
+            resp.raise_for_status()
+            return
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if attempt < max_retries - 1:
+                logger.warning("Frame upload failed (attempt %d/%d): %s — retrying", attempt + 1, max_retries, e)
+                time.sleep(3 * (attempt + 1))
+            else:
+                raise
 
 
 def _upload_to_azure_blob_video(local_path: Path, sas_url: str, max_retries: int = 3) -> None:

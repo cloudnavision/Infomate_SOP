@@ -55,7 +55,7 @@ def render_sop(
 
         tpl = DocxTemplate(str(TEMPLATE_PATH))
         table_registry: dict[str, list] = {}
-        context = _build_context(tpl, sop_data, tmp_dir, table_registry)
+        context = _build_context(tpl, sop_data, tmp_dir, table_registry, azure_sas_token=azure_sas_token)
         tpl.render(context)
 
         # Save rendered docx
@@ -203,7 +203,7 @@ def _inject_tables(docx_path: Path, table_registry: dict[str, list]) -> None:
     doc.save(str(docx_path))
 
 
-def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_registry: dict | None = None) -> dict:
+def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_registry: dict | None = None, azure_sas_token: str = "") -> dict:
     """Build the Jinja2 context dict for docxtpl."""
     steps_raw = sop_data.get("steps", [])
     steps_ctx = []
@@ -255,11 +255,20 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_regis
         sec_num += 1
 
     pm_config = sop_data.get("process_map_config")
-    process_map = (
-        _generate_swimlane_map(tpl, pm_config, steps_raw, tmp_dir)
-        if pm_config and pm_config.get("lanes") and pm_config.get("assignments")
-        else _generate_process_map(tpl, steps_raw, tmp_dir)
-    )
+    confirmed_url = pm_config.get("confirmed_url") if pm_config else None
+
+    if confirmed_url:
+        process_map = _download_confirmed_map(tpl, confirmed_url, tmp_dir, sas_token=azure_sas_token)
+        if process_map is None:
+            process_map = (
+                _generate_swimlane_map(tpl, pm_config, steps_raw, tmp_dir)
+                if pm_config and pm_config.get("lanes") and pm_config.get("assignments")
+                else _generate_process_map(tpl, steps_raw, tmp_dir)
+            )
+    elif pm_config and pm_config.get("lanes") and pm_config.get("assignments"):
+        process_map = _generate_swimlane_map(tpl, pm_config, steps_raw, tmp_dir)
+    else:
+        process_map = _generate_process_map(tpl, steps_raw, tmp_dir)
     today = date.today().strftime("%d %b %Y")
 
     # ── Build numbered TOC entries ──────────────────────────────────────────
@@ -624,6 +633,25 @@ def _generate_swimlane_map(
     except Exception as exc:
         logger.warning("Could not generate swimlane map: %s", exc)
         return _generate_process_map(tpl, steps, tmp_dir)
+
+
+def _download_confirmed_map(
+    tpl: DocxTemplate,
+    url: str,
+    tmp_dir: Path,
+    sas_token: str = "",
+) -> Optional[InlineImage]:
+    """Download the user-uploaded confirmed process map PNG and embed it in the document."""
+    try:
+        full_url = f"{url}?{sas_token}" if sas_token and "?" not in url else url
+        resp = requests.get(full_url, timeout=30)
+        resp.raise_for_status()
+        map_path = tmp_dir / "process_map_confirmed.png"
+        map_path.write_bytes(resp.content)
+        return InlineImage(tpl, str(map_path), width=Inches(6.5))
+    except Exception as exc:
+        logger.warning("Could not download confirmed process map from %s: %s", url, exc)
+        return None
 
 
 def _convert_to_pdf(docx_path: Path, output_dir: Path) -> Path:

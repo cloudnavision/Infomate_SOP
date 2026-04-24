@@ -243,6 +243,9 @@ export interface ProcessMapAssignment {
 export interface ProcessMapConfig {
   lanes: ProcessMapLane[]
   assignments: ProcessMapAssignment[]
+  is_confirmed?: boolean
+  confirmed_url?: string | null
+  confirmed_at?: string | null
 }
 
 export interface SOPDetail {

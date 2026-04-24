@@ -311,8 +311,11 @@ class ActivityEvent(BaseModel):
 
 
 class ProcessMapConfigBody(BaseModel):
-    lanes: list[dict]       # [{id, name, color}]
-    assignments: list[dict] # [{step_id, lane_id, is_decision}]
+    lanes: list[dict]
+    assignments: list[dict]
+    is_confirmed: bool = False
+    confirmed_url: Optional[str] = None
+    confirmed_at: Optional[str] = None
 
 
 class ExportResponse(BaseModel):

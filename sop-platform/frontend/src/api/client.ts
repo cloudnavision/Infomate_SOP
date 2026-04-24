@@ -118,6 +118,20 @@ export const fetchProcessMap = (id: string) =>
 export const saveProcessMap = (id: string, config: ProcessMapConfig) =>
   mutateAPI<{ process_map_config: ProcessMapConfig }>(`/api/sops/${id}/process-map`, 'PATCH', config)
 
+export const uploadProcessMapImage = async (id: string, file: File): Promise<{ confirmed_url: string; confirmed_at: string }> => {
+  const headers = await getAuthHeaders() as Record<string, string>
+  const { 'Content-Type': _ct, ...headersWithoutContentType } = headers
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${API_BASE}/api/sops/${id}/process-map/upload`, {
+    method: 'POST',
+    headers: headersWithoutContentType,
+    body: form,
+  })
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  return res.json()
+}
+
 // ── User management (admin only) ──────────────────────────────────────────────
 export const fetchUsers = () => fetchAPI<AppUser[]>('/api/users')
 export const createUser = (data: UserCreateInput) => mutateAPI<AppUser>('/api/users', 'POST', data)

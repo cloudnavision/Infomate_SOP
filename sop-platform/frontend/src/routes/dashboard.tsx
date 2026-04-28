@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSOPs, sopKeys } from '../api/client'
 import { SOPCard } from '../components/SOPCard'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { useAuth } from '../hooks/useAuth'
 
 export const Route = createFileRoute('/dashboard')({
   component: () => (
@@ -38,6 +39,8 @@ function Dashboard() {
   const [search, setSearch] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [page, setPage] = useState(1)
+  const { appUser } = useAuth()
+  const canMerge = appUser?.role === 'editor' || appUser?.role === 'admin'
   const { data: sops, isLoading, error } = useQuery({
     queryKey: sopKeys.all,
     queryFn: fetchSOPs,
@@ -47,10 +50,12 @@ function Dashboard() {
   if (error) return <p className="text-red-600">Error loading SOPs: {(error as Error).message}</p>
   if (!sops || sops.length === 0) return <p className="text-gray-400">No SOPs found.</p>
 
-  // All unique tag names across all SOPs
-  const allTags = Array.from(new Set(sops.flatMap(s => (s.tags || []).map(t => t.name)))).sort()
+  const recordings = sops.filter(s => !s.is_merged)
 
-  const filtered = sops.filter((s) => {
+  // All unique tag names across recordings only
+  const allTags = Array.from(new Set(recordings.flatMap(s => (s.tags || []).map(t => t.name)))).sort()
+
+  const filtered = recordings.filter((s) => {
     const q = search.toLowerCase()
     const tagNames = (s.tags || []).map(t => t.name)
     const matchesText = !q || (
@@ -80,92 +85,110 @@ function Dashboard() {
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        {canMerge && (
+          <Link
+            to="/merge"
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-semibold rounded-xl hover:bg-purple-700 transition-colors shadow-sm"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" clipRule="evenodd"/>
+            </svg>
+            Merge SOPs
+          </Link>
+        )}
+      </div>
 
-      <input
-        type="text"
-        placeholder="Search SOPs or tags…"
-        value={search}
-        onChange={(e) => handleSearch(e.target.value)}
-        className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-      />
+      {/* Recordings section */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-700 mb-3">Recordings</h2>
 
-      {/* Tag filter pills */}
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {allTags.map(tag => (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all ${
-                selectedTags.includes(tag)
-                  ? tagColor(tag) + ' ring-2 ring-offset-1 ring-current'
-                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
-          {selectedTags.length > 0 && (
-            <button
-              onClick={() => { setSelectedTags([]); setPage(1) }}
-              className="text-xs px-2.5 py-1 rounded-full border border-dashed border-gray-300 text-gray-400 hover:text-gray-600"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      )}
+        <input
+          type="text"
+          placeholder="Search SOPs or tags…"
+          value={search}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        />
 
-      {filtered.length === 0 ? (
-        <p className="text-gray-400">No SOPs match your filters.</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {paginated.map((sop) => (
-              <SOPCard key={sop.id} sop={sop} />
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all ${
+                  selectedTags.includes(tag)
+                    ? tagColor(tag) + ' ring-2 ring-offset-1 ring-current'
+                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {tag}
+              </button>
             ))}
+            {selectedTags.length > 0 && (
+              <button
+                onClick={() => { setSelectedTags([]); setPage(1) }}
+                className="text-xs px-2.5 py-1 rounded-full border border-dashed border-gray-300 text-gray-400 hover:text-gray-600"
+              >
+                Clear
+              </button>
+            )}
           </div>
+        )}
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <p className="text-sm text-gray-500">
-                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  ‹ Prev
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setPage(n)}
-                    className={`px-3 py-1.5 text-sm rounded-md border ${
-                      n === currentPage
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Next ›
-                </button>
-              </div>
+        {filtered.length === 0 ? (
+          <p className="text-gray-400">No SOPs match your filters.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {paginated.map((sop) => (
+                <SOPCard key={sop.id} sop={sop} />
+              ))}
             </div>
-          )}
-        </>
-      )}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6">
+                <p className="text-sm text-gray-500">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ‹ Prev
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setPage(n)}
+                      className={`px-3 py-1.5 text-sm rounded-md border ${
+                        n === currentPage
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
     </div>
   )
 }

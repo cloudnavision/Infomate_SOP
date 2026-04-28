@@ -13,7 +13,7 @@ from sqlalchemy import (
     ForeignKey, UniqueConstraint, text, TIMESTAMP,
     Enum as SAEnum,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -125,6 +125,12 @@ class SOP(Base):
     screen_share_periods: Mapped[list[Any]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")
     )
+
+    # Project code — groups related recordings as versions of the same process
+    project_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # True when this SOP was created by the merge workflow
+    is_merged: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
 
     # Template
     template_id: Mapped[Optional[str]] = mapped_column(String(100))
@@ -493,6 +499,40 @@ class ExportHistory(Base):
     sop: Mapped["SOP"] = relationship("SOP", back_populates="exports")
     exporter: Mapped[Optional["User"]] = relationship(
         "User", back_populates="export_history"
+    )
+
+
+class SOPMergeSession(Base):
+    __tablename__ = "sop_merge_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
+    )
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("users.id"))
+    base_sop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sops.id"))
+    updated_sop_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sops.id"))
+    merged_sop_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("sops.id"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(20), server_default=text("'reviewing'"))
+    diff_result: Mapped[Optional[Any]] = mapped_column(JSONB, nullable=True)
+    approved_changes: Mapped[Optional[Any]] = mapped_column(JSONB, nullable=True)
+
+
+class ProcessGroup(Base):
+    __tablename__ = "process_groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("NOW()")
     )
 
 

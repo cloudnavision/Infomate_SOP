@@ -84,6 +84,8 @@ async def list_sops(
             pipeline_status=str(row[2].value) if row[2] is not None else None,
             pipeline_stage=row[3],
             tags=row[0].tags or [],
+            project_code=row[0].project_code,
+            is_merged=row[0].is_merged,
         )
         for row in rows
     ]
@@ -439,7 +441,12 @@ async def get_process_map(
     sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
     if sop is None:
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
-    return {"process_map_config": sop.process_map_config}
+    config = sop.process_map_config
+    if config and config.get("confirmed_url") and settings.azure_blob_sas_token:
+        url = config["confirmed_url"]
+        if "?" not in url:
+            config = {**config, "confirmed_url": f"{url}?{settings.azure_blob_sas_token}"}
+    return {"process_map_config": config}
 
 
 @router.patch("/sops/{sop_id}/process-map")
@@ -524,3 +531,22 @@ async def delete_sop(
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
     await db.delete(sop)
     await db.commit()
+
+
+@router.patch("/sops/{sop_id}/rename")
+async def rename_sop(
+    sop_id: UUID,
+    body: dict,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Rename a SOP title. Editor/Admin only."""
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Title cannot be empty")
+    sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
+    if sop is None:
+        raise HTTPException(status_code=404, detail="SOP not found")
+    sop.title = title
+    await db.commit()
+    return {"id": str(sop_id), "title": sop.title}

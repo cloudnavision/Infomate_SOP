@@ -162,6 +162,13 @@ class RenderAnnotatedResponse(BaseModel):
     annotated_screenshot_url: str  # Azure base URL (no SAS)
 
 
+# ── /api/compare-sops models ──────────────────────────────────────────────────
+
+class CompareSopsRequest(BaseModel):
+    base_steps: list[dict]      # [{id, sequence, title, description}]
+    updated_steps: list[dict]
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["health"])
@@ -280,6 +287,27 @@ async def render_annotated_endpoint(req: RenderAnnotatedRequest) -> RenderAnnota
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return RenderAnnotatedResponse(annotated_screenshot_url=url)
+
+
+# ── /api/compare-sops ────────────────────────────────────────────────────────
+
+@app.post("/api/compare-sops", tags=["merge"])
+async def compare_sops(req: CompareSopsRequest) -> dict:
+    """
+    Compare two SOPs step-by-step using Gemini semantic analysis.
+    Returns {"matches": [{status, base_step_id, updated_step_id, change_summary?}]}
+    """
+    from .sop_comparator import compare_sop_steps
+    try:
+        result = await asyncio.to_thread(
+            compare_sop_steps,
+            base_steps=req.base_steps,
+            updated_steps=req.updated_steps,
+        )
+        return result
+    except Exception as exc:
+        logger.error("compare_sops failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ── /extract ──────────────────────────────────────────────────────────────────

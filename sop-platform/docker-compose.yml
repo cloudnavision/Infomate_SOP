@@ -110,6 +110,7 @@ services:
     environment:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     # No ports — internal only. Add 8001:8001 via docker-compose.dev.yml for local testing.
     volumes:
       - ./data:/data

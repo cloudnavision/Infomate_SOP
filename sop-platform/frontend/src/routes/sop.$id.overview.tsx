@@ -1,7 +1,8 @@
 import { createFileRoute, useParams } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { fetchSOP, sopKeys } from '../api/client'
+import { fetchSOP, sopKeys, setProjectCode } from '../api/client'
+import { useAuth } from '../hooks/useAuth'
 import type { SOPSection } from '../api/types'
 
 export const Route = createFileRoute('/sop/$id/overview')({
@@ -221,9 +222,23 @@ const STATUS_COLORS: Record<string, string> = {
 
 function OverviewPage() {
   const { id } = useParams({ from: '/sop/$id/overview' })
+  const { appUser } = useAuth()
+  const canEdit = appUser?.role === 'editor' || appUser?.role === 'admin'
+  const queryClient = useQueryClient()
+  const [editingCode, setEditingCode] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
+
   const { data: sop } = useQuery({
     queryKey: sopKeys.detail(id),
     queryFn: () => fetchSOP(id),
+  })
+
+  const projectCodeMutation = useMutation({
+    mutationFn: (code: string | null) => setProjectCode(id, code),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: sopKeys.detail(id) })
+      setEditingCode(false)
+    },
   })
 
   useEffect(() => {
@@ -300,6 +315,42 @@ function OverviewPage() {
               </svg>
               <span className="text-xs text-gray-400 w-20 shrink-0">Steps</span>
               <span className="text-sm font-semibold text-gray-800">{sop.steps.length}</span>
+            </div>
+            {/* Project Code */}
+            <div className="flex items-center gap-2 col-span-2">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
+                <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
+              </svg>
+              <span className="text-xs text-gray-400 w-20 shrink-0">Project Code</span>
+              {editingCode ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    value={codeInput}
+                    onChange={e => setCodeInput(e.target.value.toUpperCase())}
+                    className="text-sm border border-gray-200 rounded-lg px-3 py-1 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder="e.g. AGED-001"
+                    maxLength={50}
+                  />
+                  <button
+                    onClick={() => projectCodeMutation.mutate(codeInput || null)}
+                    disabled={projectCodeMutation.isPending}
+                    className="text-xs px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >Save</button>
+                  <button onClick={() => setEditingCode(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-mono font-medium ${sop.project_code ? 'text-blue-600' : 'text-gray-300'}`}>
+                    {sop.project_code || 'None'}
+                  </span>
+                  {canEdit && (
+                    <button
+                      onClick={() => { setCodeInput(sop.project_code || ''); setEditingCode(true) }}
+                      className="text-xs text-gray-400 hover:text-blue-500 underline"
+                    >{sop.project_code ? 'Edit' : 'Set'}</button>
+                  )}
+                </div>
+              )}
             </div>
             {sop.video_duration_sec != null && (
               <div className="flex items-center gap-2">

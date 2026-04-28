@@ -51,6 +51,7 @@ export interface StepCallout {
   was_repositioned: boolean
   original_x: number | null
   original_y: number | null
+  rotation: number
   created_at: string
   updated_at: string
 }
@@ -225,6 +226,8 @@ export interface SOPListItem {
   pipeline_status: string | null
   pipeline_stage: string | null
   tags: SOPTag[]
+  project_code: string | null
+  is_merged: boolean
 }
 
 export interface ProcessMapLane {
@@ -242,6 +245,9 @@ export interface ProcessMapAssignment {
 export interface ProcessMapConfig {
   lanes: ProcessMapLane[]
   assignments: ProcessMapAssignment[]
+  is_confirmed?: boolean
+  confirmed_url?: string | null
+  confirmed_at?: string | null
 }
 
 export interface SOPDetail {
@@ -265,7 +271,66 @@ export interface SOPDetail {
   published_at: string | null
   archived_at: string | null
   process_map_config: ProcessMapConfig | null
+  project_code: string | null
   steps: SOPStep[]
   sections: SOPSection[]
   watchlist: WatchlistItem[]
+}
+
+export interface CombinePartInput {
+  sop_id: string
+  label: string
+}
+
+export interface CombineExportRequest {
+  parts: CombinePartInput[]
+  title: string
+}
+
+export interface MergeMatch {
+  status: 'unchanged' | 'changed' | 'added' | 'removed'
+  base_step_id: string | null
+  updated_step_id: string | null
+  change_summary?: string
+}
+
+export interface MergeSession {
+  session_id: string
+  status: string
+  base_sop_id: string
+  updated_sop_id: string
+  merged_sop_id: string | null
+  matches: MergeMatch[]
+}
+
+export interface MergeStepDecision {
+  step_id: string
+  source: 'base' | 'updated'
+}
+
+export interface MergeGroupSOP {
+  id: string
+  title: string
+  status: string
+  meeting_date: string | null
+  client_name: string | null
+  is_merged: boolean
+}
+
+export interface MergeGroup {
+  project_code: string
+  name: string | null
+  sops: MergeGroupSOP[]
+}
+
+export interface ProcessGroupResponse {
+  id: string
+  name: string
+  code: string
+  sop_ids: string[]
+}
+
+export interface CreateProcessGroupInput {
+  name: string
+  sop_ids: string[]
 }

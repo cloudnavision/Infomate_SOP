@@ -1,11 +1,13 @@
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
+import httpx
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
 from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory, SOPActivityLog
@@ -82,6 +84,8 @@ async def list_sops(
             pipeline_status=str(row[2].value) if row[2] is not None else None,
             pipeline_stage=row[3],
             tags=row[0].tags or [],
+            project_code=row[0].project_code,
+            is_merged=row[0].is_merged,
         )
         for row in rows
     ]
@@ -437,7 +441,12 @@ async def get_process_map(
     sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
     if sop is None:
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
-    return {"process_map_config": sop.process_map_config}
+    config = sop.process_map_config
+    if config and config.get("confirmed_url") and settings.azure_blob_sas_token:
+        url = config["confirmed_url"]
+        if "?" not in url:
+            config = {**config, "confirmed_url": f"{url}?{settings.azure_blob_sas_token}"}
+    return {"process_map_config": config}
 
 
 @router.patch("/sops/{sop_id}/process-map")
@@ -451,10 +460,63 @@ async def save_process_map(
     sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
     if sop is None:
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
-    sop.process_map_config = {"lanes": body.lanes, "assignments": body.assignments}
+    existing = sop.process_map_config or {}
+    sop.process_map_config = {
+        "lanes": body.lanes,
+        "assignments": body.assignments,
+        "is_confirmed": body.is_confirmed,
+        "confirmed_url": body.confirmed_url if body.confirmed_url is not None else existing.get("confirmed_url"),
+        "confirmed_at": body.confirmed_at if body.confirmed_at is not None else existing.get("confirmed_at"),
+    }
     sop.updated_at = datetime.now(timezone.utc)
     await db.commit()
     return {"process_map_config": sop.process_map_config}
+
+
+@router.post("/sops/{sop_id}/process-map/upload")
+async def upload_process_map_image(
+    sop_id: UUID,
+    file: UploadFile,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a corrected process map PNG. Stores in Azure Blob, saves confirmed_url."""
+    if file.content_type not in ("image/png", "image/jpeg"):
+        raise HTTPException(status_code=400, detail="Only PNG or JPEG files are accepted")
+
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
+
+    sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
+    if sop is None:
+        raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+
+    blob_name = f"sop-{sop_id}/process_map_confirmed.png"
+    blob_url = f"{settings.azure_blob_base_url}/{blob_name}"
+    upload_url = f"{blob_url}?{settings.azure_blob_sas_token}"
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.put(
+            upload_url,
+            content=data,
+            headers={"x-ms-blob-type": "BlockBlob", "Content-Type": "image/png"},
+        )
+        if resp.status_code not in (200, 201):
+            raise HTTPException(status_code=502, detail=f"Azure upload failed: {resp.status_code}")
+
+    confirmed_at = datetime.now(timezone.utc).isoformat()
+    existing = sop.process_map_config or {}
+    sop.process_map_config = {
+        **existing,
+        "is_confirmed": True,
+        "confirmed_url": blob_url,
+        "confirmed_at": confirmed_at,
+    }
+    sop.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    return {"confirmed_url": blob_url, "confirmed_at": confirmed_at}
 
 
 @router.delete("/sops/{sop_id}", status_code=204)
@@ -469,3 +531,22 @@ async def delete_sop(
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
     await db.delete(sop)
     await db.commit()
+
+
+@router.patch("/sops/{sop_id}/rename")
+async def rename_sop(
+    sop_id: UUID,
+    body: dict,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Rename a SOP title. Editor/Admin only."""
+    title = (body.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Title cannot be empty")
+    sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
+    if sop is None:
+        raise HTTPException(status_code=404, detail="SOP not found")
+    sop.title = title
+    await db.commit()
+    return {"id": str(sop_id), "title": sop.title}

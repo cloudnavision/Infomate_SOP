@@ -4,7 +4,7 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 import type Konva from 'konva'
 import { useQueryClient } from '@tanstack/react-query'
 import type { StepCallout, CalloutPatchItem, HighlightBox } from '../api/types'
-import { patchCallouts, renderAnnotated, sopKeys, addCallout, patchHighlightBoxes } from '../api/client'
+import { patchCallouts, renderAnnotated, sopKeys, addCallout, patchHighlightBoxes, deleteCallout } from '../api/client'
 
 type EditorMode = 'move' | 'add' | 'draw'
 
@@ -68,6 +68,7 @@ export function AnnotationEditorModal({
   const [boxes, setBoxes] = useState<LocalBox[]>(() =>
     (highlight_boxes || []).map(b => ({ id: b.id, x_px: b.x, y_px: b.y, w_px: b.w, h_px: b.h, color: b.color }))
   )
+  const [deletedIds, setDeletedIds] = useState<string[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -139,9 +140,14 @@ export function AnnotationEditorModal({
     )
   }
 
-  function deleteCallout(id: string) {
+  function removeCallout(id: string) {
     setLocal((prev) => prev.filter((c) => c.id !== id))
+    if (!id.startsWith('temp-')) setDeletedIds(prev => [...prev, id])
     if (activeId === id) setActiveId(null)
+  }
+
+  function rotateCallout(id: string, delta: number) {
+    setLocal(prev => prev.map(c => c.id === id ? { ...c, rotation: ((c.rotation || 0) + delta + 360) % 360 } : c))
   }
 
   // ── Add mode: click to place callout ──────────────────────────────────────
@@ -172,6 +178,7 @@ export function AnnotationEditorModal({
       was_repositioned: true,
       original_x: null,
       original_y: null,
+      rotation: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       x_px,
@@ -227,7 +234,12 @@ export function AnnotationEditorModal({
   async function handleSave() {
     setSaving(true)
     try {
-      // 1. POST new callouts — replace temp IDs with real IDs in local state as we go
+      // 1. DELETE removed callouts from DB
+      for (const id of deletedIds) {
+        await deleteCallout(stepId, id)
+      }
+
+      // 2. POST new callouts — replace temp IDs with real IDs in local state as we go
       let updatedLocal = [...local]
       const newCallouts = local.filter(c => c.id.startsWith('temp-'))
       for (const nc of newCallouts) {
@@ -243,7 +255,7 @@ export function AnnotationEditorModal({
       }
       setLocal(updatedLocal)
 
-      // 2. PATCH existing callouts (positions + labels)
+      // 3. PATCH existing callouts (positions + labels + rotation)
       const existingCallouts = updatedLocal.filter(c => !c.id.startsWith('temp-'))
       const payload: CalloutPatchItem[] = existingCallouts.map((c) => ({
         id: c.id,
@@ -251,6 +263,7 @@ export function AnnotationEditorModal({
         target_y: c.y_px,
         was_repositioned: c.was_repositioned,
         label: c.label,
+        rotation: c.rotation || 0,
       }))
       await patchCallouts(stepId, payload)
 
@@ -442,6 +455,7 @@ export function AnnotationEditorModal({
                         key={c.id}
                         x={x}
                         y={y}
+                        rotation={c.rotation || 0}
                         draggable={mode === 'move'}
                         onDragEnd={(e) => handleDragEnd(c.id, e)}
                         onClick={(e) => { e.cancelBubble = true; setActiveId(c.id) }}
@@ -545,10 +559,21 @@ export function AnnotationEditorModal({
                   <p className="text-[10px] font-mono text-slate-500">
                     x:{c.x_px}px y:{c.y_px}px
                   </p>
-                  <div className="flex gap-1 mt-2 pt-2 border-t border-slate-700">
+                  <div className="flex gap-1 mt-2 pt-2 border-t border-slate-700 flex-wrap">
                     <button
-                      onClick={(e) => { e.stopPropagation(); deleteCallout(c.id) }}
-                      className="text-[10px] px-2 py-0.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70"
+                      onClick={(e) => { e.stopPropagation(); rotateCallout(c.id, -45) }}
+                      className="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600"
+                      title="Rotate -45°"
+                    >⟲</button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); rotateCallout(c.id, 45) }}
+                      className="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600"
+                      title="Rotate +45°"
+                    >⟳</button>
+                    <span className="text-[10px] text-slate-500 px-1 py-0.5">{Math.round(c.rotation || 0)}°</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeCallout(c.id) }}
+                      className="text-[10px] px-2 py-0.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70 ml-auto"
                     >
                       Remove
                     </button>

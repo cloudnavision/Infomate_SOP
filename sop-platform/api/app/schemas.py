@@ -76,6 +76,7 @@ class CalloutSchema(BaseModel):
     was_repositioned: bool
     original_x: Optional[int] = None
     original_y: Optional[int] = None
+    rotation: float = 0.0
     created_at: datetime
     updated_at: datetime
 
@@ -232,6 +233,8 @@ class SOPListItem(BaseModel):
     pipeline_status: Optional[str] = None   # latest pipeline_runs.status
     pipeline_stage: Optional[str] = None    # latest pipeline_runs.current_stage
     tags: list[dict] = []  # [{name: str, color: str}]
+    project_code: Optional[str] = None
+    is_merged: bool = False
 
 
 class SOPDetail(BaseModel):
@@ -263,6 +266,7 @@ class SOPDetail(BaseModel):
     archived_at: Optional[datetime] = None
 
     process_map_config: Optional[Any] = None
+    project_code: Optional[str] = None
 
     steps: list[StepSchema] = []
     sections: list[SectionSchema] = []
@@ -310,8 +314,66 @@ class ActivityEvent(BaseModel):
 
 
 class ProcessMapConfigBody(BaseModel):
-    lanes: list[dict]       # [{id, name, color}]
-    assignments: list[dict] # [{step_id, lane_id, is_decision}]
+    lanes: list[dict]
+    assignments: list[dict]
+    is_confirmed: bool = False
+    confirmed_url: Optional[str] = None
+    confirmed_at: Optional[str] = None
+
+
+class CombinePartInput(BaseModel):
+    sop_id: str
+    label: str  # e.g. "Part 1: Login & Setup"
+
+class CombineExportBody(BaseModel):
+    parts: list[CombinePartInput]   # ordered list, min 2
+    title: str                       # combined document title
+
+
+class ProjectCodeUpdate(BaseModel):
+    project_code: Optional[str] = None   # None = clear the code
+
+
+class MergeCompareBody(BaseModel):
+    base_sop_id: str
+    updated_sop_id: str
+
+
+class MergeMatch(BaseModel):
+    status: str                          # unchanged | changed | added | removed
+    base_step_id: Optional[str] = None
+    updated_step_id: Optional[str] = None
+    change_summary: Optional[str] = None
+
+
+class MergeSessionResponse(BaseModel):
+    session_id: str
+    status: str
+    base_sop_id: str
+    updated_sop_id: str
+    merged_sop_id: Optional[str] = None
+    matches: list[MergeMatch] = []
+
+
+class MergeStepDecision(BaseModel):
+    step_id: str      # ID from base or updated SOP
+    source: str       # "base" or "updated"
+
+
+class MergeFinalizeBody(BaseModel):
+    steps: list[MergeStepDecision]   # ordered final step list
+
+
+class CreateProcessGroupBody(BaseModel):
+    name: str
+    sop_ids: list[str]   # UUIDs of SOPs to include in this group
+
+
+class ProcessGroupResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    sop_ids: list[str]
 
 
 class ExportResponse(BaseModel):
@@ -326,6 +388,7 @@ class CalloutPatchItem(BaseModel):
     target_y: int
     was_repositioned: bool
     label: Optional[str] = None
+    rotation: float = 0.0
 
 
 class NewCalloutItem(BaseModel):

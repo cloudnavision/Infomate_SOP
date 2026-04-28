@@ -5,13 +5,17 @@ Phase 7a: docxtpl template injection + LibreOffice PDF conversion + Azure Blob u
 import logging
 import subprocess
 import tempfile
+import time
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
 import requests
-from docxtpl import DocxTemplate, InlineImage
-from docx.shared import Inches
+from docxtpl import DocxTemplate, InlineImage, RichText
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt, RGBColor
 
 logger = logging.getLogger(__name__)
 
@@ -50,13 +54,19 @@ def render_sop(
         tmp_dir = Path(tmp_str)
 
         tpl = DocxTemplate(str(TEMPLATE_PATH))
-        context = _build_context(tpl, sop_data, tmp_dir)
+        table_registry: dict[str, list] = {}
+        context = _build_context(tpl, sop_data, tmp_dir, table_registry, azure_sas_token=azure_sas_token)
         tpl.render(context)
 
         # Save rendered docx
         docx_filename = f"sop_{sop_id}.docx"
         docx_path = export_dir / docx_filename
         tpl.save(str(docx_path))
+
+        # Post-process: replace table placeholders with real Word tables
+        if table_registry:
+            _inject_tables(docx_path, table_registry)
+
         logger.info("Rendered DOCX: %s (%.1f KB)", docx_path, docx_path.stat().st_size / 1024)
 
         # Upload DOCX
@@ -84,7 +94,116 @@ def render_sop(
     return {"docx_url": docx_base_url, "pdf_url": pdf_base_url}
 
 
-def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path) -> dict:
+def _section_content(tpl: DocxTemplate, section: dict, table_registry: dict):
+    """Return a RichText for a section. Table sections use a placeholder string."""
+    content_type = str(section.get("content_type") or "text")
+    if "." in content_type:
+        content_type = content_type.split(".")[-1]
+
+    text = section.get("content_text") or ""
+    json_data = section.get("content_json")
+
+    if content_type == "table" and isinstance(json_data, list) and json_data:
+        rows_data = [r for r in json_data if isinstance(r, dict)]
+        if rows_data:
+            placeholder = f"__TBLPH_{len(table_registry):03d}__"
+            table_registry[placeholder] = rows_data
+            rt = RichText()
+            rt.add(placeholder)
+            return rt
+
+    if content_type == "list":
+        rt = RichText()
+        items = json_data if isinstance(json_data, list) else ([json_data] if json_data else [text])
+        for i, item in enumerate(items):
+            if i > 0:
+                rt.xml += "<w:r><w:br/></w:r>"
+            rt.add(f"\u2022  {item}", font="Calibri", size=22)
+        return rt
+
+    rt = RichText()
+    rt.add(text, font="Calibri", size=22)
+    return rt
+
+
+def _set_cell_shd(cell, hex_color: str) -> None:
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), hex_color.lstrip("#"))
+    tcPr.append(shd)
+
+
+def _add_tbl_borders(tbl) -> None:
+    tblPr = tbl._tbl.tblPr
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl._tbl.insert(0, tblPr)
+    borders = OxmlElement("w:tblBorders")
+    for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        b = OxmlElement(f"w:{side}")
+        b.set(qn("w:val"), "single")
+        b.set(qn("w:sz"), "4")
+        b.set(qn("w:space"), "0")
+        b.set(qn("w:color"), "D1D5DB")
+        borders.append(b)
+    tblPr.append(borders)
+
+
+def _inject_tables(docx_path: Path, table_registry: dict[str, list]) -> None:
+    """Open the saved docx, find placeholder paragraphs, replace with Word tables."""
+    from docx import Document as DocxDoc
+
+    doc = DocxDoc(str(docx_path))
+    body = doc.element.body
+
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text not in table_registry:
+            continue
+        rows_data = table_registry[text]
+        headers = list(rows_data[0].keys())
+        n_cols = len(headers)
+        col_w = Inches(5.3 / n_cols)
+
+        # Build the table
+        tbl = doc.add_table(rows=1 + len(rows_data), cols=n_cols)
+        _add_tbl_borders(tbl)
+
+        # Header row — orange bg, white bold
+        for i, h in enumerate(headers):
+            cell = tbl.rows[0].cells[i]
+            cell.width = col_w
+            _set_cell_shd(cell, "E85C1A")
+            run = cell.paragraphs[0].add_run(h.replace("_", " ").upper())
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+            run.font.size = Pt(9)
+            run.font.name = "Calibri"
+
+        # Data rows — alternating bg
+        for r_idx, row_data in enumerate(rows_data):
+            bg = "F8F9FA" if r_idx % 2 == 0 else "FFFFFF"
+            for c_idx, h in enumerate(headers):
+                cell = tbl.rows[r_idx + 1].cells[c_idx]
+                cell.width = col_w
+                _set_cell_shd(cell, bg)
+                run = cell.paragraphs[0].add_run(str(row_data.get(h) or ""))
+                run.font.size = Pt(9)
+                run.font.name = "Calibri"
+
+        # Move the new table element to replace the placeholder paragraph
+        tbl_element = tbl._tbl
+        body.remove(tbl_element)          # add_table appended to body; move it
+        para._element.addprevious(tbl_element)
+        para._element.getparent().remove(para._element)
+
+    doc.save(str(docx_path))
+
+
+def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_registry: dict | None = None, azure_sas_token: str = "") -> dict:
     """Build the Jinja2 context dict for docxtpl."""
     steps_raw = sop_data.get("steps", [])
     steps_ctx = []
@@ -119,7 +238,7 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path) -> dict:
         sections_pre.append({
             "num": str(sec_num),
             "section_title": s.get("section_title", ""),
-            "content_text": s.get("content_text") or "",
+            "content_text": _section_content(tpl, s, table_registry if table_registry is not None else {}),
         })
         sec_num += 1
 
@@ -131,16 +250,25 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path) -> dict:
         sections_post.append({
             "num": str(sec_num),
             "section_title": s.get("section_title", ""),
-            "content_text": s.get("content_text") or "",
+            "content_text": _section_content(tpl, s, table_registry if table_registry is not None else {}),
         })
         sec_num += 1
 
     pm_config = sop_data.get("process_map_config")
-    process_map = (
-        _generate_swimlane_map(tpl, pm_config, steps_raw, tmp_dir)
-        if pm_config and pm_config.get("lanes") and pm_config.get("assignments")
-        else _generate_process_map(tpl, steps_raw, tmp_dir)
-    )
+    confirmed_url = pm_config.get("confirmed_url") if pm_config else None
+
+    if confirmed_url:
+        process_map = _download_confirmed_map(tpl, confirmed_url, tmp_dir, sas_token=azure_sas_token)
+        if process_map is None:
+            process_map = (
+                _generate_swimlane_map(tpl, pm_config, steps_raw, tmp_dir)
+                if pm_config and pm_config.get("lanes") and pm_config.get("assignments")
+                else _generate_process_map(tpl, steps_raw, tmp_dir)
+            )
+    elif pm_config and pm_config.get("lanes") and pm_config.get("assignments"):
+        process_map = _generate_swimlane_map(tpl, pm_config, steps_raw, tmp_dir)
+    else:
+        process_map = _generate_process_map(tpl, steps_raw, tmp_dir)
     today = date.today().strftime("%d %b %Y")
 
     # ── Build numbered TOC entries ──────────────────────────────────────────
@@ -507,6 +635,25 @@ def _generate_swimlane_map(
         return _generate_process_map(tpl, steps, tmp_dir)
 
 
+def _download_confirmed_map(
+    tpl: DocxTemplate,
+    url: str,
+    tmp_dir: Path,
+    sas_token: str = "",
+) -> Optional[InlineImage]:
+    """Download the user-uploaded confirmed process map PNG and embed it in the document."""
+    try:
+        full_url = f"{url}?{sas_token}" if sas_token and "?" not in url else url
+        resp = requests.get(full_url, timeout=30)
+        resp.raise_for_status()
+        map_path = tmp_dir / "process_map_confirmed.png"
+        map_path.write_bytes(resp.content)
+        return InlineImage(tpl, str(map_path), width=Inches(6.5))
+    except Exception as exc:
+        logger.warning("Could not download confirmed process map from %s: %s", url, exc)
+        return None
+
+
 def _convert_to_pdf(docx_path: Path, output_dir: Path) -> Path:
     """Convert a .docx to .pdf using LibreOffice headless."""
     cmd = [
@@ -526,16 +673,27 @@ def _convert_to_pdf(docx_path: Path, output_dir: Path) -> Path:
     return pdf_path
 
 
-def _upload_blob(local_path: Path, sas_url: str, content_type: str) -> None:
-    """PUT a file to Azure Blob Storage using a SAS URL."""
-    data = local_path.read_bytes()
-    resp = requests.put(
-        sas_url,
-        data=data,
-        headers={
-            "x-ms-blob-type": "BlockBlob",
-            "Content-Type": content_type,
-        },
-        timeout=120,
-    )
-    resp.raise_for_status()
+def _upload_blob(local_path: Path, sas_url: str, content_type: str, max_retries: int = 3) -> None:
+    """PUT a file to Azure Blob Storage using a SAS URL with retry on connection errors."""
+    file_size = local_path.stat().st_size
+    for attempt in range(max_retries):
+        try:
+            with open(local_path, "rb") as f:
+                resp = requests.put(
+                    sas_url,
+                    data=f,
+                    headers={
+                        "x-ms-blob-type": "BlockBlob",
+                        "Content-Type": content_type,
+                        "Content-Length": str(file_size),
+                    },
+                    timeout=300,
+                )
+            resp.raise_for_status()
+            return
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if attempt < max_retries - 1:
+                logger.warning("Blob upload failed (attempt %d/%d): %s — retrying", attempt + 1, max_retries, e)
+                time.sleep(5 * (attempt + 1))
+            else:
+                raise

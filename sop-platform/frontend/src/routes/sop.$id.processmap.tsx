@@ -1,9 +1,9 @@
 import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
-import { fetchSOP, fetchProcessMap, saveProcessMap, sopKeys } from '../api/client'
+import { fetchSOP, fetchProcessMap, saveProcessMap, uploadProcessMapImage, sopKeys } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
-import type { ProcessMapLane, ProcessMapAssignment, SOPStep } from '../api/types'
+import type { ProcessMapLane, ProcessMapAssignment, SOPStep, ProcessMapConfig } from '../api/types'
 
 export const Route = createFileRoute('/sop/$id/processmap')({
   component: ProcessMapPage,
@@ -277,18 +277,20 @@ function StepAssigner({
   steps: SOPStep[]
   onChange: (a: ProcessMapAssignment[]) => void
 }) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+
   const update = (idx: number, patch: Partial<ProcessMapAssignment>) => {
     onChange(assignments.map((a, i) => (i === idx ? { ...a, ...patch } : a)))
   }
 
-  const laneColorMap: Record<string, string> = {}
-  lanes.forEach(l => { laneColorMap[l.id] = l.color })
+  const excludedSteps = steps.filter(s => !assignments.find(a => a.step_id === s.id))
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Assign Steps to Lanes</h2>
-        <p className="text-sm text-gray-500 mt-0.5">For each step, select which role/lane performs it. Optionally mark decision points.</p>
+        <p className="text-sm text-gray-500 mt-0.5">Drag to reorder. Assign each step to a lane and optionally mark decision points.</p>
       </div>
 
       <div className="space-y-2">
@@ -298,7 +300,29 @@ function StepAssigner({
           const selectedLane = lanes.find(l => l.id === asgn.lane_id)
 
           return (
-            <div key={asgn.step_id} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm hover:border-gray-300 transition-colors">
+            <div
+              key={asgn.step_id}
+              draggable
+              onDragStart={() => setDragIdx(i)}
+              onDragOver={e => { e.preventDefault(); setDragOverIdx(i) }}
+              onDrop={() => {
+                if (dragIdx === null || dragIdx === i) return
+                const next = [...assignments]
+                const [moved] = next.splice(dragIdx, 1)
+                next.splice(i, 0, moved)
+                onChange(next)
+                setDragIdx(null); setDragOverIdx(null)
+              }}
+              onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
+              className={`flex items-center gap-3 bg-white border rounded-xl px-4 py-3 shadow-sm transition-colors ${
+                dragOverIdx === i ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              {/* Drag handle */}
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0 cursor-grab active:cursor-grabbing">
+                <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0 .001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/>
+              </svg>
+
               {/* Step number badge */}
               <span
                 className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
@@ -331,10 +355,36 @@ function StepAssigner({
                   <option key={l.id} value={l.id}>{l.name || `Lane ${lanes.indexOf(l) + 1}`}</option>
                 ))}
               </select>
+
+              {/* Remove from diagram */}
+              <button
+                onClick={() => onChange(assignments.filter((_, j) => j !== i))}
+                title="Remove from diagram"
+                className="text-gray-300 hover:text-red-400 transition-colors shrink-0 ml-1"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+              </button>
             </div>
           )
         })}
       </div>
+
+      {excludedSteps.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="text-xs text-gray-400 mb-2">Excluded from diagram</p>
+          {excludedSteps.map(s => (
+            <div key={s.id} className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg text-sm text-gray-400 mb-1">
+              <span className="flex-1">{s.sequence}. {s.title}</span>
+              <button
+                onClick={() => onChange([...assignments, { step_id: s.id, lane_id: lanes[0]?.id ?? '', is_decision: false }])}
+                className="text-xs text-blue-500 hover:text-blue-700 font-medium"
+              >+ Add back</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -414,6 +464,100 @@ function PreviewPane({
   )
 }
 
+// ── Confirm & Upload pane (step 4) ────────────────────────────────────────────
+
+function ConfirmPane({
+  lanes, assignments, steps, sopId, currentConfig, isSaving, onConfirmed,
+}: {
+  lanes: ProcessMapLane[]
+  assignments: ProcessMapAssignment[]
+  steps: SOPStep[]
+  sopId: string
+  currentConfig: ProcessMapConfig | null
+  isSaving: boolean
+  onConfirmed: (confirmedUrl: string | null, confirmedAt: string) => void
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const svgMarkup = generateSwimlane(lanes, assignments, steps)
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true); setError(null)
+    try {
+      const result = await uploadProcessMapImage(sopId, file)
+      onConfirmed(result.confirmed_url, result.confirmed_at)
+    } catch (err: any) {
+      setError(err.message ?? 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">Confirm Process Map</h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Review the auto-generated diagram below. Confirm it as-is, or upload a corrected PNG — the confirmed version will be embedded in your DOCX/PDF export.
+        </p>
+      </div>
+
+      {/* Preview: show uploaded image if confirmed, otherwise auto-generated SVG */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-auto shadow-sm">
+        {currentConfig?.confirmed_url ? (
+          <img src={currentConfig.confirmed_url} alt="Confirmed process map" className="max-w-full p-4" />
+        ) : svgMarkup ? (
+          <div className="min-w-max p-4" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+        ) : (
+          <p className="p-8 text-center text-gray-400 text-sm">No diagram — complete steps 1 and 2 first.</p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Option A: confirm auto-generated */}
+        <button
+          onClick={() => onConfirmed(null, new Date().toISOString())}
+          disabled={isSaving}
+          className="flex flex-col items-center gap-2 p-5 border-2 border-gray-200 rounded-xl hover:border-green-400 hover:bg-green-50 disabled:opacity-50 transition-colors text-sm text-gray-700"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-green-500">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span className="font-medium">Confirm auto-generated</span>
+          <span className="text-xs text-gray-400 text-center">Use the diagram above in exports</span>
+        </button>
+
+        {/* Option B: upload corrected PNG */}
+        <label className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm text-gray-700 cursor-pointer">
+          {uploading
+            ? <svg className="animate-spin w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+            : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-blue-400"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          }
+          <span className="font-medium">{uploading ? 'Uploading…' : 'Upload corrected PNG'}</span>
+          <span className="text-xs text-gray-400 text-center">Replace with your own diagram</span>
+          <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+        </label>
+      </div>
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      {currentConfig?.is_confirmed && (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+          </svg>
+          {currentConfig.confirmed_url
+            ? `Using uploaded PNG — confirmed ${new Date(currentConfig.confirmed_at!).toLocaleDateString()}`
+            : `Using auto-generated diagram — confirmed ${new Date(currentConfig.confirmed_at!).toLocaleDateString()}`
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 function ProcessMapPage() {
@@ -432,7 +576,7 @@ function ProcessMapPage() {
     queryFn: () => fetchProcessMap(id),
   })
 
-  const [wizardStep, setWizardStep] = useState<0 | 1 | 2>(0)
+  const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3>(0)
   const [lanes, setLanes] = useState<ProcessMapLane[]>([])
   const [assignments, setAssignments] = useState<ProcessMapAssignment[]>([])
   const [saved, setSaved] = useState(false)
@@ -445,7 +589,6 @@ function ProcessMapPage() {
       setLanes(existing.lanes)
       setAssignments(existing.assignments ?? [])
     } else {
-      // Default: single lane "Team", all steps assigned to it
       const defaultLane: ProcessMapLane = { id: 'lane-default', name: 'Team', color: LANE_COLORS[0] }
       setLanes([defaultLane])
       setAssignments(
@@ -458,7 +601,6 @@ function ProcessMapPage() {
     }
   }, [sopData, pmData])
 
-  // Sync assignments when lanes change (remove orphaned lane_ids → fallback to first lane)
   const handleLanesChange = (next: ProcessMapLane[]) => {
     setLanes(next)
     if (next.length === 0) return
@@ -472,7 +614,14 @@ function ProcessMapPage() {
   }
 
   const saveMutation = useMutation({
-    mutationFn: () => saveProcessMap(id, { lanes, assignments }),
+    mutationFn: (confirmOverride?: { is_confirmed: boolean; confirmed_url: string | null; confirmed_at: string }) =>
+      saveProcessMap(id, {
+        lanes,
+        assignments,
+        is_confirmed: confirmOverride?.is_confirmed ?? pmData?.process_map_config?.is_confirmed ?? false,
+        confirmed_url: confirmOverride?.confirmed_url !== undefined ? confirmOverride.confirmed_url : pmData?.process_map_config?.confirmed_url ?? null,
+        confirmed_at: confirmOverride?.confirmed_at ?? pmData?.process_map_config?.confirmed_at ?? null,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: sopKeys.processMap(id) })
       qc.invalidateQueries({ queryKey: sopKeys.detail(id) })
@@ -480,6 +629,10 @@ function ProcessMapPage() {
       setTimeout(() => setSaved(false), 3000)
     },
   })
+
+  const handleConfirmed = (confirmedUrl: string | null, confirmedAt: string) => {
+    saveMutation.mutate({ is_confirmed: true, confirmed_url: confirmedUrl, confirmed_at: confirmedAt })
+  }
 
   if (sopLoading || pmLoading) {
     return (
@@ -522,7 +675,7 @@ function ProcessMapPage() {
   const canProceed0 = lanes.length > 0 && lanes.every(l => l.name.trim())
   const canProceed1 = assignments.length > 0
 
-  const WIZARD_LABELS = ['1. Define Lanes', '2. Assign Steps', '3. Preview & Save']
+  const WIZARD_LABELS = ['1. Define Lanes', '2. Assign Steps', '3. Preview', '4. Confirm']
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -533,8 +686,8 @@ function ProcessMapPage() {
             <div key={i} className="flex items-center flex-1">
               <button
                 onClick={() => {
-                  if (i === 0 || (i === 1 && canProceed0) || (i === 2 && canProceed0 && canProceed1)) {
-                    setWizardStep(i as 0 | 1 | 2)
+                  if (i === 0 || (i === 1 && canProceed0) || (i === 2 && canProceed0 && canProceed1) || (i === 3 && canProceed0 && canProceed1)) {
+                    setWizardStep(i as 0 | 1 | 2 | 3)
                   }
                 }}
                 className={`flex items-center gap-2 text-sm font-medium transition-colors ${
@@ -601,7 +754,18 @@ function ProcessMapPage() {
             assignments={assignments}
             steps={steps}
             isSaving={saveMutation.isPending}
-            onSave={() => saveMutation.mutate()}
+            onSave={() => saveMutation.mutate(undefined)}
+          />
+        )}
+        {wizardStep === 3 && (
+          <ConfirmPane
+            lanes={lanes}
+            assignments={assignments}
+            steps={steps}
+            sopId={id}
+            currentConfig={pmData?.process_map_config ?? null}
+            isSaving={saveMutation.isPending}
+            onConfirmed={handleConfirmed}
           />
         )}
       </div>
@@ -609,7 +773,7 @@ function ProcessMapPage() {
       {/* Navigation */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => setWizardStep(prev => (prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev))}
+          onClick={() => setWizardStep(prev => (prev > 0 ? ((prev - 1) as 0 | 1 | 2 | 3) : prev))}
           disabled={wizardStep === 0}
           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors"
         >
@@ -619,13 +783,14 @@ function ProcessMapPage() {
           Back
         </button>
 
-        {wizardStep < 2 && (
+        {wizardStep < 3 && (
           <button
-            onClick={() => {
-              const next = (wizardStep + 1) as 1 | 2
-              setWizardStep(next)
-            }}
-            disabled={wizardStep === 0 ? !canProceed0 : !canProceed1}
+            onClick={() => setWizardStep((wizardStep + 1) as 1 | 2 | 3)}
+            disabled={
+              (wizardStep === 0 && !canProceed0) ||
+              (wizardStep === 1 && !canProceed1) ||
+              (wizardStep === 2 && !canProceed1)
+            }
             className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors shadow-sm"
           >
             Next

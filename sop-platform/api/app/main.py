@@ -21,7 +21,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.dependencies.pipeline_auth import require_internal_key
-from app.routes import sops, steps, sections, auth, users, exports
+from app.routes import sops, steps, sections, auth, users, exports, merge
 
 app = FastAPI(
     title="SOP Platform API",
@@ -52,6 +52,9 @@ app.include_router(users.router)
 
 # ── Export Routes (Phase 7a) ──────────────────────────────────
 app.include_router(exports.router)
+
+# ── Merge Routes (SOP Version Merge) — registered before sops to avoid path conflicts ──
+app.include_router(merge.router)
 
 
 # ── Health ───────────────────────────────────────────────────

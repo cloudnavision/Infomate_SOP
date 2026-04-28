@@ -1,4 +1,4 @@
-import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout, SOPMetrics, LikeResponse, SOPTag, HighlightBox, ProcessMapConfig } from './types'
+import type { SOPListItem, SOPDetail, SOPStep, TranscriptLine, SOPSection, WatchlistItem, AppUser, UserCreateInput, UserUpdateInput, CalloutPatchItem, StepCallout, SOPMetrics, LikeResponse, SOPTag, HighlightBox, ProcessMapConfig, CombineExportRequest, MergeSession, MergeStepDecision, MergeGroup, ProcessGroupResponse, CreateProcessGroupInput } from './types'
 import { supabase } from '../lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -94,6 +94,9 @@ export async function renderAnnotated(stepId: string): Promise<RenderAnnotatedRe
 export const addCallout = (stepId: string, body: { callout_number: number; label: string; target_x: number; target_y: number }) =>
   mutateAPI<StepCallout>(`/api/steps/${stepId}/callouts`, 'POST', body)
 
+export const deleteCallout = (stepId: string, calloutId: string) =>
+  mutateAPI<null>(`/api/steps/${stepId}/callouts/${calloutId}`, 'DELETE')
+
 export const patchHighlightBoxes = (stepId: string, boxes: HighlightBox[]) =>
   mutateAPI<SOPStep>(`/api/steps/${stepId}/highlight-boxes`, 'PATCH', boxes)
 
@@ -106,6 +109,8 @@ export const fetchMetrics = (id: string) => fetchAPI<SOPMetrics>(`/api/sops/${id
 export const trackView = (id: string) => mutateAPI<null>(`/api/sops/${id}/view`, 'POST')
 export const toggleLike = (id: string) => mutateAPI<LikeResponse>(`/api/sops/${id}/like`, 'POST')
 export const deleteSOP = (id: string) => mutateAPI<null>(`/api/sops/${id}`, 'DELETE')
+export const renameSOP = (id: string, title: string) =>
+  mutateAPI<{ id: string; title: string }>(`/api/sops/${id}/rename`, 'PATCH', { title })
 export const updateSOPTags = (id: string, tags: SOPTag[]) =>
   mutateAPI<SOPListItem>(`/api/sops/${id}/tags`, 'PATCH', { tags })
 
@@ -115,11 +120,68 @@ export const fetchProcessMap = (id: string) =>
 export const saveProcessMap = (id: string, config: ProcessMapConfig) =>
   mutateAPI<{ process_map_config: ProcessMapConfig }>(`/api/sops/${id}/process-map`, 'PATCH', config)
 
+export const uploadProcessMapImage = async (id: string, file: File): Promise<{ confirmed_url: string; confirmed_at: string }> => {
+  const headers = await getAuthHeaders() as Record<string, string>
+  const { 'Content-Type': _ct, ...headersWithoutContentType } = headers
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${API_BASE}/api/sops/${id}/process-map/upload`, {
+    method: 'POST',
+    headers: headersWithoutContentType,
+    body: form,
+  })
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+  return res.json()
+}
+
 // ── User management (admin only) ──────────────────────────────────────────────
 export const fetchUsers = () => fetchAPI<AppUser[]>('/api/users')
 export const createUser = (data: UserCreateInput) => mutateAPI<AppUser>('/api/users', 'POST', data)
 export const updateUser = (id: string, data: UserUpdateInput) => mutateAPI<AppUser>(`/api/users/${id}`, 'PATCH', data)
 export const deleteUser = (id: string) => mutateAPI<null>(`/api/users/${id}`, 'DELETE')
+
+export const setProjectCode = (sopId: string, projectCode: string | null) =>
+  mutateAPI<{ sop_id: string; project_code: string | null }>(
+    `/api/sops/${sopId}/project-code`, 'PATCH', { project_code: projectCode }
+  )
+
+export const fetchMergeGroups = () =>
+  fetchAPI<MergeGroup[]>('/api/merge/groups')
+
+export const createProcessGroup = (body: CreateProcessGroupInput) =>
+  mutateAPI<ProcessGroupResponse>('/api/merge/process-groups', 'POST', body)
+
+export const deleteProcessGroup = (code: string) =>
+  mutateAPI<null>(`/api/merge/process-groups/${encodeURIComponent(code)}`, 'DELETE')
+
+export const compareSops = (baseSopId: string, updatedSopId: string) =>
+  mutateAPI<MergeSession>('/api/merge/compare', 'POST', {
+    base_sop_id: baseSopId,
+    updated_sop_id: updatedSopId,
+  })
+
+export const fetchMergeSession = (sessionId: string) =>
+  fetchAPI<MergeSession>(`/api/merge/sessions/${sessionId}`)
+
+export const finalizeMerge = (sessionId: string, steps: MergeStepDecision[]) =>
+  mutateAPI<{ merged_sop_id: string }>(
+    `/api/merge/sessions/${sessionId}/finalize`, 'POST', { steps }
+  )
+
+export const exportCombinedSOPs = async (
+  body: CombineExportRequest,
+  format: 'docx' | 'pdf',
+): Promise<ExportResponse> => {
+  const headers = await getAuthHeaders() as Record<string, string>
+  headers['Content-Type'] = 'application/json'
+  const res = await fetch(`${API_BASE}/api/sops/combine/export?format=${format}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`)
+  return res.json()
+}
 
 export const userKeys = {
   all: ['users'] as const,

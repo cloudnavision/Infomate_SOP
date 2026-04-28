@@ -172,7 +172,13 @@ def _extract_single_frame(
         str(output_path),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    return result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0
+    success = result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0
+    if not success:
+        logger.error(
+            "FFmpeg frame extract failed at %.2fs (rc=%d): %s",
+            timestamp_sec, result.returncode, result.stderr[-500:],
+        )
+    return success
 
 
 # ── Time-based fallback ───────────────────────────────────────────────────────

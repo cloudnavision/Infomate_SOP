@@ -2,18 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Thin, light scrollbars */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+/* ─── Theme tokens ─────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  --color-bg:             #f9fafb; /* gray-50  */
+  --color-surface:        #ffffff; /* white    */
+  --color-raised:         #f3f4f6; /* gray-100 */
+  --color-input:          #ffffff; /* white    */
+  --color-border:         #e5e7eb; /* gray-200 */
+  --color-border-subtle:  #f3f4f6; /* gray-100 */
+  --color-text-default:   #111827; /* gray-900 */
+  --color-text-secondary: #374151; /* gray-700 */
+  --color-text-muted:     #6b7280; /* gray-500 */
+  --color-scrollbar:      #d1d5db; /* gray-300 */
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+[data-theme="dark"] {
+  --color-bg:             #030712; /* gray-950 */
+  --color-surface:        #111827; /* gray-900 */
+  --color-raised:         #1f2937; /* gray-800 */
+  --color-input:          #1f2937; /* gray-800 */
+  --color-border:         #374151; /* gray-700 */
+  --color-border-subtle:  #1f2937; /* gray-800 */
+  --color-text-default:   #f9fafb; /* gray-50  */
+  --color-text-secondary: #d1d5db; /* gray-300 */
+  --color-text-muted:     #9ca3af; /* gray-400 */
+  --color-scrollbar:      #4b5563; /* gray-600 */
 }
+
+[data-theme="gray"] {
+  --color-bg:             #1e293b; /* slate-800 */
+  --color-surface:        #334155; /* slate-700 */
+  --color-raised:         #475569; /* slate-600 */
+  --color-input:          #334155; /* slate-700 */
+  --color-border:         #475569; /* slate-600 */
+  --color-border-subtle:  #334155; /* slate-700 */
+  --color-text-default:   #f1f5f9; /* slate-100 */
+  --color-text-secondary: #cbd5e1; /* slate-300 */
+  --color-text-muted:     #94a3b8; /* slate-400 */
+  --color-scrollbar:      #475569; /* slate-600 */
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--color-scrollbar);
   border-radius: 99px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
+::-webkit-scrollbar-thumb:hover { filter: brightness(0.85); }

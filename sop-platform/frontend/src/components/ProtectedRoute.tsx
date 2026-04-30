@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+﻿import { type ReactNode } from 'react'
 import { Navigate } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { useAuthContext } from '../contexts/AuthContext'
@@ -22,7 +22,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-page">
         <p className="text-gray-400 text-sm">Loading…</p>
       </div>
     )

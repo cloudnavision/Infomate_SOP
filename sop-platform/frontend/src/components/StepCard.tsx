@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SOPStep, TranscriptLine } from '../api/types'
 import { useAuth } from '../hooks/useAuth'
@@ -37,11 +37,11 @@ function Section({ icon, label, children, accent = 'gray' }: {
   accent?: 'gray' | 'blue' | 'violet' | 'amber' | 'green'
 }) {
   const accentMap = {
-    gray:   'text-gray-400 bg-gray-50',
-    blue:   'text-blue-500 bg-blue-50',
-    violet: 'text-violet-500 bg-violet-50',
-    amber:  'text-amber-500 bg-amber-50',
-    green:  'text-green-600 bg-green-50',
+    gray:   'text-muted bg-raised',
+    blue:   'text-blue-500 bg-blue-500/10',
+    violet: 'text-violet-500 bg-violet-500/10',
+    amber:  'text-amber-500 bg-amber-500/10',
+    green:  'text-green-500 bg-green-500/10',
   }
   return (
     <div>
@@ -49,7 +49,7 @@ function Section({ icon, label, children, accent = 'gray' }: {
         <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${accentMap[accent]}`}>
           {icon}
         </span>
-        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</h4>
+        <h4 className="text-xs font-semibold text-muted uppercase tracking-wide">{label}</h4>
       </div>
       {children}
     </div>
@@ -110,13 +110,13 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
 
   if (!step) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-gray-400 bg-white rounded-xl border border-gray-100 shadow-sm p-8">
+      <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-muted bg-card rounded-xl border border-subtle shadow-sm p-8">
         <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12">
           <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" strokeWidth="2" opacity="0.3"/>
           <path d="M16 22h16M16 28h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.4"/>
         </svg>
         <div>
-          <p className="text-sm font-medium text-gray-500">No step selected</p>
+          <p className="text-sm font-medium text-muted">No step selected</p>
           <p className="text-xs mt-0.5">Click a step in the sidebar to view details</p>
         </div>
       </div>
@@ -131,9 +131,9 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
   const ktLines = getKTLines(step, transcriptLines)
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-y-auto h-full flex flex-col">
+    <div className="bg-card rounded-xl shadow-sm border border-subtle overflow-y-auto h-full flex flex-col">
       {/* ── Step header ──────────────────────────────────────────── */}
-      <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 shrink-0">
+      <div className="px-4 pt-3 pb-2.5 border-b border-subtle shrink-0">
         <div className="flex items-start gap-3">
           {/* Number badge */}
           <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm ${
@@ -156,7 +156,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
                     if (e.key === 'Enter') renameMutation.mutate(titleInput.trim())
                     if (e.key === 'Escape') setRenamingTitle(false)
                   }}
-                  className="flex-1 text-sm font-semibold border border-violet-300 rounded-lg px-2.5 py-1 outline-none focus:ring-1 focus:ring-violet-200"
+                  className="flex-1 text-sm font-semibold bg-input text-default border border-violet-300 rounded-lg px-2.5 py-1 outline-none focus:ring-1 focus:ring-violet-400/50"
                 />
                 <button
                   onClick={() => renameMutation.mutate(titleInput.trim())}
@@ -165,11 +165,11 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
                 >
                   {renameMutation.isPending ? '…' : 'Save'}
                 </button>
-                <button onClick={() => setRenamingTitle(false)} className="text-xs px-2 py-1 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">✕</button>
+                <button onClick={() => setRenamingTitle(false)} className="text-xs px-2 py-1 border border-default rounded-lg text-muted hover:bg-raised">✕</button>
               </div>
             ) : (
               <div className="flex items-start gap-1.5">
-                <h2 className="text-sm font-semibold text-gray-900 leading-snug">{step.title}</h2>
+                <h2 className="text-sm font-semibold text-default leading-snug">{step.title}</h2>
                 {canEdit && (
                   <button
                     onClick={() => { setTitleInput(step.title); setRenamingTitle(true) }}
@@ -187,7 +187,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
             {/* Timestamp chip */}
             <button
               onClick={() => onSeek(step.timestamp_start)}
-              className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors"
+              className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-500/10 px-2 py-0.5 rounded-full hover:bg-blue-500/15 transition-colors"
             >
               <svg viewBox="0 0 12 12" fill="currentColor" className="w-2.5 h-2.5">
                 <path d="M6 0a6 6 0 110 12A6 6 0 016 0zm0 1.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM5.25 3.75a.75.75 0 011.5 0V6h1.5a.75.75 0 010 1.5H6a.75.75 0 01-.75-.75V3.75z"/>
@@ -203,13 +203,13 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
 
         {/* Description */}
         {step.description && (
-          <p className="text-sm text-gray-700 leading-relaxed">{step.description}</p>
+          <p className="text-sm text-secondary leading-relaxed">{step.description}</p>
         )}
 
         {/* Screenshot */}
         {screenshotUrl && (
-          <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-            <div className="relative group cursor-pointer bg-gray-100" onClick={() => setModalOpen(true)}>
+          <div className="rounded-lg overflow-hidden border border-default shadow-sm">
+            <div className="relative group cursor-pointer bg-raised" onClick={() => setModalOpen(true)}>
               <img
                 src={screenshotUrl}
                 alt={`Step ${step.sequence} screenshot`}
@@ -227,7 +227,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
               </div>
             </div>
             {canEdit && (
-              <div className="px-3 py-1.5 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <div className="px-3 py-1.5 bg-page border-t border-subtle flex justify-end">
                 <button
                   onClick={() => setEditorOpen(true)}
                   className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
@@ -253,7 +253,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
               <div className="space-y-2">
                 {subStepInputs.map((val, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 w-4 shrink-0 text-right">{i + 1}.</span>
+                    <span className="text-xs text-muted w-4 shrink-0 text-right">{i + 1}.</span>
                     <input
                       value={val}
                       onChange={e => setSubStepInputs(prev => prev.map((s, idx) => idx === i ? e.target.value : s))}
@@ -261,7 +261,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
                         if (e.key === 'Enter') { e.preventDefault(); setSubStepInputs(prev => [...prev.slice(0, i + 1), '', ...prev.slice(i + 1)]) }
                         if (e.key === 'Backspace' && !val && subStepInputs.length > 1) { e.preventDefault(); setSubStepInputs(prev => prev.filter((_, idx) => idx !== i)) }
                       }}
-                      className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-1 outline-none focus:border-violet-300 focus:ring-1 focus:ring-violet-100"
+                      className="flex-1 text-sm bg-input text-secondary border border-default rounded-lg px-2.5 py-1 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400/30"
                       placeholder={`Sub-step ${i + 1}`}
                       autoFocus={i === subStepInputs.length - 1 && val === ''}
                     />
@@ -278,7 +278,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
                   <button onClick={() => subStepsMutation.mutate(subStepInputs)} disabled={subStepsMutation.isPending} className="text-xs px-3 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 font-medium">
                     {subStepsMutation.isPending ? 'Saving…' : 'Save'}
                   </button>
-                  <button onClick={() => setEditingSubSteps(false)} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+                  <button onClick={() => setEditingSubSteps(false)} className="text-xs px-3 py-1.5 border border-default rounded-lg text-muted hover:bg-raised">Cancel</button>
                 </div>
               </div>
             ) : (
@@ -295,8 +295,8 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
                 {subSteps.length > 0 ? (
                   <ol className="space-y-1.5">
                     {subSteps.map((s, i) => (
-                      <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
-                        <span className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center justify-center mt-0.5">{i + 1}</span>
+                      <li key={i} className="flex items-start gap-2.5 text-sm text-secondary">
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-semibold flex items-center justify-center mt-0.5">{i + 1}</span>
                         <span className="leading-snug pt-0.5">{s}</span>
                       </li>
                     ))}
@@ -304,7 +304,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
                 ) : canEdit ? (
                   <button
                     onClick={() => { setSubStepInputs(['']); setEditingSubSteps(true) }}
-                    className="text-xs text-gray-400 hover:text-violet-500 flex items-center gap-1 transition-colors"
+                    className="text-xs text-muted hover:text-violet-500 flex items-center gap-1 transition-colors"
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
                     Add sub-steps
@@ -322,12 +322,12 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
             label="From the KT Session"
             icon={<svg viewBox="0 0 12 12" fill="currentColor" className="w-3 h-3"><path d="M10 1H2a1 1 0 00-1 1v6a1 1 0 001 1h1v2l3-2h4a1 1 0 001-1V2a1 1 0 00-1-1z"/></svg>}
           >
-            <div className="space-y-2.5 bg-amber-50 rounded-xl p-3 border border-amber-100">
+            <div className="space-y-2.5 bg-amber-500/10 rounded-xl p-3 border border-amber-500/20">
               {ktLines.map(l => (
                 <div key={l.id} className="flex items-start gap-2">
                   <span className="text-amber-300 text-lg leading-none mt-0.5 shrink-0">"</span>
                   <div>
-                    <p className="text-sm text-gray-800 leading-snug italic">{l.content}</p>
+                    <p className="text-sm text-secondary leading-snug italic">{l.content}</p>
                     <p className="text-xs text-amber-600 font-medium mt-0.5">{l.speaker}</p>
                   </div>
                 </div>
@@ -363,14 +363,14 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
 
       {/* ── Footer: approve + delete ─────────────────────────────── */}
       {canEdit && (
-        <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 shrink-0 space-y-2">
+        <div className="px-4 py-2.5 border-t border-subtle bg-page shrink-0 space-y-2">
           {/* Approve button */}
           <button
             onClick={() => approveMutation.mutate()}
             disabled={approveMutation.isPending || deleteMutation.isPending}
             className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ${
               step.is_approved
-                ? 'bg-green-50 border border-green-200 text-green-700 hover:bg-green-100'
+                ? 'bg-green-500/10 border border-green-500/30 text-green-600 hover:bg-green-500/15'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
@@ -400,7 +400,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-100 transition-all"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-default text-muted hover:bg-raised transition-all"
               >
                 Cancel
               </button>
@@ -408,7 +408,7 @@ export function StepCard({ step, transcriptLines, onSeek, onDelete }: Props) {
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium border border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-all"
+              className="w-full flex items-center justify-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium border border-default text-muted hover:border-red-500/30 hover:text-red-500 hover:bg-red-500/10 transition-all"
             >
               <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H3a1 1 0 000 2h.09l.676 7.44A2 2 0 005.76 15h4.48a2 2 0 001.994-1.56L12.91 6H13a1 1 0 100-2h-2V3a1 1 0 00-1-1H6zm1 2h2V3H7v1zm-1.91 2h7.82l-.637 7H5.727L5.09 6z" clipRule="evenodd"/>

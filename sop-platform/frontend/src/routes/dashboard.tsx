@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSOPs, sopKeys } from '../api/client'
@@ -46,9 +46,9 @@ function Dashboard() {
     queryFn: fetchSOPs,
   })
 
-  if (isLoading) return <p className="text-gray-500">Loading SOPs...</p>
+  if (isLoading) return <p className="text-muted">Loading SOPs...</p>
   if (error) return <p className="text-red-600">Error loading SOPs: {(error as Error).message}</p>
-  if (!sops || sops.length === 0) return <p className="text-gray-400">No SOPs found.</p>
+  if (!sops || sops.length === 0) return <p className="text-muted">No SOPs found.</p>
 
   const recordings = sops.filter(s => !s.is_merged)
 
@@ -87,7 +87,7 @@ function Dashboard() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-default">Dashboard</h1>
         {canMerge && (
           <Link
             to="/merge"
@@ -103,14 +103,14 @@ function Dashboard() {
 
       {/* Recordings section */}
       <div>
-        <h2 className="text-base font-semibold text-gray-700 mb-3">Recordings</h2>
+        <h2 className="text-base font-semibold text-secondary mb-3">Recordings</h2>
 
         <input
           type="text"
           placeholder="Search SOPs or tags…"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full mb-3 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-full mb-3 px-3 py-2 bg-input border border-default rounded-lg text-sm text-secondary placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-blue-400/30"
         />
 
         {allTags.length > 0 && (
@@ -122,7 +122,7 @@ function Dashboard() {
                 className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all ${
                   selectedTags.includes(tag)
                     ? tagColor(tag) + ' ring-2 ring-offset-1 ring-current'
-                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'
+                    : 'bg-raised text-muted border-default hover:border-default'
                 }`}
               >
                 {tag}
@@ -131,7 +131,7 @@ function Dashboard() {
             {selectedTags.length > 0 && (
               <button
                 onClick={() => { setSelectedTags([]); setPage(1) }}
-                className="text-xs px-2.5 py-1 rounded-full border border-dashed border-gray-300 text-gray-400 hover:text-gray-600"
+                className="text-xs px-2.5 py-1 rounded-full border border-dashed border-default text-muted hover:text-secondary"
               >
                 Clear
               </button>
@@ -140,7 +140,7 @@ function Dashboard() {
         )}
 
         {filtered.length === 0 ? (
-          <p className="text-gray-400">No SOPs match your filters.</p>
+          <p className="text-muted">No SOPs match your filters.</p>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -151,14 +151,14 @@ function Dashboard() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-6">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted">
                   Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-md border border-default text-muted hover:bg-raised disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ‹ Prev
                   </button>
@@ -169,7 +169,7 @@ function Dashboard() {
                       className={`px-3 py-1.5 text-sm rounded-md border ${
                         n === currentPage
                           ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          : 'border-default text-muted hover:bg-raised'
                       }`}
                     >
                       {n}
@@ -178,7 +178,7 @@ function Dashboard() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-md border border-default text-muted hover:bg-raised disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Next ›
                   </button>

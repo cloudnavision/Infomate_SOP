@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+﻿import { createFileRoute } from '@tanstack/react-router'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { UserManagementTable } from '../components/UserManagementTable'
 
@@ -10,7 +10,7 @@ const ROLE_PERMISSIONS = [
   {
     role: 'Viewer',
     dot: 'bg-gray-400',
-    badge: 'bg-gray-100 text-gray-700 border-gray-200',
+    badge: 'bg-raised text-secondary border-default',
     description: 'Read-only access to published SOPs',
     permissions: [
       'Browse and search the dashboard',
@@ -59,23 +59,23 @@ function RolePermissionsSidebar() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-sm font-semibold text-gray-900">Role Permissions</h2>
-        <p className="text-xs text-gray-500 mt-0.5">What each role can and cannot do</p>
+        <h2 className="text-sm font-semibold text-default">Role Permissions</h2>
+        <p className="text-xs text-muted mt-0.5">What each role can and cannot do</p>
       </div>
 
       {ROLE_PERMISSIONS.map(({ role, dot, badge, description, permissions, denied }) => (
-        <div key={role} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div key={role} className="bg-card rounded-2xl border border-subtle shadow-sm p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${badge}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
               {role}
             </span>
           </div>
-          <p className="text-xs text-gray-500 mb-3">{description}</p>
+          <p className="text-xs text-muted mb-3">{description}</p>
 
           <ul className="space-y-1.5 mb-3">
             {permissions.map(p => (
-              <li key={p} className="flex items-start gap-2 text-xs text-gray-700">
+              <li key={p} className="flex items-start gap-2 text-xs text-secondary">
                 <svg className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -87,7 +87,7 @@ function RolePermissionsSidebar() {
           {denied.length > 0 && (
             <ul className="space-y-1.5 border-t border-gray-50 pt-3">
               {denied.map(d => (
-                <li key={d} className="flex items-start gap-2 text-xs text-gray-400">
+                <li key={d} className="flex items-start gap-2 text-xs text-muted">
                   <svg className="w-3.5 h-3.5 text-gray-300 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>

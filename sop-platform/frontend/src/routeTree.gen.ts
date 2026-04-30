@@ -10,26 +10,31 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as MergeRouteImport } from './routes/merge'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MergeRouteImport } from './routes/merge'
+import { Route as MergeIndexRouteImport } from './routes/merge.index'
 import { Route as SopNewRouteImport } from './routes/sop.new'
 import { Route as SopIdRouteImport } from './routes/sop.$id'
-import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
-import { Route as MergeIndexRouteImport } from './routes/merge.index'
 import { Route as MergeSessionIdRouteImport } from './routes/merge.$sessionId'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as MergeSessionIdIndexRouteImport } from './routes/merge.$sessionId.index'
-import { Route as MergeSessionIdPreviewRouteImport } from './routes/merge.$sessionId.preview'
+import { Route as SopIdProcessmapRouteImport } from './routes/sop.$id.processmap'
 import { Route as SopIdProcedureRouteImport } from './routes/sop.$id.procedure'
 import { Route as SopIdOverviewRouteImport } from './routes/sop.$id.overview'
-import { Route as SopIdProcessmapRouteImport } from './routes/sop.$id.processmap'
 import { Route as SopIdMatricesRouteImport } from './routes/sop.$id.matrices'
 import { Route as SopIdHistoryRouteImport } from './routes/sop.$id.history'
+import { Route as MergeSessionIdPreviewRouteImport } from './routes/merge.$sessionId.preview'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MergeRoute = MergeRouteImport.update({
+  id: '/merge',
+  path: '/merge',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -47,10 +52,10 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MergeRoute = MergeRouteImport.update({
-  id: '/merge',
-  path: '/merge',
-  getParentRoute: () => rootRouteImport,
+const MergeIndexRoute = MergeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MergeRoute,
 } as any)
 const SopNewRoute = SopNewRouteImport.update({
   id: '/sop/new',
@@ -62,30 +67,25 @@ const SopIdRoute = SopIdRouteImport.update({
   path: '/sop/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MergeSessionIdRoute = MergeSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => MergeRoute,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MergeIndexRoute = MergeIndexRouteImport.update({
-  id: '/merge/',
-  path: '/',
-  getParentRoute: () => MergeRoute,
-} as any)
-const MergeSessionIdRoute = MergeSessionIdRouteImport.update({
-  id: '/merge/$sessionId',
-  path: '/$sessionId',
-  getParentRoute: () => MergeRoute,
-} as any)
 const MergeSessionIdIndexRoute = MergeSessionIdIndexRouteImport.update({
-  id: '/merge/$sessionId/',
+  id: '/',
   path: '/',
   getParentRoute: () => MergeSessionIdRoute,
 } as any)
-const MergeSessionIdPreviewRoute = MergeSessionIdPreviewRouteImport.update({
-  id: '/merge/$sessionId/preview',
-  path: '/preview',
-  getParentRoute: () => MergeSessionIdRoute,
+const SopIdProcessmapRoute = SopIdProcessmapRouteImport.update({
+  id: '/processmap',
+  path: '/processmap',
+  getParentRoute: () => SopIdRoute,
 } as any)
 const SopIdProcedureRoute = SopIdProcedureRouteImport.update({
   id: '/procedure',
@@ -95,11 +95,6 @@ const SopIdProcedureRoute = SopIdProcedureRouteImport.update({
 const SopIdOverviewRoute = SopIdOverviewRouteImport.update({
   id: '/overview',
   path: '/overview',
-  getParentRoute: () => SopIdRoute,
-} as any)
-const SopIdProcessmapRoute = SopIdProcessmapRouteImport.update({
-  id: '/processmap',
-  path: '/processmap',
   getParentRoute: () => SopIdRoute,
 } as any)
 const SopIdMatricesRoute = SopIdMatricesRouteImport.update({
@@ -112,25 +107,30 @@ const SopIdHistoryRoute = SopIdHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => SopIdRoute,
 } as any)
+const MergeSessionIdPreviewRoute = MergeSessionIdPreviewRouteImport.update({
+  id: '/preview',
+  path: '/preview',
+  getParentRoute: () => MergeSessionIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/merge': typeof MergeRouteWithChildren
   '/settings': typeof SettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/merge': typeof MergeRouteWithChildren
-  '/merge/': typeof MergeIndexRoute
   '/merge/$sessionId': typeof MergeSessionIdRouteWithChildren
-  '/merge/$sessionId/': typeof MergeSessionIdIndexRoute
-  '/merge/$sessionId/preview': typeof MergeSessionIdPreviewRoute
   '/sop/$id': typeof SopIdRouteWithChildren
   '/sop/new': typeof SopNewRoute
+  '/merge/': typeof MergeIndexRoute
+  '/merge/$sessionId/preview': typeof MergeSessionIdPreviewRoute
   '/sop/$id/history': typeof SopIdHistoryRoute
   '/sop/$id/matrices': typeof SopIdMatricesRoute
   '/sop/$id/overview': typeof SopIdOverviewRoute
-  '/sop/$id/processmap': typeof SopIdProcessmapRoute
   '/sop/$id/procedure': typeof SopIdProcedureRoute
+  '/sop/$id/processmap': typeof SopIdProcessmapRoute
+  '/merge/$sessionId/': typeof MergeSessionIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -138,36 +138,36 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/merge': typeof MergeIndexRoute
-  '/merge/$sessionId': typeof MergeSessionIdIndexRoute
-  '/merge/$sessionId/preview': typeof MergeSessionIdPreviewRoute
   '/sop/$id': typeof SopIdRouteWithChildren
   '/sop/new': typeof SopNewRoute
+  '/merge': typeof MergeIndexRoute
+  '/merge/$sessionId/preview': typeof MergeSessionIdPreviewRoute
   '/sop/$id/history': typeof SopIdHistoryRoute
   '/sop/$id/matrices': typeof SopIdMatricesRoute
   '/sop/$id/overview': typeof SopIdOverviewRoute
-  '/sop/$id/processmap': typeof SopIdProcessmapRoute
   '/sop/$id/procedure': typeof SopIdProcedureRoute
+  '/sop/$id/processmap': typeof SopIdProcessmapRoute
+  '/merge/$sessionId': typeof MergeSessionIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/merge': typeof MergeRouteWithChildren
   '/settings': typeof SettingsRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/merge': typeof MergeRouteWithChildren
-  '/merge/': typeof MergeIndexRoute
   '/merge/$sessionId': typeof MergeSessionIdRouteWithChildren
-  '/merge/$sessionId/': typeof MergeSessionIdIndexRoute
-  '/merge/$sessionId/preview': typeof MergeSessionIdPreviewRoute
   '/sop/$id': typeof SopIdRouteWithChildren
   '/sop/new': typeof SopNewRoute
+  '/merge/': typeof MergeIndexRoute
+  '/merge/$sessionId/preview': typeof MergeSessionIdPreviewRoute
   '/sop/$id/history': typeof SopIdHistoryRoute
   '/sop/$id/matrices': typeof SopIdMatricesRoute
   '/sop/$id/overview': typeof SopIdOverviewRoute
-  '/sop/$id/processmap': typeof SopIdProcessmapRoute
   '/sop/$id/procedure': typeof SopIdProcedureRoute
+  '/sop/$id/processmap': typeof SopIdProcessmapRoute
+  '/merge/$sessionId/': typeof MergeSessionIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -175,20 +175,20 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/merge'
     | '/settings'
     | '/auth/callback'
-    | '/merge'
-    | '/merge/'
     | '/merge/$sessionId'
-    | '/merge/$sessionId/'
-    | '/merge/$sessionId/preview'
     | '/sop/$id'
     | '/sop/new'
+    | '/merge/'
+    | '/merge/$sessionId/preview'
     | '/sop/$id/history'
     | '/sop/$id/matrices'
     | '/sop/$id/overview'
-    | '/sop/$id/processmap'
     | '/sop/$id/procedure'
+    | '/sop/$id/processmap'
+    | '/merge/$sessionId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -196,45 +196,44 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/auth/callback'
-    | '/merge'
-    | '/merge/$sessionId'
-    | '/merge/$sessionId/preview'
     | '/sop/$id'
     | '/sop/new'
+    | '/merge'
+    | '/merge/$sessionId/preview'
     | '/sop/$id/history'
     | '/sop/$id/matrices'
     | '/sop/$id/overview'
-    | '/sop/$id/processmap'
     | '/sop/$id/procedure'
+    | '/sop/$id/processmap'
+    | '/merge/$sessionId'
   id:
-
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
+    | '/merge'
     | '/settings'
     | '/auth/callback'
-    | '/merge'
-    | '/merge/'
     | '/merge/$sessionId'
-    | '/merge/$sessionId/'
-    | '/merge/$sessionId/preview'
     | '/sop/$id'
     | '/sop/new'
+    | '/merge/'
+    | '/merge/$sessionId/preview'
     | '/sop/$id/history'
     | '/sop/$id/matrices'
     | '/sop/$id/overview'
-    | '/sop/$id/processmap'
     | '/sop/$id/procedure'
+    | '/sop/$id/processmap'
+    | '/merge/$sessionId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  MergeRoute: typeof MergeRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
-  MergeRoute: typeof MergeRouteWithChildren
   SopIdRoute: typeof SopIdRouteWithChildren
   SopNewRoute: typeof SopNewRoute
 }
@@ -246,6 +245,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/merge': {
+      id: '/merge'
+      path: '/merge'
+      fullPath: '/merge'
+      preLoaderRoute: typeof MergeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -269,40 +275,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/merge': {
-      id: '/merge'
-      path: '/merge'
-      fullPath: '/merge'
-      preLoaderRoute: typeof MergeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/merge/': {
       id: '/merge/'
       path: '/'
       fullPath: '/merge/'
       preLoaderRoute: typeof MergeIndexRouteImport
       parentRoute: typeof MergeRoute
-    }
-    '/merge/$sessionId': {
-      id: '/merge/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/merge/$sessionId'
-      preLoaderRoute: typeof MergeSessionIdRouteImport
-      parentRoute: typeof MergeRoute
-    }
-    '/merge/$sessionId/': {
-      id: '/merge/$sessionId/'
-      path: '/'
-      fullPath: '/merge/$sessionId/'
-      preLoaderRoute: typeof MergeSessionIdIndexRouteImport
-      parentRoute: typeof MergeSessionIdRoute
-    }
-    '/merge/$sessionId/preview': {
-      id: '/merge/$sessionId/preview'
-      path: '/preview'
-      fullPath: '/merge/$sessionId/preview'
-      preLoaderRoute: typeof MergeSessionIdPreviewRouteImport
-      parentRoute: typeof MergeSessionIdRoute
     }
     '/sop/new': {
       id: '/sop/new'
@@ -318,12 +296,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SopIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/merge/$sessionId': {
+      id: '/merge/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/merge/$sessionId'
+      preLoaderRoute: typeof MergeSessionIdRouteImport
+      parentRoute: typeof MergeRoute
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/merge/$sessionId/': {
+      id: '/merge/$sessionId/'
+      path: '/'
+      fullPath: '/merge/$sessionId/'
+      preLoaderRoute: typeof MergeSessionIdIndexRouteImport
+      parentRoute: typeof MergeSessionIdRoute
+    }
+    '/sop/$id/processmap': {
+      id: '/sop/$id/processmap'
+      path: '/processmap'
+      fullPath: '/sop/$id/processmap'
+      preLoaderRoute: typeof SopIdProcessmapRouteImport
+      parentRoute: typeof SopIdRoute
     }
     '/sop/$id/procedure': {
       id: '/sop/$id/procedure'
@@ -337,13 +336,6 @@ declare module '@tanstack/react-router' {
       path: '/overview'
       fullPath: '/sop/$id/overview'
       preLoaderRoute: typeof SopIdOverviewRouteImport
-      parentRoute: typeof SopIdRoute
-    }
-    '/sop/$id/processmap': {
-      id: '/sop/$id/processmap'
-      path: '/processmap'
-      fullPath: '/sop/$id/processmap'
-      preLoaderRoute: typeof SopIdProcessmapRouteImport
       parentRoute: typeof SopIdRoute
     }
     '/sop/$id/matrices': {
@@ -360,47 +352,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SopIdHistoryRouteImport
       parentRoute: typeof SopIdRoute
     }
+    '/merge/$sessionId/preview': {
+      id: '/merge/$sessionId/preview'
+      path: '/preview'
+      fullPath: '/merge/$sessionId/preview'
+      preLoaderRoute: typeof MergeSessionIdPreviewRouteImport
+      parentRoute: typeof MergeSessionIdRoute
+    }
   }
 }
 
-interface MergeRouteChildren {
-  MergeIndexRoute: typeof MergeIndexRoute
-  MergeSessionIdRoute: typeof MergeSessionIdRouteWithChildren
-}
-
-const MergeRouteChildren: MergeRouteChildren = {
-  MergeIndexRoute: MergeIndexRoute,
-  MergeSessionIdRoute: MergeSessionIdRouteWithChildren,
-}
-
-const MergeRouteWithChildren = MergeRoute._addFileChildren(MergeRouteChildren)
-
 interface MergeSessionIdRouteChildren {
-  MergeSessionIdIndexRoute: typeof MergeSessionIdIndexRoute
   MergeSessionIdPreviewRoute: typeof MergeSessionIdPreviewRoute
+  MergeSessionIdIndexRoute: typeof MergeSessionIdIndexRoute
 }
 
 const MergeSessionIdRouteChildren: MergeSessionIdRouteChildren = {
-  MergeSessionIdIndexRoute: MergeSessionIdIndexRoute,
   MergeSessionIdPreviewRoute: MergeSessionIdPreviewRoute,
+  MergeSessionIdIndexRoute: MergeSessionIdIndexRoute,
 }
 
-const MergeSessionIdRouteWithChildren = MergeSessionIdRoute._addFileChildren(MergeSessionIdRouteChildren)
+const MergeSessionIdRouteWithChildren = MergeSessionIdRoute._addFileChildren(
+  MergeSessionIdRouteChildren,
+)
+
+interface MergeRouteChildren {
+  MergeSessionIdRoute: typeof MergeSessionIdRouteWithChildren
+  MergeIndexRoute: typeof MergeIndexRoute
+}
+
+const MergeRouteChildren: MergeRouteChildren = {
+  MergeSessionIdRoute: MergeSessionIdRouteWithChildren,
+  MergeIndexRoute: MergeIndexRoute,
+}
+
+const MergeRouteWithChildren = MergeRoute._addFileChildren(MergeRouteChildren)
 
 interface SopIdRouteChildren {
   SopIdHistoryRoute: typeof SopIdHistoryRoute
   SopIdMatricesRoute: typeof SopIdMatricesRoute
   SopIdOverviewRoute: typeof SopIdOverviewRoute
-  SopIdProcessmapRoute: typeof SopIdProcessmapRoute
   SopIdProcedureRoute: typeof SopIdProcedureRoute
+  SopIdProcessmapRoute: typeof SopIdProcessmapRoute
 }
 
 const SopIdRouteChildren: SopIdRouteChildren = {
   SopIdHistoryRoute: SopIdHistoryRoute,
   SopIdMatricesRoute: SopIdMatricesRoute,
   SopIdOverviewRoute: SopIdOverviewRoute,
-  SopIdProcessmapRoute: SopIdProcessmapRoute,
   SopIdProcedureRoute: SopIdProcedureRoute,
+  SopIdProcessmapRoute: SopIdProcessmapRoute,
 }
 
 const SopIdRouteWithChildren = SopIdRoute._addFileChildren(SopIdRouteChildren)
@@ -409,9 +410,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  MergeRoute: MergeRouteWithChildren,
   SettingsRoute: SettingsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
-  MergeRoute: MergeRouteWithChildren,
   SopIdRoute: SopIdRouteWithChildren,
   SopNewRoute: SopNewRoute,
 }

@@ -1,4 +1,4 @@
-import clsx from 'clsx'
+﻿import clsx from 'clsx'
 import type { StepCallout, CalloutConfidence } from '../api/types'
 
 interface Props {
@@ -16,12 +16,12 @@ export function CalloutList({ callouts }: Props) {
 
   return (
     <div>
-      <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+      <h4 className="text-sm font-semibold text-muted uppercase tracking-wide mb-2">
         Callouts
       </h4>
       <ul className="space-y-1.5">
         {callouts.map((c) => (
-          <li key={c.id} className="flex items-center gap-2 text-sm text-gray-700">
+          <li key={c.id} className="flex items-center gap-2 text-sm text-secondary">
             <span
               className={clsx('w-3 h-3 rounded-full shrink-0', confidenceColour[c.confidence])}
               title={c.confidence}
@@ -29,7 +29,7 @@ export function CalloutList({ callouts }: Props) {
             <span className="font-semibold">{c.callout_number}.</span>
             <span>{c.label}</span>
             {c.element_type && (
-              <span className="text-xs bg-gray-100 rounded px-1.5 py-0.5 text-gray-500">
+              <span className="text-xs bg-raised rounded px-1.5 py-0.5 text-muted">
                 {c.element_type}
               </span>
             )}

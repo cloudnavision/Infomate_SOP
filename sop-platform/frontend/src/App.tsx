@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 
 type ApiStatus = 'loading' | 'ok' | 'error'
 
@@ -80,7 +80,7 @@ function App() {
       </div>
 
       {/* Quick Links */}
-      <div className="flex gap-6 text-sm text-gray-500">
+      <div className="flex gap-6 text-sm text-muted">
         <a href="/api/health"           className="hover:text-white transition-colors">API Health</a>
         <a href="/api/test-db"          className="hover:text-white transition-colors">DB Test</a>
         <a href="/api/test-extractor"   className="hover:text-white transition-colors">Extractor Test</a>
@@ -92,7 +92,7 @@ function App() {
         </a>
       </div>
 
-      <p className="text-xs text-gray-700">Phase 1 — Infrastructure scaffold · Build plan: 5 phases</p>
+      <p className="text-xs text-secondary">Phase 1 — Infrastructure scaffold · Build plan: 5 phases</p>
     </div>
   )
 }

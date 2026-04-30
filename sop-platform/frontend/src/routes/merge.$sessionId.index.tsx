@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+﻿import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { fetchMergeSession, fetchSOP, sopKeys } from '../api/client'
@@ -14,17 +14,17 @@ export const Route = createFileRoute('/merge/$sessionId/')({
 })
 
 const STATUS_COLORS: Record<string, string> = {
-  unchanged: 'border-gray-200 bg-gray-50',
-  changed:   'border-yellow-300 bg-yellow-50',
-  added:     'border-green-300 bg-green-50',
-  removed:   'border-red-300 bg-red-50',
+  unchanged: 'border-default bg-page',
+  changed:   'border-yellow-500/30 bg-yellow-500/10',
+  added:     'border-green-500/30 bg-green-500/10',
+  removed:   'border-red-500/30 bg-red-500/10',
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  unchanged: 'bg-gray-100 text-gray-500',
-  changed:   'bg-yellow-100 text-yellow-700',
-  added:     'bg-green-100 text-green-700',
-  removed:   'bg-red-100 text-red-700',
+  unchanged: 'bg-raised text-muted',
+  changed:   'bg-yellow-500/15 text-yellow-600',
+  added:     'bg-green-500/15 text-green-600',
+  removed:   'bg-red-500/15 text-red-600',
 }
 
 type Decision = 'accept_updated' | 'keep_base' | 'include' | 'exclude'
@@ -104,29 +104,29 @@ function DiffReviewPage() {
 
   const canProceed = changedUnresolved === 0
 
-  if (sessionLoading) return <p className="text-gray-400 p-8">Loading diff…</p>
+  if (sessionLoading) return <p className="text-muted p-8">Loading diff…</p>
   if (!session) return <p className="text-red-500 p-8">Session not found.</p>
 
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/merge" search={{ tab: 'groups' }} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 bg-white border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors shadow-sm">
+        <Link to="/merge" search={{ tab: 'groups' }} className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-800 bg-card border border-default hover:border-default px-3 py-1.5 rounded-lg transition-colors shadow-sm">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Review Changes</h1>
+        <h1 className="text-2xl font-bold text-default">Review Changes</h1>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <p className="text-xs font-medium text-gray-400 uppercase mb-1">Original</p>
-          <p className="font-medium text-gray-800 truncate">{baseSop?.title}</p>
-          <p className="text-xs text-gray-400">{baseSop?.meeting_date}</p>
+        <div className="bg-card rounded-xl border border-subtle p-4">
+          <p className="text-xs font-medium text-muted uppercase mb-1">Original</p>
+          <p className="font-medium text-secondary truncate">{baseSop?.title}</p>
+          <p className="text-xs text-muted">{baseSop?.meeting_date}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <p className="text-xs font-medium text-gray-400 uppercase mb-1">Updated</p>
-          <p className="font-medium text-gray-800 truncate">{updatedSop?.title}</p>
-          <p className="text-xs text-gray-400">{updatedSop?.meeting_date}</p>
+        <div className="bg-card rounded-xl border border-subtle p-4">
+          <p className="text-xs font-medium text-muted uppercase mb-1">Updated</p>
+          <p className="font-medium text-secondary truncate">{updatedSop?.title}</p>
+          <p className="text-xs text-muted">{updatedSop?.meeting_date}</p>
         </div>
       </div>
 
@@ -151,40 +151,40 @@ function DiffReviewPage() {
                   {match.status}
                 </span>
                 {match.change_summary && (
-                  <p className="text-xs text-gray-600 flex-1">{match.change_summary}</p>
+                  <p className="text-xs text-muted flex-1">{match.change_summary}</p>
                 )}
               </div>
 
               {match.status === 'unchanged' && updatedStep && (
-                <p className="text-sm text-gray-700"><span className="font-medium">{updatedStep.title}</span></p>
+                <p className="text-sm text-secondary"><span className="font-medium">{updatedStep.title}</span></p>
               )}
 
               {match.status === 'changed' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-red-600">Original</p>
-                    <p className="text-sm font-medium text-gray-800">{baseStep?.title}</p>
-                    <p className="text-xs text-gray-500 line-clamp-3">{baseStep?.description}</p>
+                    <p className="text-sm font-medium text-secondary">{baseStep?.title}</p>
+                    <p className="text-xs text-muted line-clamp-3">{baseStep?.description}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs font-medium text-green-600">Updated</p>
-                    <p className="text-sm font-medium text-gray-800">{updatedStep?.title}</p>
-                    <p className="text-xs text-gray-500 line-clamp-3">{updatedStep?.description}</p>
+                    <p className="text-sm font-medium text-secondary">{updatedStep?.title}</p>
+                    <p className="text-xs text-muted line-clamp-3">{updatedStep?.description}</p>
                   </div>
                 </div>
               )}
 
               {match.status === 'added' && (
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-secondary">
                   <span className="font-medium">{updatedStep?.title}</span>{' '}
-                  <span className="text-xs text-gray-400">(new step)</span>
+                  <span className="text-xs text-muted">(new step)</span>
                 </p>
               )}
 
               {match.status === 'removed' && (
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-secondary">
                   <span className="font-medium">{baseStep?.title}</span>{' '}
-                  <span className="text-xs text-gray-400">(from original)</span>
+                  <span className="text-xs text-muted">(from original)</span>
                 </p>
               )}
 
@@ -192,13 +192,13 @@ function DiffReviewPage() {
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => setDecisions(prev => ({ ...prev, [i]: 'accept_updated' }))}
-                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'accept_updated' ? 'bg-green-600 text-white border-green-600' : 'border-gray-300 text-gray-600 hover:border-green-400'}`}
+                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'accept_updated' ? 'bg-green-600 text-white border-green-600' : 'border-default text-muted hover:border-green-400'}`}
                   >
                     Accept updated
                   </button>
                   <button
                     onClick={() => setDecisions(prev => ({ ...prev, [i]: 'keep_base' }))}
-                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'keep_base' ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-600 hover:border-amber-400'}`}
+                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'keep_base' ? 'bg-amber-500 text-white border-amber-500' : 'border-default text-muted hover:border-amber-400'}`}
                   >
                     Keep original
                   </button>
@@ -209,13 +209,13 @@ function DiffReviewPage() {
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => setDecisions(prev => ({ ...prev, [i]: 'include' }))}
-                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'include' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:border-blue-400'}`}
+                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'include' ? 'bg-blue-600 text-white border-blue-600' : 'border-default text-muted hover:border-blue-400'}`}
                   >
                     Include
                   </button>
                   <button
                     onClick={() => setDecisions(prev => ({ ...prev, [i]: 'exclude' }))}
-                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'exclude' ? 'bg-red-500 text-white border-red-500' : 'border-gray-300 text-gray-600 hover:border-red-300'}`}
+                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${decision === 'exclude' ? 'bg-red-500 text-white border-red-500' : 'border-default text-muted hover:border-red-500/40'}`}
                   >
                     Exclude
                   </button>
@@ -227,7 +227,7 @@ function DiffReviewPage() {
       </div>
 
       <div className="flex items-center justify-between pt-2">
-        <Link to="/merge" search={{ tab: 'groups' }} className="flex items-center gap-1.5 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50">
+        <Link to="/merge" search={{ tab: 'groups' }} className="flex items-center gap-1.5 px-4 py-2 text-sm text-muted border border-default rounded-xl hover:bg-raised hover:border-default">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>

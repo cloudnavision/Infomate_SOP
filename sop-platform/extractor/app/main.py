@@ -169,6 +169,36 @@ class CompareSopsRequest(BaseModel):
     updated_steps: list[dict]
 
 
+# ── Probe / Split models ──────────────────────────────────────────────────────
+
+class ProbeVideoRequest(BaseModel):
+    video_url: str
+    azure_sas_token: str
+    azure_account: str
+    azure_container: str
+
+class ProbeVideoResponse(BaseModel):
+    duration_sec: int
+    width: Optional[int] = None
+    height: Optional[int] = None
+
+class SplitVideoRequest(BaseModel):
+    video_url: str
+    sop_id: str
+    azure_sas_token: str
+    azure_account: str
+    azure_container: str
+    split_target_sec: Optional[float] = None   # defaults to duration/2
+    search_window_sec: float = 300.0            # ±5 min search window
+
+class SplitVideoResponse(BaseModel):
+    part1_url: str
+    part1_duration_sec: int
+    part2_url: str
+    part2_duration_sec: int
+    actual_split_sec: float
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["health"])
@@ -308,6 +338,148 @@ async def compare_sops(req: CompareSopsRequest) -> dict:
     except Exception as exc:
         logger.error("compare_sops failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── /api/probe-video ──────────────────────────────────────────────────────────
+
+@app.post("/api/probe-video", response_model=ProbeVideoResponse, tags=["split"])
+async def probe_video(req: ProbeVideoRequest) -> ProbeVideoResponse:
+    """Probe video duration + dimensions via ffprobe (HTTP range requests, no full download)."""
+    try:
+        result = await asyncio.to_thread(_run_probe_job, req)
+        return result
+    except Exception as exc:
+        logger.exception("Probe job failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _run_probe_job(req: ProbeVideoRequest) -> ProbeVideoResponse:
+    import json as _json
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-show_entries", "format=duration",
+        "-show_entries", "stream=width,height",
+        "-of", "json",
+        req.video_url,  # ffprobe reads via HTTP range requests — no full download needed
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffprobe failed: {result.stderr[-300:]}")
+
+    data = _json.loads(result.stdout)
+    duration = float(data["format"]["duration"])
+    streams = data.get("streams", [])
+    width = next((s.get("width") for s in streams if s.get("width")), None)
+    height = next((s.get("height") for s in streams if s.get("height")), None)
+    return ProbeVideoResponse(
+        duration_sec=int(duration),
+        width=width,
+        height=height,
+    )
+
+
+# ── /api/split-video ──────────────────────────────────────────────────────────
+
+@app.post("/api/split-video", response_model=SplitVideoResponse, tags=["split"])
+async def split_video(req: SplitVideoRequest) -> SplitVideoResponse:
+    """Split a long video at the nearest keyframe to the midpoint and upload both parts."""
+    if _extraction_semaphore.locked():
+        raise HTTPException(status_code=503, detail="Extractor busy — retry in 60 seconds.",
+                            headers={"Retry-After": "60"})
+    async with _extraction_semaphore:
+        try:
+            result = await asyncio.to_thread(_run_split_job, req)
+            return result
+        except Exception as exc:
+            logger.exception("Split job failed for sop_id=%s", req.sop_id)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _find_split_keyframe(video_path: Path, target_sec: float, window_sec: float) -> float:
+    """Return the keyframe timestamp nearest to target_sec within ±window_sec."""
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-select_streams", "v",
+        "-skip_frame", "nokey",
+        "-show_entries", "frame=pkt_pts_time",
+        "-of", "csv=p=0",
+        str(video_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if result.returncode != 0 or not result.stdout.strip():
+        logger.warning("ffprobe keyframe list failed — using exact target_sec")
+        return target_sec
+
+    keyframes = []
+    for line in result.stdout.strip().split("\n"):
+        try:
+            keyframes.append(float(line.strip()))
+        except ValueError:
+            continue
+
+    candidates = [t for t in keyframes if abs(t - target_sec) <= window_sec]
+    if not candidates:
+        logger.warning("No keyframe within window — using exact target_sec")
+        return target_sec
+    return min(candidates, key=lambda t: abs(t - target_sec))
+
+
+def _probe_duration(video_path: Path) -> float:
+    """Return video duration in seconds using ffprobe."""
+    cmd = ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+           "-of", "csv=p=0", str(video_path)]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    return float(result.stdout.strip())
+
+
+def _run_split_job(req: SplitVideoRequest) -> SplitVideoResponse:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        video_path = tmp_dir / "full.mp4"
+        part1_path = tmp_dir / "part1.mp4"
+        part2_path = tmp_dir / "part2.mp4"
+
+        logger.info("Downloading full video for split: sop_id=%s", req.sop_id)
+        _download_file(req.video_url, video_path)
+
+        duration = _probe_duration(video_path)
+        target_sec = req.split_target_sec if req.split_target_sec is not None else duration / 2
+        split_sec = _find_split_keyframe(video_path, target_sec, req.search_window_sec)
+        logger.info("Splitting at %.1fs (target=%.1fs, duration=%.1fs)", split_sec, target_sec, duration)
+
+        cmd1 = ["ffmpeg", "-y", "-ss", "0", "-to", str(split_sec),
+                "-i", str(video_path), "-c", "copy", str(part1_path)]
+        r1 = subprocess.run(cmd1, capture_output=True, text=True, timeout=600)
+        if r1.returncode != 0:
+            raise RuntimeError(f"FFmpeg part1 failed: {r1.stderr[-500:]}")
+
+        cmd2 = ["ffmpeg", "-y", "-ss", str(split_sec),
+                "-i", str(video_path), "-c", "copy", str(part2_path)]
+        r2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=600)
+        if r2.returncode != 0:
+            raise RuntimeError(f"FFmpeg part2 failed: {r2.stderr[-500:]}")
+
+        part1_dur = int(_probe_duration(part1_path))
+        part2_dur = int(_probe_duration(part2_path))
+
+        azure_base = f"https://{req.azure_account}.blob.core.windows.net/{req.azure_container}"
+        p1_blob = f"{req.sop_id}/parts/part1.mp4"
+        p2_blob = f"{req.sop_id}/parts/part2.mp4"
+        p1_upload_url = f"{azure_base}/{p1_blob}?{req.azure_sas_token}"
+        p2_upload_url = f"{azure_base}/{p2_blob}?{req.azure_sas_token}"
+
+        logger.info("Uploading part1 (%ds) → %s", part1_dur, p1_blob)
+        _upload_to_azure_blob_video(part1_path, p1_upload_url)
+        logger.info("Uploading part2 (%ds) → %s", part2_dur, p2_blob)
+        _upload_to_azure_blob_video(part2_path, p2_upload_url)
+
+        return SplitVideoResponse(
+            part1_url=f"{azure_base}/{p1_blob}",
+            part1_duration_sec=part1_dur,
+            part2_url=f"{azure_base}/{p2_blob}",
+            part2_duration_sec=part2_dur,
+            actual_split_sec=split_sec,
+        )
 
 
 # ── /extract ──────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+﻿import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { fetchMergeGroups, compareSops, fetchSOPs, sopKeys, createProcessGroup, deleteProcessGroup, renameSOP } from '../api/client'
@@ -117,67 +117,67 @@ function MergePage() {
       <div className="flex items-center gap-3">
         <Link
           to="/dashboard"
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 bg-white border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+          className="flex items-center gap-1.5 text-sm text-muted hover:text-gray-800 bg-card border border-default hover:border-default px-3 py-1.5 rounded-lg transition-colors shadow-sm"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Dashboard
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Merge SOPs</h1>
+        <h1 className="text-2xl font-bold text-default">Merge SOPs</h1>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl border border-purple-100 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+        <div className="bg-card rounded-xl border border-subtle p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" clipRule="evenodd" />
             </svg>
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">{mergedSops.length}</p>
-            <p className="text-xs text-gray-500">Merged SOPs</p>
+            <p className="text-2xl font-bold text-default">{mergedSops.length}</p>
+            <p className="text-xs text-muted">Merged SOPs</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-blue-100 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+        <div className="bg-card rounded-xl border border-subtle p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
             </svg>
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">{groups?.length ?? 0}</p>
-            <p className="text-xs text-gray-500">Source Groups</p>
+            <p className="text-2xl font-bold text-default">{groups?.length ?? 0}</p>
+            <p className="text-xs text-muted">Source Groups</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="bg-card rounded-xl border border-subtle p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-raised flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
             </svg>
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">{totalRecordingsInGroups}</p>
-            <p className="text-xs text-gray-500">Recordings</p>
+            <p className="text-2xl font-bold text-default">{totalRecordingsInGroups}</p>
+            <p className="text-xs text-muted">Recordings</p>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="flex border-b border-gray-100">
+      <div className="bg-card border border-subtle rounded-2xl shadow-sm overflow-hidden">
+        <div className="flex border-b border-subtle">
           <button
             onClick={() => setTab('merged')}
             className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors ${
               tab === 'merged'
-                ? 'text-purple-700 border-b-2 border-purple-600 bg-purple-50/50'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-500/10'
+                : 'text-muted hover:text-secondary hover:bg-raised'
             }`}
           >
             Merged SOPs
             {mergedSops.length > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tab === 'merged' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tab === 'merged' ? 'bg-purple-500/10 text-purple-500' : 'bg-raised text-muted'}`}>
                 {mergedSops.length}
               </span>
             )}
@@ -186,13 +186,13 @@ function MergePage() {
             onClick={() => setTab('groups')}
             className={`flex items-center gap-2 px-6 py-3.5 text-sm font-semibold transition-colors ${
               tab === 'groups'
-                ? 'text-blue-700 border-b-2 border-blue-600 bg-blue-50/50'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-500/10'
+                : 'text-muted hover:text-secondary hover:bg-raised'
             }`}
           >
             Source Groups
             {(groups?.length ?? 0) > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tab === 'groups' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${tab === 'groups' ? 'bg-blue-500/15 text-blue-500' : 'bg-raised text-muted'}`}>
                 {groups!.length}
               </span>
             )}
@@ -204,13 +204,13 @@ function MergePage() {
           <div className="p-5 min-h-64">
             {mergedSops.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-52 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-4">
                   <svg className="w-7 h-7 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <p className="text-sm font-semibold text-gray-600">No merged SOPs yet</p>
-                <p className="text-xs text-gray-400 mt-1 max-w-xs">Create a source group and compare two recordings to get started.</p>
+                <p className="text-sm font-semibold text-muted">No merged SOPs yet</p>
+                <p className="text-xs text-muted mt-1 max-w-xs">Create a source group and compare two recordings to get started.</p>
                 <button onClick={() => setTab('groups')} className="mt-4 text-xs px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors">
                   Go to Source Groups
                 </button>
@@ -218,8 +218,8 @@ function MergePage() {
             ) : (
               <div className="space-y-3">
                 {mergedSops.map(sop => (
-                  <div key={sop.id} className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/20 transition-all">
-                    <div className="shrink-0 w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center">
+                  <div key={sop.id} className="flex items-center gap-4 p-4 rounded-xl border border-subtle hover:border-purple-200 hover:bg-purple-50/20 transition-all">
+                    <div className="shrink-0 w-11 h-11 rounded-xl bg-purple-500/10 flex items-center justify-center">
                       <svg className="w-5 h-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" clipRule="evenodd" />
                       </svg>
@@ -235,28 +235,28 @@ function MergePage() {
                             className="flex-1 px-2 py-1 text-sm border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
                           />
                           <button onClick={() => submitRename(sop.id)} disabled={renameMutation.isPending} className="text-xs px-2 py-1 bg-purple-600 text-white rounded font-semibold hover:bg-purple-700 disabled:opacity-50">Save</button>
-                          <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded font-semibold hover:bg-gray-200">Cancel</button>
+                          <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-1 bg-raised text-muted rounded font-semibold hover:bg-gray-200">Cancel</button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 group">
-                          <p className="text-sm font-semibold text-gray-800 truncate">{sop.title}</p>
-                          <button onClick={() => startRename(sop.id, sop.title)} className="opacity-20 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600 shrink-0">
+                          <p className="text-sm font-semibold text-secondary truncate">{sop.title}</p>
+                          <button onClick={() => startRename(sop.id, sop.title)} className="opacity-20 group-hover:opacity-100 transition-opacity text-muted hover:text-secondary shrink-0">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
                         </div>
                       )}
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-gray-400">{sop.step_count} steps</span>
-                        {sop.meeting_date && <><span className="text-gray-200">·</span><span className="text-xs text-gray-400">{sop.meeting_date}</span></>}
+                        <span className="text-xs text-muted">{sop.step_count} steps</span>
+                        {sop.meeting_date && <><span className="text-gray-200">·</span><span className="text-xs text-muted">{sop.meeting_date}</span></>}
                         {sop.project_code && (
                           <><span className="text-gray-200">·</span>
-                          <span className="font-mono text-xs text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">{sop.project_code}</span></>
+                          <span className="font-mono text-xs text-blue-500 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded-full">{sop.project_code}</span></>
                         )}
                         <span className="text-gray-200">·</span>
                         <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full capitalize ${
-                          sop.status === 'published' ? 'bg-green-100 text-green-700'
-                          : sop.status === 'draft' ? 'bg-gray-100 text-gray-500'
-                          : 'bg-blue-100 text-blue-600'
+                          sop.status === 'published' ? 'bg-green-500/10 text-green-600'
+                          : sop.status === 'draft' ? 'bg-raised text-muted'
+                          : 'bg-blue-500/10 text-blue-500'
                         }`}>{sop.status}</span>
                       </div>
                     </div>
@@ -281,7 +281,7 @@ function MergePage() {
         {tab === 'groups' && (
           <div className="p-5 min-h-64 space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted">
                 Groups of recordings of the same process. Create a group, then compare and merge.
               </p>
               <button
@@ -296,30 +296,30 @@ function MergePage() {
             </div>
 
             {groupsLoading ? (
-              <p className="text-sm text-gray-400 py-8 text-center">Loading groups…</p>
+              <p className="text-sm text-muted py-8 text-center">Loading groups…</p>
             ) : !groups?.length ? (
               <div className="flex flex-col items-center justify-center h-44 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/15 flex items-center justify-center mb-4">
                   <svg className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                   </svg>
                 </div>
-                <p className="text-sm font-semibold text-gray-600">No source groups yet</p>
-                <p className="text-xs text-gray-400 mt-1 max-w-xs">Click "New Group" to create one and select which recordings belong together.</p>
+                <p className="text-sm font-semibold text-muted">No source groups yet</p>
+                <p className="text-xs text-muted mt-1 max-w-xs">Click "New Group" to create one and select which recordings belong together.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {groups.map(group => (
-                  <div key={group.project_code} className="rounded-xl border border-gray-100 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                  <div key={group.project_code} className="rounded-xl border border-subtle overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-page border-b border-subtle">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-gray-800 truncate">
+                            <span className="text-sm font-bold text-secondary truncate">
                               {group.name ?? group.project_code}
                             </span>
                             {group.sops.filter(s => !s.is_merged).length === 2 && (
-                              <span className="text-xs text-green-600 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full font-medium shrink-0">
+                              <span className="text-xs text-green-600 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full font-medium shrink-0">
                                 Ready
                               </span>
                             )}
@@ -328,7 +328,7 @@ function MergePage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3 shrink-0 ml-2">
-                        <span className="text-xs text-gray-400">{group.sops.filter(s => !s.is_merged).length} recordings</span>
+                        <span className="text-xs text-muted">{group.sops.filter(s => !s.is_merged).length} recordings</span>
                         {confirmDeleteCode === group.project_code ? (
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-red-600 font-medium">Delete?</span>
@@ -341,7 +341,7 @@ function MergePage() {
                             </button>
                             <button
                               onClick={() => setConfirmDeleteCode(null)}
-                              className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded font-semibold hover:bg-gray-300 transition-colors"
+                              className="text-xs px-2 py-0.5 bg-gray-200 text-muted rounded font-semibold hover:bg-gray-300 transition-colors"
                             >
                               No
                             </button>
@@ -367,7 +367,7 @@ function MergePage() {
                           <div className="divide-y divide-gray-50">
                             {sources.map((sop, idx) => (
                               <div key={sop.id} className="flex items-center gap-3 px-4 py-2.5">
-                                <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-xs font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
+                                <span className="w-5 h-5 rounded-full bg-raised text-muted text-xs font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
                                 {renamingId === sop.id ? (
                                   <div className="flex items-center gap-2 flex-1">
                                     <input
@@ -378,27 +378,27 @@ function MergePage() {
                                       className="flex-1 px-2 py-0.5 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
                                     />
                                     <button onClick={() => submitRename(sop.id)} disabled={renameMutation.isPending} className="text-xs px-2 py-0.5 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700 disabled:opacity-50">Save</button>
-                                    <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">✕</button>
+                                    <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-raised text-muted rounded hover:bg-gray-200">✕</button>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-1.5 flex-1 min-w-0 group">
-                                    <span className="flex-1 text-sm text-gray-700 truncate">{sop.title}</span>
+                                    <span className="flex-1 text-sm text-secondary truncate">{sop.title}</span>
                                     <button onClick={() => startRename(sop.id, sop.title)} className="opacity-20 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-gray-500 shrink-0">
                                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                     </button>
                                   </div>
                                 )}
-                                {sop.meeting_date && renamingId !== sop.id && <span className="text-xs text-gray-400 shrink-0">{sop.meeting_date}</span>}
+                                {sop.meeting_date && renamingId !== sop.id && <span className="text-xs text-muted shrink-0">{sop.meeting_date}</span>}
                               </div>
                             ))}
                           </div>
 
                           {mergedOutputs.length > 0 && (
-                            <div className="border-t border-purple-100 bg-purple-50/40">
+                            <div className="border-t border-subtle bg-purple-50/40">
                               <p className="px-4 pt-2.5 pb-1 text-xs font-semibold text-purple-500 uppercase tracking-wide">Merged Output</p>
                               {mergedOutputs.map(sop => (
                                 <div key={sop.id} className="flex items-center gap-3 px-4 py-2 pb-2.5">
-                                  <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                                  <div className="w-5 h-5 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
                                     <svg className="w-3 h-3 text-purple-500" viewBox="0 0 20 20" fill="currentColor">
                                       <path fillRule="evenodd" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" clipRule="evenodd" />
                                     </svg>
@@ -413,7 +413,7 @@ function MergePage() {
                                         className="flex-1 px-2 py-0.5 text-sm border border-purple-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-200"
                                       />
                                       <button onClick={() => submitRename(sop.id)} disabled={renameMutation.isPending} className="text-xs px-2 py-0.5 bg-purple-600 text-white rounded font-semibold hover:bg-purple-700 disabled:opacity-50">Save</button>
-                                      <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200">✕</button>
+                                      <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-raised text-muted rounded hover:bg-gray-200">✕</button>
                                     </div>
                                   ) : (
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0 group">
@@ -438,7 +438,7 @@ function MergePage() {
                             </div>
                           )}
 
-                          <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 space-y-2">
+                          <div className="px-4 py-3 bg-page border-t border-subtle space-y-2">
                             {sources.length === 2 ? (
                               <>
                                 {mergedOutputs.length === 0 && (
@@ -456,7 +456,7 @@ function MergePage() {
                                   <button
                                     onClick={() => compareMutation.mutate({ base: sources[0].id, updated: sources[1].id, code: group.project_code })}
                                     disabled={compareMutation.isPending}
-                                    className="w-full text-xs text-gray-400 hover:text-purple-600 py-1 transition-colors disabled:opacity-50"
+                                    className="w-full text-xs text-muted hover:text-purple-600 py-1 transition-colors disabled:opacity-50"
                                   >
                                     {comparingCode === group.project_code ? 'Analysing…' : '↺ Run a new comparison'}
                                   </button>
@@ -477,7 +477,7 @@ function MergePage() {
             )}
 
             {compareMutation.isError && (
-              <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3">
+              <p className="text-sm text-red-500 bg-red-500/10 rounded-xl px-4 py-3">
                 {(compareMutation.error as Error).message}
               </p>
             )}
@@ -488,10 +488,10 @@ function MergePage() {
       {/* Create Group Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg space-y-5 p-6">
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg space-y-5 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-900">Create Process Group</h2>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-base font-bold text-default">Create Process Group</h2>
+              <button onClick={closeModal} className="text-muted hover:text-secondary">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -500,40 +500,40 @@ function MergePage() {
 
             {/* Group name */}
             <div>
-              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Group Name</label>
+              <label className="text-xs font-semibold text-muted mb-1.5 block">Group Name</label>
               <input
                 value={groupName}
                 onChange={e => setGroupName(e.target.value)}
                 placeholder="e.g. New Aged Debtor Report"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full px-3 py-2 border border-default rounded-lg text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
-              <p className="text-xs text-gray-400 mt-1.5">
+              <p className="text-xs text-muted mt-1.5">
                 A code will be auto-assigned — e.g. <span className="font-mono text-blue-600">GRP-001</span>
               </p>
             </div>
 
             {/* SOP multi-select */}
             <div>
-              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+              <label className="text-xs font-semibold text-muted mb-1.5 block">
                 Select Recordings
-                <span className="text-gray-400 font-normal ml-1">(minimum 2)</span>
+                <span className="text-muted font-normal ml-1">(minimum 2)</span>
               </label>
               <input
                 value={sopSearch}
                 onChange={e => setSopSearch(e.target.value)}
                 placeholder="Search recordings…"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full px-3 py-2 border border-default rounded-lg text-sm text-secondary mb-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
-              <div className="max-h-56 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-2">
+              <div className="max-h-56 overflow-y-auto space-y-1 border border-subtle rounded-xl p-2">
                 {filteredRecordings.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-4">No recordings found</p>
+                  <p className="text-xs text-muted text-center py-4">No recordings found</p>
                 ) : filteredRecordings.map(sop => {
                   const checked = selectedSopIds.includes(sop.id)
                   return (
                     <label
                       key={sop.id}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        checked ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50 border border-transparent'
+                        checked ? 'bg-blue-500/10 border border-blue-500/30' : 'hover:bg-raised border border-transparent'
                       }`}
                     >
                       <input
@@ -543,8 +543,8 @@ function MergePage() {
                         className="accent-blue-600 shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-800 truncate">{sop.title}</p>
-                        <p className="text-xs text-gray-400">{sop.meeting_date ?? '—'}</p>
+                        <p className="text-xs font-medium text-secondary truncate">{sop.title}</p>
+                        <p className="text-xs text-muted">{sop.meeting_date ?? '—'}</p>
                       </div>
                     </label>
                   )
@@ -556,7 +556,7 @@ function MergePage() {
             </div>
 
             {createGroupMutation.isError && (
-              <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
+              <p className="text-xs text-red-500 bg-red-500/10 rounded-lg px-3 py-2">
                 {(createGroupMutation.error as Error).message}
               </p>
             )}
@@ -564,7 +564,7 @@ function MergePage() {
             <div className="flex gap-2 pt-1">
               <button
                 onClick={closeModal}
-                className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 text-sm text-muted border border-default rounded-xl hover:bg-raised transition-colors"
               >
                 Cancel
               </button>

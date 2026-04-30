@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from '@tanstack/react-router'
+﻿import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAPI } from '../api/client'
 import type { ActivityEvent } from '../api/types'
@@ -92,35 +92,35 @@ function resolveEvent(event: ActivityEvent): {
   const label = event.label.toLowerCase()
 
   if (event.event_type === 'export')
-    return { IconComp: Icon.Download, bg: 'bg-orange-50', ring: 'ring-orange-200', iconColor: 'text-orange-500', labelColor: 'text-orange-700' }
+    return { IconComp: Icon.Download, bg: 'bg-orange-500/10', ring: 'ring-orange-500/30', iconColor: 'text-orange-500', labelColor: 'text-orange-600' }
   if (event.event_type === 'approved')
-    return { IconComp: Icon.ThumbUp, bg: 'bg-green-50', ring: 'ring-green-200', iconColor: 'text-green-600', labelColor: 'text-green-800' }
+    return { IconComp: Icon.ThumbUp, bg: 'bg-green-500/10', ring: 'ring-green-500/30', iconColor: 'text-green-600', labelColor: 'text-green-600' }
   if (event.event_type === 'edit')
-    return { IconComp: Icon.Pencil, bg: 'bg-violet-50', ring: 'ring-violet-200', iconColor: 'text-violet-500', labelColor: 'text-violet-800' }
+    return { IconComp: Icon.Pencil, bg: 'bg-violet-500/10', ring: 'ring-violet-500/30', iconColor: 'text-violet-500', labelColor: 'text-violet-600' }
   if (event.event_type === 'created')
-    return { IconComp: Icon.Plus, bg: 'bg-blue-50', ring: 'ring-blue-200', iconColor: 'text-blue-600', labelColor: 'text-blue-800' }
+    return { IconComp: Icon.Plus, bg: 'bg-blue-500/10', ring: 'ring-blue-500/30', iconColor: 'text-blue-600', labelColor: 'text-blue-600' }
 
   // pipeline — differentiate by label
   if (label.includes('failed'))
-    return { IconComp: Icon.XCircle, bg: 'bg-red-50', ring: 'ring-red-200', iconColor: 'text-red-500', labelColor: 'text-red-700' }
+    return { IconComp: Icon.XCircle, bg: 'bg-red-500/10', ring: 'ring-red-500/30', iconColor: 'text-red-500', labelColor: 'text-red-600' }
   if (label.includes('completed') || label.includes('complete') && label.includes('pipeline'))
-    return { IconComp: Icon.CheckCircle, bg: 'bg-green-50', ring: 'ring-green-200', iconColor: 'text-green-600', labelColor: 'text-green-800' }
+    return { IconComp: Icon.CheckCircle, bg: 'bg-green-500/10', ring: 'ring-green-500/30', iconColor: 'text-green-600', labelColor: 'text-green-600' }
   if (label.includes('started') || label.includes('in progress'))
-    return { IconComp: Icon.Play, bg: 'bg-gray-50', ring: 'ring-gray-200', iconColor: 'text-gray-400', labelColor: 'text-gray-700' }
+    return { IconComp: Icon.Play, bg: 'bg-raised', ring: 'ring-default', iconColor: 'text-muted', labelColor: 'text-secondary' }
   if (label.includes('transcription'))
-    return { IconComp: Icon.Mic, bg: 'bg-indigo-50', ring: 'ring-indigo-200', iconColor: 'text-indigo-500', labelColor: 'text-indigo-800' }
+    return { IconComp: Icon.Mic, bg: 'bg-indigo-500/10', ring: 'ring-indigo-500/30', iconColor: 'text-indigo-500', labelColor: 'text-indigo-600' }
   if (label.includes('screen') || label.includes('detection'))
-    return { IconComp: Icon.Monitor, bg: 'bg-sky-50', ring: 'ring-sky-200', iconColor: 'text-sky-500', labelColor: 'text-sky-800' }
+    return { IconComp: Icon.Monitor, bg: 'bg-sky-500/10', ring: 'ring-sky-500/30', iconColor: 'text-sky-500', labelColor: 'text-sky-600' }
   if (label.includes('frame extraction'))
-    return { IconComp: Icon.Camera, bg: 'bg-cyan-50', ring: 'ring-cyan-200', iconColor: 'text-cyan-600', labelColor: 'text-cyan-800' }
+    return { IconComp: Icon.Camera, bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/30', iconColor: 'text-cyan-600', labelColor: 'text-cyan-600' }
   if (label.includes('annotation'))
-    return { IconComp: Icon.Tag, bg: 'bg-purple-50', ring: 'ring-purple-200', iconColor: 'text-purple-500', labelColor: 'text-purple-800' }
+    return { IconComp: Icon.Tag, bg: 'bg-purple-500/10', ring: 'ring-purple-500/30', iconColor: 'text-purple-500', labelColor: 'text-purple-600' }
   if (label.includes('clip'))
-    return { IconComp: Icon.Film, bg: 'bg-fuchsia-50', ring: 'ring-fuchsia-200', iconColor: 'text-fuchsia-500', labelColor: 'text-fuchsia-800' }
+    return { IconComp: Icon.Film, bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/30', iconColor: 'text-fuchsia-500', labelColor: 'text-fuchsia-600' }
   if (label.includes('step content') || label.includes('section'))
-    return { IconComp: Icon.FileText, bg: 'bg-teal-50', ring: 'ring-teal-200', iconColor: 'text-teal-600', labelColor: 'text-teal-800' }
+    return { IconComp: Icon.FileText, bg: 'bg-teal-500/10', ring: 'ring-teal-500/30', iconColor: 'text-teal-600', labelColor: 'text-teal-600' }
 
-  return { IconComp: Icon.Clock, bg: 'bg-gray-50', ring: 'ring-gray-200', iconColor: 'text-gray-400', labelColor: 'text-gray-700' }
+  return { IconComp: Icon.Clock, bg: 'bg-raised', ring: 'ring-default', iconColor: 'text-muted', labelColor: 'text-secondary' }
 }
 
 function formatDate(ts: string) {
@@ -140,7 +140,7 @@ function HistoryPage() {
   })
 
   if (isLoading) return (
-    <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
+    <div className="flex items-center gap-2 text-muted text-sm py-8">
       <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
@@ -150,7 +150,7 @@ function HistoryPage() {
   )
 
   if (!events || events.length === 0)
-    return <p className="text-gray-400 text-sm py-8">No activity recorded yet.</p>
+    return <p className="text-muted text-sm py-8">No activity recorded yet.</p>
 
   return (
     <div className="max-w-2xl">
@@ -174,24 +174,24 @@ function HistoryPage() {
                 </div>
 
                 {/* Card */}
-                <div className="flex-1 min-w-0 bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 mb-2 transition-shadow group-hover:shadow-md">
+                <div className="flex-1 min-w-0 bg-card rounded-xl border border-subtle shadow-sm px-4 py-3 mb-2 transition-shadow group-hover:shadow-md">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className={`text-sm font-semibold ${labelColor} leading-snug`}>{event.label}</p>
                       {event.detail && (
-                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{event.detail}</p>
+                        <p className="text-xs text-muted mt-0.5 leading-relaxed">{event.detail}</p>
                       )}
                       <div className="flex items-center gap-2 mt-1.5">
                         {isSystem ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                          <span className="inline-flex items-center gap-1 text-xs text-muted">
                             <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
                               <path d="M8 2a2 2 0 100 4A2 2 0 008 2zM4 9a4 4 0 018 0v1H4V9z"/>
                             </svg>
                             System
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-medium">
-                            <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[9px] font-bold uppercase">
+                          <span className="inline-flex items-center gap-1 text-xs text-muted font-medium">
+                            <span className="w-4 h-4 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center text-[9px] font-bold uppercase">
                               {event.actor_name![0]}
                             </span>
                             {event.actor_name}
@@ -201,8 +201,8 @@ function HistoryPage() {
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <p className="text-xs font-medium text-gray-500">{time}</p>
-                      <p className="text-xs text-gray-400">{date}</p>
+                      <p className="text-xs font-medium text-muted">{time}</p>
+                      <p className="text-xs text-muted">{date}</p>
                     </div>
                   </div>
                 </div>

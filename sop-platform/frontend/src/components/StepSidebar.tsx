@@ -1,4 +1,4 @@
-import clsx from 'clsx'
+﻿import clsx from 'clsx'
 import { useSOPStore } from '../hooks/useSOPStore'
 import type { SOPStep, SOPSection } from '../api/types'
 
@@ -17,15 +17,15 @@ export function StepSidebar({ steps, sections, sopId }: Props) {
   return (
     <aside className="w-full shrink-0 overflow-hidden flex flex-col gap-2">
       {/* ── Procedure Steps card ── */}
-      <div className="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden flex flex-col">
+      <div className="bg-card rounded-xl shadow-sm border border-subtle overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-blue-100 bg-blue-50">
+        <div className="px-4 py-3 border-b border-subtle bg-blue-500/10">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
               <svg viewBox="0 0 14 14" fill="currentColor" className="w-3.5 h-3.5 text-blue-500">
                 <path fillRule="evenodd" d="M2 2a1 1 0 011-1h8a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V2zm2 1v1h6V3H4zm0 3v1h6V6H4zm0 3v1h4V9H4z" clipRule="evenodd"/>
               </svg>
-              <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">
+              <span className="text-xs font-bold text-blue-500 uppercase tracking-wide">
                 Procedure Steps
               </span>
             </div>
@@ -35,7 +35,7 @@ export function StepSidebar({ steps, sections, sopId }: Props) {
           </div>
           {/* Mini progress bar */}
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-1.5 bg-blue-100 rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-blue-500/15 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
                 style={{ width: `${pct}%` }}
@@ -56,8 +56,8 @@ export function StepSidebar({ steps, sections, sopId }: Props) {
                   className={clsx(
                     'w-full text-left px-3 py-2.5 border-l-[3px] flex items-center gap-2.5 transition-all',
                     isActive
-                      ? 'bg-blue-50 border-blue-500'
-                      : 'border-transparent hover:bg-gray-50 hover:border-blue-200',
+                      ? 'bg-blue-500/10 border-blue-500'
+                      : 'border-transparent hover:bg-raised hover:border-blue-200',
                   )}
                 >
                   <span
@@ -66,8 +66,8 @@ export function StepSidebar({ steps, sections, sopId }: Props) {
                       isActive
                         ? 'bg-blue-600 text-white'
                         : step.is_approved
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-500',
+                        ? 'bg-green-500/10 text-green-600'
+                        : 'bg-raised text-muted',
                     )}
                   >
                     {step.is_approved && !isActive ? (
@@ -80,7 +80,7 @@ export function StepSidebar({ steps, sections, sopId }: Props) {
                   </span>
                   <span className={clsx(
                     'truncate leading-snug text-xs',
-                    isActive ? 'text-blue-900 font-semibold' : 'text-gray-700',
+                    isActive ? 'text-blue-600 font-semibold' : 'text-secondary',
                   )}>
                     {step.title}
                   </span>
@@ -93,14 +93,14 @@ export function StepSidebar({ steps, sections, sopId }: Props) {
 
       {/* ── Sections card ── */}
       {sections.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-violet-100 overflow-hidden">
-          <div className="px-4 py-3 border-b border-violet-100 bg-violet-50">
+        <div className="bg-card rounded-xl shadow-sm border border-subtle overflow-hidden">
+          <div className="px-4 py-3 border-b border-subtle bg-violet-500/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <svg viewBox="0 0 14 14" fill="currentColor" className="w-3.5 h-3.5 text-violet-500">
                   <path d="M1 2a1 1 0 011-1h10a1 1 0 010 2H2a1 1 0 01-1-1zm0 4a1 1 0 011-1h10a1 1 0 010 2H2a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 010 2H2a1 1 0 01-1-1z"/>
                 </svg>
-                <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">
+                <span className="text-xs font-bold text-violet-500 uppercase tracking-wide">
                   Sections
                 </span>
               </div>
@@ -114,7 +114,7 @@ export function StepSidebar({ steps, sections, sopId }: Props) {
               <li key={sec.id}>
                 <a
                   href={`/sop/${sopId}/overview#section-${sec.section_key}`}
-                  className="flex items-center gap-2 px-4 py-2 text-xs text-gray-600 hover:bg-violet-50 hover:text-violet-700 transition-colors group border-l-[3px] border-transparent hover:border-violet-400"
+                  className="flex items-center gap-2 px-4 py-2 text-xs text-muted hover:bg-violet-500/10 hover:text-violet-500 transition-colors group border-l-[3px] border-transparent hover:border-violet-400"
                 >
                   <svg viewBox="0 0 8 8" fill="currentColor" className="w-1.5 h-1.5 text-violet-300 group-hover:text-violet-500 shrink-0">
                     <circle cx="4" cy="4" r="4"/>

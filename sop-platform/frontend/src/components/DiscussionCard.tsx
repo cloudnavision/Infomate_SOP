@@ -1,4 +1,4 @@
-import { MessageCircle, Info, Zap, AlertTriangle } from 'lucide-react'
+﻿import { MessageCircle, Info, Zap, AlertTriangle } from 'lucide-react'
 import type { StepDiscussion } from '../api/types'
 
 interface Props {
@@ -16,26 +16,26 @@ function TypeIcon({ type }: { type: string | null }) {
     case 'warning':
       return <AlertTriangle className="w-4 h-4 text-amber-500" />
     default:
-      return <MessageCircle className="w-4 h-4 text-gray-400" />
+      return <MessageCircle className="w-4 h-4 text-muted" />
   }
 }
 
 export function DiscussionCard({ discussion }: Props) {
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white">
+    <div className="border border-default rounded-lg p-4 bg-card">
       <div className="flex items-center gap-2 mb-2">
         <TypeIcon type={discussion.discussion_type} />
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <span className="text-xs font-medium text-muted uppercase tracking-wide">
           {discussion.discussion_type ?? 'Discussion'}
         </span>
       </div>
-      <p className="text-sm text-gray-700 mb-3">{discussion.summary}</p>
+      <p className="text-sm text-secondary mb-3">{discussion.summary}</p>
       {discussion.speakers.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {discussion.speakers.map((speaker) => (
             <span
               key={speaker}
-              className="bg-gray-100 rounded-full px-2 py-0.5 text-xs text-gray-600"
+              className="bg-raised rounded-full px-2 py-0.5 text-xs text-muted"
             >
               {speaker}
             </span>

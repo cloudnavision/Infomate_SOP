@@ -1,11 +1,11 @@
-import { useAuthContext } from '../contexts/AuthContext'
+﻿import { useAuthContext } from '../contexts/AuthContext'
 
 export function AccessDenied() {
   const { user, signOut } = useAuthContext()
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-xl shadow-md p-8 w-full max-w-sm text-center">
+    <div className="min-h-screen bg-page flex items-center justify-center px-4">
+      <div className="bg-card rounded-xl shadow-md p-8 w-full max-w-sm text-center">
         <div className="flex justify-center mb-4">
           <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
             <svg
@@ -24,16 +24,16 @@ export function AccessDenied() {
           </div>
         </div>
 
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+        <h2 className="text-xl font-semibold text-default mb-2">Access Denied</h2>
 
         {user?.email && (
-          <p className="text-sm text-gray-600 mb-1">
+          <p className="text-sm text-muted mb-1">
             Your account (<span className="font-medium">{user.email}</span>) is not registered
             for this platform.
           </p>
         )}
 
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-muted mb-6">
           Contact your administrator to request access.
         </p>
 

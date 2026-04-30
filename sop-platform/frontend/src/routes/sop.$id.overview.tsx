@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from '@tanstack/react-router'
+﻿import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { fetchSOP, sopKeys, setProjectCode } from '../api/client'
@@ -89,43 +89,43 @@ const SECTION_ICONS: Record<string, JSX.Element> = {
 }
 
 const SECTION_COLORS: Record<string, { bg: string; icon: string; border: string; badge: string }> = {
-  purpose:              { bg: 'bg-blue-50',    icon: 'text-blue-500',   border: 'border-blue-100',   badge: 'bg-blue-100 text-blue-700' },
-  inputs:               { bg: 'bg-emerald-50', icon: 'text-emerald-500',border: 'border-emerald-100',badge: 'bg-emerald-100 text-emerald-700' },
-  process_summary:      { bg: 'bg-indigo-50',  icon: 'text-indigo-500', border: 'border-indigo-100', badge: 'bg-indigo-100 text-indigo-700' },
-  outputs:              { bg: 'bg-teal-50',    icon: 'text-teal-500',   border: 'border-teal-100',   badge: 'bg-teal-100 text-teal-700' },
-  risks:                { bg: 'bg-red-50',     icon: 'text-red-500',    border: 'border-red-100',    badge: 'bg-red-100 text-red-700' },
-  training_prereqs:     { bg: 'bg-amber-50',   icon: 'text-amber-500',  border: 'border-amber-100',  badge: 'bg-amber-100 text-amber-700' },
-  software_access:      { bg: 'bg-violet-50',  icon: 'text-violet-500', border: 'border-violet-100', badge: 'bg-violet-100 text-violet-700' },
-  comm_matrix_infomate: { bg: 'bg-cyan-50',    icon: 'text-cyan-500',   border: 'border-cyan-100',   badge: 'bg-cyan-100 text-cyan-700' },
-  comm_matrix_client:   { bg: 'bg-sky-50',     icon: 'text-sky-500',    border: 'border-sky-100',    badge: 'bg-sky-100 text-sky-700' },
-  quality_params:       { bg: 'bg-purple-50',  icon: 'text-purple-500', border: 'border-purple-100', badge: 'bg-purple-100 text-purple-700' },
-  quality_sampling:     { bg: 'bg-fuchsia-50', icon: 'text-fuchsia-500',border: 'border-fuchsia-100',badge: 'bg-fuchsia-100 text-fuchsia-700' },
-  sow:                  { bg: 'bg-orange-50',  icon: 'text-orange-500', border: 'border-orange-100', badge: 'bg-orange-100 text-orange-700' },
-  baseline_target:      { bg: 'bg-lime-50',    icon: 'text-lime-600',   border: 'border-lime-100',   badge: 'bg-lime-100 text-lime-700' },
-  challenges:           { bg: 'bg-rose-50',    icon: 'text-rose-500',   border: 'border-rose-100',   badge: 'bg-rose-100 text-rose-700' },
-  improvements:         { bg: 'bg-green-50',   icon: 'text-green-500',  border: 'border-green-100',  badge: 'bg-green-100 text-green-700' },
+  purpose:              { bg: 'bg-blue-500/10',    icon: 'text-blue-500',    border: 'border-blue-500/20',    badge: 'bg-blue-500/10 text-blue-500' },
+  inputs:               { bg: 'bg-emerald-500/10', icon: 'text-emerald-500', border: 'border-emerald-500/20', badge: 'bg-emerald-500/10 text-emerald-500' },
+  process_summary:      { bg: 'bg-indigo-500/10',  icon: 'text-indigo-500',  border: 'border-indigo-500/20',  badge: 'bg-indigo-500/10 text-indigo-500' },
+  outputs:              { bg: 'bg-teal-500/10',    icon: 'text-teal-500',    border: 'border-teal-500/20',    badge: 'bg-teal-500/10 text-teal-500' },
+  risks:                { bg: 'bg-red-500/10',     icon: 'text-red-500',     border: 'border-red-500/20',     badge: 'bg-red-500/10 text-red-500' },
+  training_prereqs:     { bg: 'bg-amber-500/10',   icon: 'text-amber-500',   border: 'border-amber-500/20',   badge: 'bg-amber-500/10 text-amber-500' },
+  software_access:      { bg: 'bg-violet-500/10',  icon: 'text-violet-500',  border: 'border-violet-500/20',  badge: 'bg-violet-500/10 text-violet-500' },
+  comm_matrix_infomate: { bg: 'bg-cyan-500/10',    icon: 'text-cyan-500',    border: 'border-cyan-500/20',    badge: 'bg-cyan-500/10 text-cyan-500' },
+  comm_matrix_client:   { bg: 'bg-sky-500/10',     icon: 'text-sky-500',     border: 'border-sky-500/20',     badge: 'bg-sky-500/10 text-sky-500' },
+  quality_params:       { bg: 'bg-purple-500/10',  icon: 'text-purple-500',  border: 'border-purple-500/20',  badge: 'bg-purple-500/10 text-purple-500' },
+  quality_sampling:     { bg: 'bg-fuchsia-500/10', icon: 'text-fuchsia-500', border: 'border-fuchsia-500/20', badge: 'bg-fuchsia-500/10 text-fuchsia-500' },
+  sow:                  { bg: 'bg-orange-500/10',  icon: 'text-orange-500',  border: 'border-orange-500/20',  badge: 'bg-orange-500/10 text-orange-500' },
+  baseline_target:      { bg: 'bg-lime-500/10',    icon: 'text-lime-600',    border: 'border-lime-500/20',    badge: 'bg-lime-500/10 text-lime-600' },
+  challenges:           { bg: 'bg-rose-500/10',    icon: 'text-rose-500',    border: 'border-rose-500/20',    badge: 'bg-rose-500/10 text-rose-500' },
+  improvements:         { bg: 'bg-green-500/10',   icon: 'text-green-500',   border: 'border-green-500/20',   badge: 'bg-green-500/10 text-green-500' },
 }
 
-const DEFAULT_COLOR = { bg: 'bg-gray-50', icon: 'text-gray-400', border: 'border-gray-100', badge: 'bg-gray-100 text-gray-600' }
+const DEFAULT_COLOR = { bg: 'bg-raised', icon: 'text-muted', border: 'border-subtle', badge: 'bg-raised text-muted' }
 
 function impactBadge(val: string) {
   const v = val.toLowerCase()
-  if (v === 'high')   return 'bg-red-100 text-red-700 border border-red-200'
-  if (v === 'medium') return 'bg-amber-100 text-amber-700 border border-amber-200'
-  if (v === 'low')    return 'bg-green-100 text-green-700 border border-green-200'
-  return 'bg-gray-100 text-gray-600'
+  if (v === 'high')   return 'bg-red-500/10 text-red-600 border border-red-500/30'
+  if (v === 'medium') return 'bg-amber-500/10 text-amber-600 border border-amber-500/30'
+  if (v === 'low')    return 'bg-green-500/10 text-green-600 border border-green-500/30'
+  return 'bg-raised text-muted'
 }
 
 function StyledTable({ rows }: { rows: Record<string, unknown>[] }) {
   if (!rows.length) return null
   const cols = Object.keys(rows[0])
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="overflow-x-auto rounded-lg border border-default">
       <table className="min-w-full text-sm">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200">
+          <tr className="bg-raised border-b border-default">
             {cols.map((col) => (
-              <th key={col} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <th key={col} className="px-4 py-2.5 text-left text-xs font-semibold text-muted uppercase tracking-wide">
                 {col.replace(/_/g, ' ')}
               </th>
             ))}
@@ -133,7 +133,7 @@ function StyledTable({ rows }: { rows: Record<string, unknown>[] }) {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {rows.map((row, i) => (
-            <tr key={i} className="hover:bg-gray-50 transition-colors">
+            <tr key={i} className="hover:bg-raised transition-colors">
               {cols.map((col) => {
                 const val = String(row[col] ?? '')
                 const isImpact = col.toLowerCase() === 'impact'
@@ -141,13 +141,13 @@ function StyledTable({ rows }: { rows: Record<string, unknown>[] }) {
                 const isAccess = col.toLowerCase() === 'access_level'
                 const isOwner = col.toLowerCase() === 'owner'
                 return (
-                  <td key={col} className="px-4 py-3 text-gray-700 align-top">
+                  <td key={col} className="px-4 py-3 text-secondary align-top">
                     {isImpact ? (
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${impactBadge(val)}`}>
                         {val}
                       </span>
                     ) : (isFreq || isAccess || isOwner) ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-raised text-muted">
                         {val}
                       </span>
                     ) : val}
@@ -176,11 +176,11 @@ function SectionCard({ section }: { section: SOPSection }) {
       >
         <div className="flex items-center gap-2.5">
           <span className={colors.icon}>{icon}</span>
-          <span className="text-sm font-semibold text-gray-800">{section.section_title}</span>
+          <span className="text-sm font-semibold text-secondary">{section.section_title}</span>
         </div>
         <svg
           viewBox="0 0 20 20" fill="currentColor"
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         >
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
         </svg>
@@ -188,14 +188,14 @@ function SectionCard({ section }: { section: SOPSection }) {
 
       {/* Body */}
       {open && (
-        <div className="px-5 py-4 bg-white">
+        <div className="px-5 py-4 bg-card">
           {section.content_type === 'text' && section.content_text && (
-            <p className="text-sm text-gray-700 leading-relaxed">{section.content_text}</p>
+            <p className="text-sm text-secondary leading-relaxed">{section.content_text}</p>
           )}
           {section.content_type === 'list' && Array.isArray(section.content_json) && (
             <ul className="space-y-2">
               {(section.content_json as string[]).map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-700">
+                <li key={i} className="flex items-start gap-2.5 text-sm text-secondary">
                   <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full ${colors.bg} ${colors.icon} flex items-center justify-center text-xs font-bold`}>
                     {i + 1}
                   </span>
@@ -214,10 +214,10 @@ function SectionCard({ section }: { section: SOPSection }) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  completed:   'bg-green-100 text-green-700 border border-green-200',
-  processing:  'bg-blue-100 text-blue-700 border border-blue-200',
-  failed:      'bg-red-100 text-red-700 border border-red-200',
-  queued:      'bg-gray-100 text-gray-600',
+  completed:   'bg-green-500/10 text-green-600 border border-green-500/30',
+  processing:  'bg-blue-500/10 text-blue-600 border border-blue-500/30',
+  failed:      'bg-red-500/10 text-red-600 border border-red-500/30',
+  queued:      'bg-raised text-muted',
 }
 
 function OverviewPage() {
@@ -263,12 +263,12 @@ function OverviewPage() {
       <div className="flex-1 min-w-0 space-y-4">
 
         {/* SOP Details card */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-400">
+        <div className="bg-card rounded-xl border border-subtle shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-subtle bg-page flex items-center gap-2">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted">
               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
             </svg>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">SOP Details</span>
+            <span className="text-xs font-semibold text-muted uppercase tracking-wide">SOP Details</span>
           </div>
           <div className="px-5 py-4 grid grid-cols-2 gap-x-8 gap-y-3">
             {sop.client_name && (
@@ -276,8 +276,8 @@ function OverviewPage() {
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                   <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd"/>
                 </svg>
-                <span className="text-xs text-gray-400 w-20 shrink-0">Client</span>
-                <span className="text-sm text-gray-800 font-medium">{sop.client_name}</span>
+                <span className="text-xs text-muted w-20 shrink-0">Client</span>
+                <span className="text-sm text-secondary font-medium">{sop.client_name}</span>
               </div>
             )}
             {sop.process_name && (
@@ -285,8 +285,8 @@ function OverviewPage() {
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                   <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" clipRule="evenodd"/>
                 </svg>
-                <span className="text-xs text-gray-400 w-20 shrink-0">Process</span>
-                <span className="text-sm text-gray-800 font-medium">{sop.process_name}</span>
+                <span className="text-xs text-muted w-20 shrink-0">Process</span>
+                <span className="text-sm text-secondary font-medium">{sop.process_name}</span>
               </div>
             )}
             {sop.meeting_date && (
@@ -294,8 +294,8 @@ function OverviewPage() {
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                   <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
                 </svg>
-                <span className="text-xs text-gray-400 w-20 shrink-0">Meeting</span>
-                <span className="text-sm text-gray-800">
+                <span className="text-xs text-muted w-20 shrink-0">Meeting</span>
+                <span className="text-sm text-secondary">
                   {new Date(sop.meeting_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
               </div>
@@ -304,7 +304,7 @@ function OverviewPage() {
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                 <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd"/>
               </svg>
-              <span className="text-xs text-gray-400 w-20 shrink-0">Status</span>
+              <span className="text-xs text-muted w-20 shrink-0">Status</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>
                 {sop.status.replace(/_/g, ' ').toUpperCase()}
               </span>
@@ -313,21 +313,21 @@ function OverviewPage() {
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                 <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/>
               </svg>
-              <span className="text-xs text-gray-400 w-20 shrink-0">Steps</span>
-              <span className="text-sm font-semibold text-gray-800">{sop.steps.length}</span>
+              <span className="text-xs text-muted w-20 shrink-0">Steps</span>
+              <span className="text-sm font-semibold text-secondary">{sop.steps.length}</span>
             </div>
             {/* Project Code */}
             <div className="flex items-center gap-2 col-span-2">
               <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                 <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
               </svg>
-              <span className="text-xs text-gray-400 w-20 shrink-0">Project Code</span>
+              <span className="text-xs text-muted w-20 shrink-0">Project Code</span>
               {editingCode ? (
                 <div className="flex items-center gap-2">
                   <input
                     value={codeInput}
                     onChange={e => setCodeInput(e.target.value.toUpperCase())}
-                    className="text-sm border border-gray-200 rounded-lg px-3 py-1 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    className="text-sm bg-input text-secondary border border-default rounded-lg px-3 py-1 w-36 focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-mono"
                     placeholder="e.g. AGED-001"
                     maxLength={50}
                   />
@@ -336,7 +336,7 @@ function OverviewPage() {
                     disabled={projectCodeMutation.isPending}
                     className="text-xs px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >Save</button>
-                  <button onClick={() => setEditingCode(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                  <button onClick={() => setEditingCode(false)} className="text-xs text-muted hover:text-secondary">Cancel</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -346,7 +346,7 @@ function OverviewPage() {
                   {canEdit && (
                     <button
                       onClick={() => { setCodeInput(sop.project_code || ''); setEditingCode(true) }}
-                      className="text-xs text-gray-400 hover:text-blue-500 underline"
+                      className="text-xs text-muted hover:text-blue-500 underline"
                     >{sop.project_code ? 'Edit' : 'Set'}</button>
                   )}
                 </div>
@@ -357,8 +357,8 @@ function OverviewPage() {
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
                 </svg>
-                <span className="text-xs text-gray-400 w-20 shrink-0">Duration</span>
-                <span className="text-sm text-gray-800">
+                <span className="text-xs text-muted w-20 shrink-0">Duration</span>
+                <span className="text-sm text-secondary">
                   {Math.floor(sop.video_duration_sec / 60)} min {sop.video_duration_sec % 60} sec
                 </span>
               </div>
@@ -372,11 +372,11 @@ function OverviewPage() {
                 <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0 mt-1">
                   <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
                 </svg>
-                <span className="text-xs text-gray-400 w-20 shrink-0 mt-1">Participants</span>
+                <span className="text-xs text-muted w-20 shrink-0 mt-1">Participants</span>
                 <div className="flex flex-wrap gap-1.5">
                   {participants.map((p) => (
-                    <span key={p} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                      <span className="w-4 h-4 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-[9px] font-bold uppercase">
+                    <span key={p} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                      <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-[9px] font-bold uppercase">
                         {p[0]}
                       </span>
                       {p}
@@ -390,7 +390,7 @@ function OverviewPage() {
 
         {/* Section cards */}
         {sop.sections.length === 0 ? (
-          <div className="text-sm text-gray-400 bg-gray-50 rounded-xl p-6 border border-dashed border-gray-200 text-center">
+          <div className="text-sm text-muted bg-page rounded-xl p-6 border border-dashed border-default text-center">
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-8 h-8 text-gray-300 mx-auto mb-2">
               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
             </svg>
@@ -408,9 +408,9 @@ function OverviewPage() {
       {/* ── Sticky TOC sidebar ─────────────────────────────────────────── */}
       {sop.sections.length > 0 && (
         <div className="hidden lg:block w-44 shrink-0">
-          <div className="sticky top-4 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">On this page</span>
+          <div className="sticky top-4 bg-card rounded-xl border border-subtle shadow-sm overflow-hidden">
+            <div className="px-3 py-2.5 border-b border-subtle bg-page">
+              <span className="text-xs font-semibold text-muted uppercase tracking-wide">On this page</span>
             </div>
             <nav className="py-2">
               {sop.sections.map((sec) => {
@@ -423,7 +423,7 @@ function OverviewPage() {
                       e.preventDefault()
                       document.getElementById(`section-${sec.section_key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                     }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors group"
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted hover:bg-raised hover:text-gray-900 transition-colors group"
                   >
                     <span className={`shrink-0 ${colors.icon} opacity-70 group-hover:opacity-100`}>
                       {SECTION_ICONS[sec.section_key] ?? null}

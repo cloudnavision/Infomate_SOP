@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+﻿import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { useAuthContext } from '../contexts/AuthContext'
 import { AccessDenied } from '../components/AccessDenied'
@@ -24,7 +24,7 @@ function AuthCallbackPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex items-center justify-center min-h-screen bg-page">
       <p className="text-gray-500 text-sm">Completing sign in…</p>
     </div>
   )

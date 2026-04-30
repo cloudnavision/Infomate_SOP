@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { SOPDetail } from '../api/types'
 import { exportSOP, updateSOPStatus, fetchMetrics, toggleLike, sopKeys } from '../api/client'
@@ -9,11 +9,11 @@ interface Props {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  published:   'bg-green-100 text-green-700 border-green-200',
-  draft:       'bg-amber-100 text-amber-700 border-amber-200',
-  in_review:   'bg-blue-100 text-blue-700 border-blue-200',
-  processing:  'bg-purple-100 text-purple-700 border-purple-200',
-  archived:    'bg-gray-100 text-gray-500 border-gray-200',
+  published:   'bg-green-500/10 text-green-600 border-green-500/30',
+  draft:       'bg-amber-500/10 text-amber-600 border-amber-500/30',
+  in_review:   'bg-blue-500/10 text-blue-600 border-blue-500/30',
+  processing:  'bg-purple-500/10 text-purple-600 border-purple-500/30',
+  archived:    'bg-raised text-muted border-default',
 }
 
 const ALL_STATUSES = ['draft', 'in_review', 'published', 'archived'] as const
@@ -88,7 +88,7 @@ export function SOPPageHeader({ sop }: Props) {
 
   return (
     <div className="shrink-0 mb-3">
-      <div className="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+      <div className="flex items-center justify-between gap-3 px-3 py-2 bg-page border border-default rounded-lg">
 
         {/* Left: status + meta + engagement */}
         <div className="flex items-center gap-3 flex-wrap min-w-0">
@@ -108,14 +108,14 @@ export function SOPPageHeader({ sop }: Props) {
               {statusOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setStatusOpen(false)} />
-                  <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[130px]">
+                  <div className="absolute left-0 top-full mt-1 z-20 bg-card border border-default rounded-lg shadow-lg py-1 min-w-[130px]">
                     {ALL_STATUSES.map(s => (
                       <button
                         key={s}
                         onClick={() => statusMutation.mutate(s)}
                         disabled={s === sop.status || statusMutation.isPending}
                         className={`w-full text-left px-3 py-1.5 text-xs capitalize transition-colors ${
-                          s === sop.status ? 'text-gray-400 cursor-default' : 'text-gray-700 hover:bg-gray-50'
+                          s === sop.status ? 'text-muted cursor-default' : 'text-secondary hover:bg-raised'
                         }`}
                       >
                         <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${
@@ -141,8 +141,8 @@ export function SOPPageHeader({ sop }: Props) {
 
           {/* Date */}
           {dateStr && (
-            <span className="flex items-center gap-1 text-xs text-gray-500">
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-gray-400 shrink-0">
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-muted shrink-0">
                 <path fillRule="evenodd" d="M5 1a1 1 0 00-1 1v1H3a2 2 0 00-2 2v9a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-1V2a1 1 0 10-2 0v1H5V2a1 1 0 00-1-1zM3 7h10v7H3V7z" clipRule="evenodd"/>
               </svg>
               {dateStr}
@@ -151,8 +151,8 @@ export function SOPPageHeader({ sop }: Props) {
 
           {/* Client */}
           {sop.client_name && (
-            <span className="flex items-center gap-1 text-xs text-gray-500">
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-gray-400 shrink-0">
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-muted shrink-0">
                 <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 13a6 6 0 0112 0H2z"/>
               </svg>
               {sop.client_name}
@@ -161,8 +161,8 @@ export function SOPPageHeader({ sop }: Props) {
 
           {/* Steps approved — editors/admins only */}
           {canChangeStatus && totalSteps > 0 && (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-gray-400 shrink-0">
+            <span className="flex items-center gap-1.5 text-xs text-muted">
+              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-muted shrink-0">
                 <path fillRule="evenodd" d="M12.5 4.5a1 1 0 00-1.414-1.414L6 8.172 4.914 7.086A1 1 0 103.5 8.5l2 2a1 1 0 001.414 0l6-6z" clipRule="evenodd"/>
               </svg>
               {approvedCount}/{totalSteps} approved
@@ -176,8 +176,8 @@ export function SOPPageHeader({ sop }: Props) {
           <span className="text-gray-300 text-xs">|</span>
 
           {/* Views */}
-          <span className="flex items-center gap-1 text-xs text-gray-500">
-            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-gray-400 shrink-0">
+          <span className="flex items-center gap-1 text-xs text-muted">
+            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-muted shrink-0">
               <path d="M8 10a2 2 0 100-4 2 2 0 000 4z"/>
               <path fillRule="evenodd" d="M.458 8C1.732 4.943 5.522 2 8 2s6.268 2.943 7.542 6c-1.274 3.057-5.064 6-7.542 6S1.732 11.057.458 8zM12 8a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
             </svg>
@@ -190,11 +190,11 @@ export function SOPPageHeader({ sop }: Props) {
             disabled={likeMutation.isPending}
             className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md border transition-all active:scale-95 ${
               metrics?.user_liked
-                ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
-                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-red-200 hover:text-red-500'
+                ? 'bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/15'
+                : 'bg-card border-default text-muted hover:bg-raised hover:border-red-500/30 hover:text-red-500'
             }`}
           >
-            <svg viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 transition-transform ${metrics?.user_liked ? 'scale-110 text-red-500' : 'text-gray-400'}`}>
+            <svg viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 transition-transform ${metrics?.user_liked ? 'scale-110 text-red-500' : 'text-muted'}`}>
               <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/>
             </svg>
             {metrics?.like_count ?? 0}
@@ -206,7 +206,7 @@ export function SOPPageHeader({ sop }: Props) {
           <button
             onClick={() => handleExport('docx')}
             disabled={exporting !== null}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-gray-200 rounded-md text-gray-600 hover:bg-white hover:border-gray-300 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-default rounded-md text-muted hover:bg-raised hover:border-default hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {exporting === 'docx' ? (
               <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
@@ -225,7 +225,7 @@ export function SOPPageHeader({ sop }: Props) {
           <button
             onClick={() => handleExport('pdf')}
             disabled={exporting !== null}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-red-50 border border-red-200 rounded-md text-red-600 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-red-500/10 border border-red-500/30 rounded-md text-red-600 hover:bg-red-500/15 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {exporting === 'pdf' ? (
               <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
@@ -242,9 +242,9 @@ export function SOPPageHeader({ sop }: Props) {
 
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-gray-200 rounded-md text-gray-600 hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-default rounded-md text-muted hover:bg-raised hover:border-default hover:shadow-sm transition-all"
           >
-            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-gray-400">
+            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-muted">
               <path fillRule="evenodd" d="M13 4a3 3 0 11-1.36 5.66l-4.38 2.56a3 3 0 110-1.99l4.38-2.56A3 3 0 0113 4z" clipRule="evenodd"/>
             </svg>
             Share

@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+﻿import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useAuthContext } from '../contexts/AuthContext'
 
@@ -29,19 +29,19 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-xl shadow-md p-8 w-full max-w-sm">
+    <div className="min-h-screen bg-page flex items-center justify-center px-4">
+      <div className="bg-card rounded-xl shadow-md p-8 w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">SOP Automation Platform</h1>
-          <p className="text-sm text-gray-500 mt-2">
+          <h1 className="text-2xl font-bold text-default">SOP Automation Platform</h1>
+          <p className="text-sm text-muted mt-2">
             Sign in to access Standard Operating Procedures
           </p>
         </div>
 
         {/* Access denied message — shown when user authenticated but not registered */}
         {accessDenied && (
-          <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700 font-medium">Access denied</p>
+          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <p className="text-sm text-red-600 font-medium">Access denied</p>
             {user?.email && (
               <p className="text-xs text-red-600 mt-0.5">{user.email} is not registered.</p>
             )}
@@ -66,7 +66,7 @@ function LoginPage() {
           )}
         </button>
 
-        <p className="text-xs text-gray-400 text-center mt-6">
+        <p className="text-xs text-muted text-center mt-6">
           Only authorised users can access this platform
         </p>
       </div>

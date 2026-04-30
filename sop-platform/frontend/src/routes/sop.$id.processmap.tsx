@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from '@tanstack/react-router'
+﻿import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { fetchSOP, fetchProcessMap, saveProcessMap, uploadProcessMapImage, sopKeys } from '../api/client'
@@ -188,8 +188,8 @@ function LaneEditor({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Define Swim Lanes</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Add a lane for each role involved in this process (e.g. "Manager", "Processor", "QC Team")</p>
+          <h2 className="text-lg font-semibold text-default">Define Swim Lanes</h2>
+          <p className="text-sm text-muted mt-0.5">Add a lane for each role involved in this process (e.g. "Manager", "Processor", "QC Team")</p>
         </div>
         <button
           onClick={add}
@@ -203,19 +203,19 @@ function LaneEditor({
       </div>
 
       {lanes.length === 0 && (
-        <div className="border-2 border-dashed border-gray-200 rounded-xl py-12 text-center">
+        <div className="border-2 border-dashed border-default rounded-xl py-12 text-center">
           <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12 mx-auto mb-3 text-gray-300">
             <rect x="4" y="8" width="12" height="32" rx="2" fill="currentColor" opacity="0.4"/>
             <rect x="18" y="8" width="12" height="32" rx="2" fill="currentColor" opacity="0.6"/>
             <rect x="32" y="8" width="12" height="32" rx="2" fill="currentColor" opacity="0.4"/>
           </svg>
-          <p className="text-gray-400 text-sm">No lanes yet — click "Add Lane" to get started</p>
+          <p className="text-muted text-sm">No lanes yet — click "Add Lane" to get started</p>
         </div>
       )}
 
       <div className="space-y-3">
         {lanes.map((lane, i) => (
-          <div key={lane.id} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+          <div key={lane.id} className="flex items-center gap-3 bg-card border border-default rounded-xl px-4 py-3 shadow-sm">
             {/* Drag handle visual */}
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
               <path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0 .001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z"/>
@@ -238,7 +238,7 @@ function LaneEditor({
               value={lane.name}
               onChange={e => update(i, { name: e.target.value })}
               placeholder={`Lane ${i + 1} name (e.g. "Processor")`}
-              className="flex-1 text-sm bg-transparent outline-none placeholder-gray-300 text-gray-800"
+              className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted text-secondary"
             />
 
             {/* Delete */}
@@ -255,7 +255,7 @@ function LaneEditor({
       </div>
 
       {lanes.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-muted">
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
           </svg>
@@ -289,8 +289,8 @@ function StepAssigner({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Assign Steps to Lanes</h2>
-        <p className="text-sm text-gray-500 mt-0.5">Drag to reorder. Assign each step to a lane and optionally mark decision points.</p>
+        <h2 className="text-lg font-semibold text-default">Assign Steps to Lanes</h2>
+        <p className="text-sm text-muted mt-0.5">Drag to reorder. Assign each step to a lane and optionally mark decision points.</p>
       </div>
 
       <div className="space-y-2">
@@ -314,8 +314,8 @@ function StepAssigner({
                 setDragIdx(null); setDragOverIdx(null)
               }}
               onDragEnd={() => { setDragIdx(null); setDragOverIdx(null) }}
-              className={`flex items-center gap-3 bg-white border rounded-xl px-4 py-3 shadow-sm transition-colors ${
-                dragOverIdx === i ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              className={`flex items-center gap-3 bg-card border rounded-xl px-4 py-3 shadow-sm transition-colors ${
+                dragOverIdx === i ? 'border-blue-400 bg-blue-500/10' : 'border-default hover:border-default'
               }`}
             >
               {/* Drag handle */}
@@ -332,10 +332,10 @@ function StepAssigner({
               </span>
 
               {/* Step title */}
-              <span className="flex-1 text-sm text-gray-800 min-w-0 truncate">{step.title}</span>
+              <span className="flex-1 text-sm text-secondary min-w-0 truncate">{step.title}</span>
 
               {/* Decision toggle */}
-              <label className="flex items-center gap-1.5 text-xs text-gray-500 shrink-0 cursor-pointer select-none">
+              <label className="flex items-center gap-1.5 text-xs text-muted shrink-0 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={asgn.is_decision}
@@ -349,7 +349,7 @@ function StepAssigner({
               <select
                 value={asgn.lane_id}
                 onChange={e => update(i, { lane_id: e.target.value })}
-                className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm border border-default rounded-lg px-2 py-1.5 bg-card text-secondary shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {lanes.map(l => (
                   <option key={l.id} value={l.id}>{l.name || `Lane ${lanes.indexOf(l) + 1}`}</option>
@@ -372,10 +372,10 @@ function StepAssigner({
       </div>
 
       {excludedSteps.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-400 mb-2">Excluded from diagram</p>
+        <div className="mt-4 pt-4 border-t border-subtle">
+          <p className="text-xs text-muted mb-2">Excluded from diagram</p>
           {excludedSteps.map(s => (
-            <div key={s.id} className="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg text-sm text-gray-400 mb-1">
+            <div key={s.id} className="flex items-center gap-3 px-4 py-2 bg-page rounded-lg text-sm text-muted mb-1">
               <span className="flex-1">{s.sequence}. {s.title}</span>
               <button
                 onClick={() => onChange([...assignments, { step_id: s.id, lane_id: lanes[0]?.id ?? '', is_decision: false }])}
@@ -408,8 +408,8 @@ function PreviewPane({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Preview & Save</h2>
-          <p className="text-sm text-gray-500 mt-0.5">This diagram will be embedded in your DOCX/PDF export.</p>
+          <h2 className="text-lg font-semibold text-default">Preview & Save</h2>
+          <p className="text-sm text-muted mt-0.5">This diagram will be embedded in your DOCX/PDF export.</p>
         </div>
         <button
           onClick={onSave}
@@ -436,21 +436,21 @@ function PreviewPane({
       </div>
 
       {svgMarkup ? (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-auto shadow-sm">
+        <div className="bg-card border border-default rounded-xl overflow-auto shadow-sm">
           <div
             className="min-w-max p-4"
             dangerouslySetInnerHTML={{ __html: svgMarkup }}
           />
         </div>
       ) : (
-        <div className="border-2 border-dashed border-gray-200 rounded-xl py-16 text-center text-gray-400 text-sm">
+        <div className="border-2 border-dashed border-default rounded-xl py-16 text-center text-muted text-sm">
           Complete lanes and step assignments to see a preview
         </div>
       )}
 
-      <div className="flex gap-3 text-xs text-gray-400">
+      <div className="flex gap-3 text-xs text-muted">
         <span className="flex items-center gap-1.5">
-          <span className="w-4 h-4 rounded bg-white border-2 inline-block" style={{ borderColor: '#3B82F6' }}/>
+          <span className="w-4 h-4 rounded bg-card border-2 inline-block" style={{ borderColor: '#3B82F6' }}/>
           Standard step
         </span>
         <span className="flex items-center gap-1.5">
@@ -498,20 +498,20 @@ function ConfirmPane({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Confirm Process Map</h2>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <h2 className="text-lg font-semibold text-default">Confirm Process Map</h2>
+        <p className="text-sm text-muted mt-0.5">
           Review the auto-generated diagram below. Confirm it as-is, or upload a corrected PNG — the confirmed version will be embedded in your DOCX/PDF export.
         </p>
       </div>
 
       {/* Preview: show uploaded image if confirmed, otherwise auto-generated SVG */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-auto shadow-sm">
+      <div className="bg-card border border-default rounded-xl overflow-auto shadow-sm">
         {currentConfig?.confirmed_url ? (
           <img src={currentConfig.confirmed_url} alt="Confirmed process map" className="max-w-full p-4" />
         ) : svgMarkup ? (
           <div className="min-w-max p-4" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
         ) : (
-          <p className="p-8 text-center text-gray-400 text-sm">No diagram — complete steps 1 and 2 first.</p>
+          <p className="p-8 text-center text-muted text-sm">No diagram — complete steps 1 and 2 first.</p>
         )}
       </div>
 
@@ -520,23 +520,23 @@ function ConfirmPane({
         <button
           onClick={() => onConfirmed(null, new Date().toISOString())}
           disabled={isSaving}
-          className="flex flex-col items-center gap-2 p-5 border-2 border-gray-200 rounded-xl hover:border-green-400 hover:bg-green-50 disabled:opacity-50 transition-colors text-sm text-gray-700"
+          className="flex flex-col items-center gap-2 p-5 border-2 border-default rounded-xl hover:border-green-400 hover:bg-green-500/10 disabled:opacity-50 transition-colors text-sm text-secondary"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-green-500">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <span className="font-medium">Confirm auto-generated</span>
-          <span className="text-xs text-gray-400 text-center">Use the diagram above in exports</span>
+          <span className="text-xs text-muted text-center">Use the diagram above in exports</span>
         </button>
 
         {/* Option B: upload corrected PNG */}
-        <label className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm text-gray-700 cursor-pointer">
+        <label className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-default rounded-xl hover:border-blue-400 hover:bg-blue-500/10 transition-colors text-sm text-secondary cursor-pointer">
           {uploading
             ? <svg className="animate-spin w-8 h-8 text-blue-400" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
             : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-blue-400"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
           }
           <span className="font-medium">{uploading ? 'Uploading…' : 'Upload corrected PNG'}</span>
-          <span className="text-xs text-gray-400 text-center">Replace with your own diagram</span>
+          <span className="text-xs text-muted text-center">Replace with your own diagram</span>
           <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleFileUpload} disabled={uploading} />
         </label>
       </div>
@@ -544,7 +544,7 @@ function ConfirmPane({
       {error && <p className="text-sm text-red-500">{error}</p>}
 
       {currentConfig?.is_confirmed && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">
+        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3 text-sm text-green-500">
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
           </svg>
@@ -636,7 +636,7 @@ function ProcessMapPage() {
 
   if (sopLoading || pmLoading) {
     return (
-      <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
+      <div className="flex items-center gap-2 text-muted text-sm py-8">
         <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
@@ -653,18 +653,18 @@ function ProcessMapPage() {
     const svg = generateSwimlane(lanes, assignments, steps)
     return (
       <div className="max-w-4xl space-y-4">
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-600">
           <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 shrink-0">
             <path fillRule="evenodd" d="M8 1a7 7 0 110 14A7 7 0 018 1zm-.75 3.75a.75.75 0 011.5 0v4.5a.75.75 0 01-1.5 0v-4.5ZM8 11a1 1 0 110 2 1 1 0 010-2z" clipRule="evenodd"/>
           </svg>
           You have view-only access. Contact an editor or admin to modify the process map.
         </div>
         {svg ? (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 overflow-x-auto">
+          <div className="bg-card rounded-xl border border-subtle shadow-sm p-4 overflow-x-auto">
             <div dangerouslySetInnerHTML={{ __html: svg }} />
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center text-gray-400 text-sm">
+          <div className="bg-card rounded-xl border border-subtle shadow-sm p-10 text-center text-muted text-sm">
             No process map configured yet.
           </div>
         )}
@@ -680,7 +680,7 @@ function ProcessMapPage() {
   return (
     <div className="max-w-4xl space-y-6">
       {/* Wizard progress bar */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-card rounded-xl border border-subtle shadow-sm p-5">
         <div className="flex items-center gap-0">
           {WIZARD_LABELS.map((label, i) => (
             <div key={i} className="flex items-center flex-1">
@@ -695,7 +695,7 @@ function ProcessMapPage() {
                     ? 'text-blue-600'
                     : i < wizardStep
                     ? 'text-green-600 cursor-pointer hover:text-green-700'
-                    : 'text-gray-400 cursor-default'
+                    : 'text-muted cursor-default'
                 }`}
               >
                 <span
@@ -704,7 +704,7 @@ function ProcessMapPage() {
                       ? 'bg-blue-600 text-white'
                       : i < wizardStep
                       ? 'bg-green-500 text-white'
-                      : 'bg-gray-100 text-gray-400'
+                      : 'bg-raised text-muted'
                   }`}
                 >
                   {i < wizardStep ? (
@@ -718,7 +718,7 @@ function ProcessMapPage() {
                 <span className="hidden sm:inline">{label}</span>
               </button>
               {i < WIZARD_LABELS.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-3 ${i < wizardStep ? 'bg-green-300' : 'bg-gray-100'}`}/>
+                <div className={`flex-1 h-0.5 mx-3 ${i < wizardStep ? 'bg-green-400' : 'bg-raised'}`}/>
               )}
             </div>
           ))}
@@ -727,7 +727,7 @@ function ProcessMapPage() {
 
       {/* Saved banner */}
       {saved && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-sm text-green-700 font-medium">
+        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl px-5 py-3 text-sm text-green-500 font-medium">
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
           </svg>
@@ -736,7 +736,7 @@ function ProcessMapPage() {
       )}
 
       {/* Wizard content */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <div className="bg-card rounded-xl border border-subtle shadow-sm p-6">
         {wizardStep === 0 && (
           <LaneEditor lanes={lanes} onChange={handleLanesChange} />
         )}
@@ -775,7 +775,7 @@ function ProcessMapPage() {
         <button
           onClick={() => setWizardStep(prev => (prev > 0 ? ((prev - 1) as 0 | 1 | 2 | 3) : prev))}
           disabled={wizardStep === 0}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-muted border border-default rounded-xl hover:bg-raised disabled:opacity-40 transition-colors"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
             <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
@@ -803,7 +803,7 @@ function ProcessMapPage() {
 
       {/* Help tip */}
       {wizardStep === 0 && lanes.length === 0 && (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 text-sm text-blue-700">
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-5 py-4 text-sm text-blue-600">
           <strong>How it works:</strong> A swim-lane diagram shows who does what at each step of the process.
           Each lane represents a role (e.g. "Finance Manager", "Clerk", "QC Team").
           You then assign each SOP step to the role responsible for it.

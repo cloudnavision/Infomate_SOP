@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from '@tanstack/react-router'
+﻿import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useSOPStore } from '../hooks/useSOPStore'
@@ -75,7 +75,7 @@ function ProcedurePage() {
             playerRef={playerRef}
             onTimeUpdate={handleTimeUpdate}
           />
-          <div className="flex-1 min-h-0 rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-lg shadow-sm border border-subtle overflow-hidden">
             <TranscriptPanel lines={transcriptLines} onSeek={seekTo} />
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+﻿import { useState, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -12,16 +12,16 @@ interface Props {
 
 // Named color keys stored in DB → Tailwind classes
 const TAG_COLOR_MAP: Record<string, string> = {
-  blue:   'bg-blue-100 text-blue-700 border-blue-200',
-  purple: 'bg-purple-100 text-purple-700 border-purple-200',
-  green:  'bg-green-100 text-green-700 border-green-200',
-  orange: 'bg-orange-100 text-orange-700 border-orange-200',
-  pink:   'bg-pink-100 text-pink-700 border-pink-200',
-  teal:   'bg-teal-100 text-teal-700 border-teal-200',
-  indigo: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  rose:   'bg-rose-100 text-rose-700 border-rose-200',
-  amber:  'bg-amber-100 text-amber-700 border-amber-200',
-  cyan:   'bg-cyan-100 text-cyan-700 border-cyan-200',
+  blue:   'bg-blue-500/10 text-blue-500 border-blue-500/30',
+  purple: 'bg-purple-500/10 text-purple-500 border-purple-500/30',
+  green:  'bg-green-500/10 text-green-500 border-green-500/30',
+  orange: 'bg-orange-500/10 text-orange-500 border-orange-500/30',
+  pink:   'bg-pink-500/10 text-pink-500 border-pink-500/30',
+  teal:   'bg-teal-500/10 text-teal-500 border-teal-500/30',
+  indigo: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/30',
+  rose:   'bg-rose-500/10 text-rose-500 border-rose-500/30',
+  amber:  'bg-amber-500/10 text-amber-500 border-amber-500/30',
+  cyan:   'bg-cyan-500/10 text-cyan-500 border-cyan-500/30',
 }
 
 const TAG_COLOR_KEYS = Object.keys(TAG_COLOR_MAP)
@@ -50,11 +50,11 @@ function nextColor(current: string) {
 }
 
 const statusConfig: Record<SOPStatus, { label: string; accent: string; avatar: string; badge: string; dot: string }> = {
-  processing: { label: 'Processing', accent: 'bg-gradient-to-r from-violet-500 to-indigo-500', avatar: 'bg-gradient-to-br from-violet-500 to-indigo-500', badge: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-400' },
-  draft:      { label: 'Draft',      accent: 'bg-gradient-to-r from-slate-400 to-slate-500',   avatar: 'bg-gradient-to-br from-slate-400 to-slate-500',   badge: 'bg-slate-50 text-slate-600 border-slate-200',   dot: 'bg-slate-400' },
-  in_review:  { label: 'In Review',  accent: 'bg-gradient-to-r from-blue-500 to-cyan-500',     avatar: 'bg-gradient-to-br from-blue-500 to-cyan-500',     badge: 'bg-blue-50 text-blue-700 border-blue-200',      dot: 'bg-blue-500'  },
-  published:  { label: 'Published',  accent: 'bg-gradient-to-r from-emerald-500 to-teal-500',  avatar: 'bg-gradient-to-br from-emerald-500 to-teal-500',  badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  archived:   { label: 'Archived',   accent: 'bg-gradient-to-r from-gray-300 to-gray-400',     avatar: 'bg-gradient-to-br from-gray-300 to-gray-400',     badge: 'bg-gray-50 text-gray-400 border-gray-200',      dot: 'bg-gray-300'  },
+  processing: { label: 'Processing', accent: 'bg-gradient-to-r from-violet-500 to-indigo-500', avatar: 'bg-gradient-to-br from-violet-500 to-indigo-500', badge: 'bg-violet-500/10 text-violet-400 border-violet-500/20', dot: 'bg-violet-400' },
+  draft:      { label: 'Draft',      accent: 'bg-gradient-to-r from-slate-400 to-slate-500',   avatar: 'bg-gradient-to-br from-slate-400 to-slate-500',   badge: 'bg-raised text-muted border-default',               dot: 'bg-slate-400' },
+  in_review:  { label: 'In Review',  accent: 'bg-gradient-to-r from-blue-500 to-cyan-500',     avatar: 'bg-gradient-to-br from-blue-500 to-cyan-500',     badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20',    dot: 'bg-blue-400'  },
+  published:  { label: 'Published',  accent: 'bg-gradient-to-r from-emerald-500 to-teal-500',  avatar: 'bg-gradient-to-br from-emerald-500 to-teal-500',  badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400' },
+  archived:   { label: 'Archived',   accent: 'bg-gradient-to-r from-gray-400 to-gray-500',     avatar: 'bg-gradient-to-br from-gray-400 to-gray-500',     badge: 'bg-raised text-muted border-default',               dot: 'bg-gray-400'  },
 }
 
 const PIPELINE_STAGES = [
@@ -84,9 +84,9 @@ function PipelineProgress({ stage }: { stage: string | null }) {
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
           {stageLabel[stage] ?? stage}…
         </span>
-        <span className="text-xs text-gray-400 font-medium">{pct}%</span>
+        <span className="text-xs text-muted font-medium">{pct}%</span>
       </div>
-      <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-raised rounded-full overflow-hidden">
         <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-400 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -162,7 +162,7 @@ export function SOPCard({ sop }: Props) {
   return (
     <div
       onClick={() => navigate({ to: '/sop/$id/procedure', params: { id: sop.id } })}
-      className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-gray-200 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden"
+      className="group bg-card rounded-2xl border border-subtle shadow-sm hover:shadow-xl hover:border-default hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden"
     >
       <div className={clsx('h-1.5', cfg.accent)} />
 
@@ -173,8 +173,8 @@ export function SOPCard({ sop }: Props) {
             <Initials name={displayName} />
           </div>
           <div className="flex-1 min-w-0 pt-0.5">
-            <p className="text-sm font-semibold text-gray-900 truncate leading-snug">{displayName}</p>
-            {subtitle && <p className="text-xs text-gray-400 truncate mt-0.5">{subtitle}</p>}
+            <p className="text-sm font-semibold text-default truncate leading-snug">{displayName}</p>
+            {subtitle && <p className="text-xs text-muted truncate mt-0.5">{subtitle}</p>}
           </div>
           <span className={clsx('shrink-0 text-xs font-medium px-2.5 py-1 rounded-full border flex items-center gap-1.5', cfg.badge)}>
             <span className={clsx('w-1.5 h-1.5 rounded-full', cfg.dot)} />
@@ -186,7 +186,7 @@ export function SOPCard({ sop }: Props) {
         {isPipelineRunning && sop.pipeline_stage && <PipelineProgress stage={sop.pipeline_stage} />}
         {sop.pipeline_status === 'failed' && (
           <p className="text-xs text-red-500 font-medium flex items-center gap-1.5">
-            <span className="w-4 h-4 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-[10px]">⚠</span>
+            <span className="w-4 h-4 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-[10px]">⚠</span>
             Pipeline failed
           </p>
         )}
@@ -216,7 +216,7 @@ export function SOPCard({ sop }: Props) {
             {canEdit && (
               addingTag ? (
                 <div
-                  className="w-full mt-1 p-3 bg-white border border-gray-200 rounded-xl shadow-lg"
+                  className="w-full mt-1 p-3 bg-card border border-default rounded-xl shadow-lg"
                   onClick={e => e.stopPropagation()}
                 >
                   {/* Live preview */}
@@ -237,7 +237,7 @@ export function SOPCard({ sop }: Props) {
                       if (e.key === 'Escape') { setAddingTag(false); setTagInput(''); setTagColor('blue') }
                     }}
                     placeholder="Tag name…"
-                    className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 mb-2.5"
+                    className="w-full text-xs px-2.5 py-1.5 border border-default rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 mb-2.5"
                   />
 
                   {/* Color swatches */}
@@ -267,7 +267,7 @@ export function SOPCard({ sop }: Props) {
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); setAddingTag(false); setTagInput(''); setTagColor('blue') }}
-                      className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
+                      className="text-xs px-3 py-1.5 border border-default rounded-lg text-muted hover:bg-raised transition-colors"
                     >
                       Cancel
                     </button>
@@ -276,7 +276,7 @@ export function SOPCard({ sop }: Props) {
               ) : (
                 <button
                   onClick={openTagInput}
-                  className="text-xs px-2.5 py-1 border border-dashed border-gray-300 rounded-full text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors"
+                  className="text-xs px-2.5 py-1 border border-dashed border-default rounded-full text-muted hover:border-blue-400/50 hover:text-blue-400 transition-colors"
                 >
                   + Add tag
                 </button>
@@ -286,8 +286,8 @@ export function SOPCard({ sop }: Props) {
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-1 border-t border-gray-50">
-          <div className="flex items-center gap-3 text-xs text-gray-400">
+        <div className="flex items-center justify-between pt-1 border-t border-subtle">
+          <div className="flex items-center gap-3 text-xs text-muted">
             <span>{sop.step_count} {sop.step_count === 1 ? 'step' : 'steps'}</span>
             {sop.meeting_date && <span>·</span>}
             {sop.meeting_date && <span>{formatDate(sop.meeting_date)}</span>}
@@ -304,7 +304,7 @@ export function SOPCard({ sop }: Props) {
                 {canDelete && (
                   <button
                     onClick={e => { e.stopPropagation(); setConfirming(true) }}
-                    className="text-xs w-7 h-7 flex items-center justify-center border border-gray-200 rounded-lg text-gray-300 hover:border-red-200 hover:text-red-400 transition-colors"
+                    className="text-xs w-7 h-7 flex items-center justify-center border border-default rounded-lg text-muted hover:border-red-400/40 hover:text-red-400 transition-colors"
                   >
                     ✕
                   </button>
@@ -314,7 +314,7 @@ export function SOPCard({ sop }: Props) {
               <>
                 <button
                   onClick={e => { e.stopPropagation(); setConfirming(false) }}
-                  className="text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
+                  className="text-xs px-2.5 py-1.5 border border-default rounded-lg text-muted hover:bg-raised transition-colors"
                 >
                   Cancel
                 </button>

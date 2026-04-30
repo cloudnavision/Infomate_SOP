@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+﻿import { useEffect, useRef } from 'react'
 import videojs from 'video.js'
 import type Player from 'video.js/dist/types/player'
 import 'video.js/dist/video-js.css'
@@ -67,7 +67,7 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
         <div className="relative">
           <img src={imgUrl} className="w-full rounded" alt="Screenshot" />
           {videoMode === 'clip' && (
-            <span className="absolute top-2 right-2 bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full border border-gray-200">
+            <span className="absolute top-2 right-2 bg-raised text-muted text-xs px-2 py-1 rounded-full border border-default">
               No clip for this step
             </span>
           )}
@@ -75,15 +75,15 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
       )
     }
     return (
-      <div className="bg-gray-100 rounded-lg p-8 border border-dashed border-gray-300 text-center">
-        <p className="text-sm text-gray-400">Screenshot available after pipeline processing</p>
+      <div className="bg-raised rounded-lg p-8 border border-dashed border-gray-300 text-center">
+        <p className="text-sm text-muted">Screenshot available after pipeline processing</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden shrink-0">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-gray-50/60">
+    <div className="bg-card rounded-lg shadow-sm border border-subtle overflow-hidden shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-subtle bg-page">
         <div className="flex items-center gap-1.5">
           <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${videoMode === 'clip' ? 'bg-blue-100' : 'bg-violet-100'}`}>
             {videoMode === 'clip' ? (
@@ -96,7 +96,7 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
               </svg>
             )}
           </span>
-          <span className="text-xs font-bold uppercase tracking-wide text-gray-600">
+          <span className="text-xs font-bold uppercase tracking-wide text-muted">
             {videoMode === 'clip' ? 'Step Clip' : 'Full Recording'}
           </span>
         </div>
@@ -104,7 +104,7 @@ export function VideoPlayer({ step, sopVideoUrl, playerRef, onTimeUpdate }: Prop
           onClick={() => setVideoMode(videoMode === 'clip' ? 'full' : 'clip')}
           disabled={!hasFullVideo && videoMode === 'clip'}
           title={!hasFullVideo ? 'Full video not available' : undefined}
-          className="text-xs px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-white hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium"
+          className="text-xs px-3 py-1 rounded-lg border border-default text-muted hover:bg-raised hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all font-medium"
         >
           {videoMode === 'clip' ? 'Switch to Full' : 'Switch to Clip'}
         </button>

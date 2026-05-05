@@ -3,14 +3,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 import httpx
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
-from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory, SOPActivityLog
+from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory, SOPActivityLog, SOPMergeSession
 from datetime import datetime, timezone
 from app.schemas import SOPListItem, SOPDetail, SOPMetrics, LikeResponse, ExportHistoryItem, ActivityEvent, ProcessMapConfigBody, LikerItem
 
@@ -519,18 +519,62 @@ async def upload_process_map_image(
     return {"confirmed_url": blob_url, "confirmed_at": confirmed_at}
 
 
+async def _delete_azure_prefix(sop_id: str) -> None:
+    """Delete all Azure Blob files under {sop_id}/ prefix. Best-effort — errors are swallowed."""
+    base_url = settings.azure_blob_base_url.rstrip("/")
+    sas = settings.azure_blob_sas_token
+    if not base_url or not sas:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # List all blobs under this SOP's prefix
+            list_url = f"{base_url}?restype=container&comp=list&prefix={sop_id}/&{sas}"
+            resp = await client.get(list_url)
+            if resp.status_code != 200:
+                return
+            # Parse blob names from XML
+            import re
+            names = re.findall(r"<Name>([^<]+)</Name>", resp.text)
+            # Delete each blob
+            for name in names:
+                await client.delete(f"{base_url}/{name}?{sas}")
+    except Exception:
+        pass  # Azure cleanup is best-effort; DB delete already committed
+
+
 @router.delete("/sops/{sop_id}", status_code=204)
 async def delete_sop(
     sop_id: UUID,
     current_user: Annotated[User, Depends(require_editor)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a SOP and all related data (cascades). Editor/Admin only."""
+    """Delete a SOP entirely: all DB rows (cascade) + all Azure Blob files. Editor/Admin only."""
     sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
     if sop is None:
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+
+    # Delete merge sessions (no CASCADE on those FKs — must go before the SOP row)
+    await db.execute(
+        delete(SOPMergeSession).where(
+            (SOPMergeSession.base_sop_id == sop_id)
+            | (SOPMergeSession.updated_sop_id == sop_id)
+            | (SOPMergeSession.merged_sop_id == sop_id)
+        )
+    )
+
+    # Remove from processed_sharepoint_files so the video can be re-ingested if needed
+    await db.execute(
+        text("DELETE FROM processed_sharepoint_files WHERE sop_id = :sop_id"),
+        {"sop_id": str(sop_id)},
+    )
+
+    # Delete the SOP row — cascades to steps, sections, transcript_lines,
+    # pipeline_runs, export_history, sop_likes, sop_activity_log, etc.
     await db.delete(sop)
     await db.commit()
+
+    # Clean up Azure Blob Storage (best-effort, after DB commit)
+    await _delete_azure_prefix(str(sop_id))
 
 
 @router.patch("/sops/{sop_id}/rename")

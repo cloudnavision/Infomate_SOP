@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -31,6 +32,14 @@ _ENV_SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 # One extraction job at a time — a single 45-min recording can be 2-3 GB.
 # Two simultaneous jobs risk OOM within the 4 GB container memory limit.
 _extraction_semaphore = asyncio.Semaphore(1)
+
+# ── Async split job state ─────────────────────────────────────────────────────
+# In-memory dict: job_id -> {status, result?, error?}
+# Lost on restart — callers should handle 404 from status endpoint gracefully.
+_split_jobs: dict = {}
+# Strong references to running background tasks — prevents asyncio GC from
+# collecting them mid-execution (event loop only holds weak references).
+_running_tasks: set = set()
 
 app = FastAPI(
     title="SOP Frame Extractor",
@@ -380,19 +389,43 @@ def _run_probe_job(req: ProbeVideoRequest) -> ProbeVideoResponse:
 
 # ── /api/split-video ──────────────────────────────────────────────────────────
 
-@app.post("/api/split-video", response_model=SplitVideoResponse, tags=["split"])
-async def split_video(req: SplitVideoRequest) -> SplitVideoResponse:
-    """Split a long video at the nearest keyframe to the midpoint and upload both parts."""
+@app.post("/api/split-video", status_code=202, tags=["split"])
+async def split_video(req: SplitVideoRequest) -> dict:
+    """
+    Start an async split job. Returns {job_id, status: processing} immediately (HTTP 202).
+    Poll GET /api/split-video/status/{job_id} until status == "done" or "failed".
+    This avoids Cloudflare's 120-second proxy read timeout for long videos.
+    """
     if _extraction_semaphore.locked():
         raise HTTPException(status_code=503, detail="Extractor busy — retry in 60 seconds.",
                             headers={"Retry-After": "60"})
+    job_id = str(uuid.uuid4())
+    _split_jobs[job_id] = {"status": "processing"}
+    task = asyncio.create_task(_split_job_task(job_id, req))
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
+    logger.info("Split job %s started for sop_id=%s", job_id, req.sop_id)
+    return {"job_id": job_id, "status": "processing"}
+
+
+async def _split_job_task(job_id: str, req: SplitVideoRequest) -> None:
     async with _extraction_semaphore:
         try:
             result = await asyncio.to_thread(_run_split_job, req)
-            return result
+            _split_jobs[job_id] = {"status": "done", "result": result.model_dump()}
+            logger.info("Split job %s done for sop_id=%s", job_id, req.sop_id)
         except Exception as exc:
-            logger.exception("Split job failed for sop_id=%s", req.sop_id)
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
+            logger.exception("Split job %s failed for sop_id=%s", job_id, req.sop_id)
+            _split_jobs[job_id] = {"status": "failed", "error": str(exc)}
+
+
+@app.get("/api/split-video/status/{job_id}", tags=["split"])
+async def split_video_status(job_id: str) -> dict:
+    """Poll split job status. Returns {status, result?} or 404 if job_id is unknown."""
+    job = _split_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Split job {job_id!r} not found.")
+    return job
 
 
 def _find_split_keyframe(video_path: Path, target_sec: float, window_sec: float) -> float:

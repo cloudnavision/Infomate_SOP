@@ -29,6 +29,8 @@ LIGHT_BG = RGBColor(0xF8, 0xF9, 0xFA)   # table alt row
 BORDER   = RGBColor(0xD1, 0xD5, 0xDB)   # table border
 
 TEMPLATE_PATH = Path("/data/templates/sop_template.docx")
+_VERSION_PATH = TEMPLATE_PATH.with_suffix(".version")
+_TEMPLATE_VERSION = "4"  # increment when template structure changes
 
 
 def _set_run_font(run, size_pt: float, bold=False, italic=False, color=None):
@@ -88,18 +90,19 @@ def _table_borders(tbl):
 def _add_toc_entry(doc, num: str, title_tag: str, level: int = 0):
     """
     Add a single TOC line with a dot leader tab.
-    level 0 = main section  (bold, numbered)
+    level 0 = main section  (bold, numbered, no indent)
     level 1 = sub-item      (indented, no number)
+    Uses static indentation values — no Jinja2 in XML attributes.
     """
     p = doc.add_paragraph()
     p.style = "Normal"
 
-    indent_cm = level * 0.8
     pPr = p._p.get_or_add_pPr()
 
-    # Paragraph indentation
+    # Static indent based on level (no Jinja2 expressions in XML attributes)
     ind = OxmlElement("w:ind")
-    ind.set(qn("w:left"), str(int(indent_cm * 360)))
+    ind.set(qn("w:left"), "360" if level > 0 else "0")
+    ind.set(qn("w:hanging"), "0")
     pPr.append(ind)
 
     # Tab stop: right-aligned dot-leader at 14 cm
@@ -124,9 +127,20 @@ def _add_toc_entry(doc, num: str, title_tag: str, level: int = 0):
     _set_run_font(r_tab, 10)
 
 
+def _ctrl_para(doc, tag: str):
+    """Add a Jinja2 control tag paragraph (for, endfor, if, else, endif)."""
+    p = doc.add_paragraph(tag)
+    p.style = "Normal"
+    p.paragraph_format.space_after = Pt(0)
+    p.paragraph_format.space_before = Pt(0)
+
+
 def build(force: bool = False):
-    if TEMPLATE_PATH.exists() and not force:
-        return
+    if not force and TEMPLATE_PATH.exists():
+        # Skip rebuild only if version matches
+        current = _VERSION_PATH.read_text().strip() if _VERSION_PATH.exists() else ""
+        if current == _TEMPLATE_VERSION:
+            return
 
     TEMPLATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -208,39 +222,20 @@ def build(force: bool = False):
     r = p_bar.add_run(" ")
     _set_run_font(r, 4)
 
-    # Jinja2 loop for TOC entries
-    p_loop_start = doc.add_paragraph("{%- for entry in toc_entries %}")
-    p_loop_start.style = "Normal"
-    p_loop_start.paragraph_format.space_after = Pt(0)
-    p_loop_start.paragraph_format.space_before = Pt(0)
-
-    _add_toc_entry(
-        doc,
-        num="{{ entry.num }}",
-        title_tag="{{ entry.title }}",
-    )
-    # We can't do conditional indentation easily in docxtpl paragraphs,
-    # so we handle indentation via entry.indent_spaces in the context
-    # Patch the last paragraph's pPr to use entry.indent_spaces
-    toc_p = doc.paragraphs[-1]
-    pPr = toc_p._p.get_or_add_pPr()
-    # Remove static indent, replace with dynamic
-    for ind_el in pPr.findall(qn("w:ind")):
-        pPr.remove(ind_el)
-    ind = OxmlElement("w:ind")
-    ind.set(qn("w:left"), "{{ entry.left_twips }}")
-    ind.set(qn("w:hanging"), "0")
-    pPr.append(ind)
-
-    p_loop_end = doc.add_paragraph("{%- endfor %}")
-    p_loop_end.style = "Normal"
-    p_loop_end.paragraph_format.space_after = Pt(0)
+    # Jinja2 loop — use if/else to select main vs sub-item paragraph style.
+    # This avoids putting Jinja2 expressions inside XML attributes (unreliable).
+    _ctrl_para(doc, "{%- for entry in toc_entries %}")
+    _ctrl_para(doc, "{%- if not entry.is_sub %}")
+    _add_toc_entry(doc, num="{{ entry.num }}", title_tag="{{ entry.title }}", level=0)
+    _ctrl_para(doc, "{%- else %}")
+    _add_toc_entry(doc, num="{{ entry.num }}", title_tag="{{ entry.title }}", level=1)
+    _ctrl_para(doc, "{%- endif %}")
+    _ctrl_para(doc, "{%- endfor %}")
 
     doc.add_page_break()
 
     # ── PRE-SECTIONS ─────────────────────────────────────────────────────────
-    p = doc.add_paragraph("{%- for section in sections_pre %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- for section in sections_pre %}")
 
     h2 = doc.add_heading("{{ section.num }}  {{ section.section_title }}", level=2)
     for run in h2.runs:
@@ -250,8 +245,7 @@ def build(force: bool = False):
     p_content = doc.add_paragraph("{{r section.content_text }}")
     p_content.style = "Normal"
 
-    p = doc.add_paragraph("{%- endfor %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- endfor %}")
 
     doc.add_page_break()
 
@@ -272,8 +266,7 @@ def build(force: bool = False):
         _set_run_font(run, 15, bold=True, color=ORANGE)
     _set_para_spacing(h1_dp, before_pt=12, after_pt=8)
 
-    p = doc.add_paragraph("{%- for step in steps %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- for step in steps %}")
 
     # Step heading
     h3 = doc.add_heading("Step {{ step.sequence }}: {{ step.title }}", level=3)
@@ -287,13 +280,11 @@ def build(force: bool = False):
     _set_para_spacing(p_desc, before_pt=0, after_pt=4)
 
     # Sub-steps
-    p = doc.add_paragraph("{%- for sub in step.sub_steps %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- for sub in step.sub_steps %}")
     p_sub = doc.add_paragraph("{{ sub }}")
     p_sub.style = "List Bullet"
     _set_para_spacing(p_sub, before_pt=0, after_pt=2)
-    p = doc.add_paragraph("{%- endfor %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- endfor %}")
 
     # Screenshot
     p_ss = doc.add_paragraph("{%- if step.screenshot %}{{ step.screenshot }}{%- endif %}")
@@ -301,8 +292,7 @@ def build(force: bool = False):
     _set_para_spacing(p_ss, before_pt=4, after_pt=4)
 
     # Callouts
-    p = doc.add_paragraph("{%- if step.callouts %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- if step.callouts %}")
 
     p_callout_head = doc.add_paragraph("Callout References")
     p_callout_head.style = "Normal"
@@ -310,15 +300,12 @@ def build(force: bool = False):
         _set_run_font(run, 10, bold=True, italic=True, color=DARK)
     _set_para_spacing(p_callout_head, before_pt=4, after_pt=2)
 
-    p = doc.add_paragraph("{%- for callout in step.callouts %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- for callout in step.callouts %}")
     p_cl = doc.add_paragraph("{{ callout.callout_number }}. {{ callout.label }}")
     p_cl.style = "List Number"
     _set_para_spacing(p_cl, before_pt=0, after_pt=2)
-    p = doc.add_paragraph("{%- endfor %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
-    p = doc.add_paragraph("{%- endif %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- endfor %}")
+    _ctrl_para(doc, "{%- endif %}")
 
     # Step separator
     p_sep = doc.add_paragraph()
@@ -328,14 +315,12 @@ def build(force: bool = False):
     r = p_sep.add_run(" ")
     _set_run_font(r, 3)
 
-    p = doc.add_paragraph("{%- endfor %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- endfor %}")
 
     doc.add_page_break()
 
     # ── POST-SECTIONS ─────────────────────────────────────────────────────────
-    p = doc.add_paragraph("{%- for section in sections_post %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- for section in sections_post %}")
 
     h2_post = doc.add_heading("{{ section.num }}  {{ section.section_title }}", level=2)
     for run in h2_post.runs:
@@ -345,11 +330,11 @@ def build(force: bool = False):
     p_post = doc.add_paragraph("{{r section.content_text }}")
     p_post.style = "Normal"
 
-    p = doc.add_paragraph("{%- endfor %}")
-    p.style = "Normal"; p.paragraph_format.space_after = Pt(0)
+    _ctrl_para(doc, "{%- endfor %}")
 
     doc.save(str(TEMPLATE_PATH))
-    print(f"Template written to {TEMPLATE_PATH}")
+    _VERSION_PATH.write_text(_TEMPLATE_VERSION)
+    print(f"Template v{_TEMPLATE_VERSION} written to {TEMPLATE_PATH}")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ GET  /api/merge/sessions/{id}             — get session + diff
 POST /api/merge/sessions/{id}/finalize    — approve changes, create merged SOP
 PATCH /api/sops/{id}/project-code        — set project_code on a SOP
 """
+import asyncio
 import uuid
 from datetime import date
 from typing import Annotated
@@ -19,13 +20,31 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.database import get_db
 from app.dependencies.auth import require_editor
-from app.models import SOP, SOPStatus, SOPStep, SOPMergeSession, User, ProcessGroup, StepClip
+from app.models import SOP, SOPStatus, SOPStep, SOPMergeSession, User, ProcessGroup, StepClip, SOPSection
 from app.schemas import (
     ProjectCodeUpdate, MergeCompareBody, MergeSessionResponse,
     MergeMatch, MergeFinalizeBody, CreateProcessGroupBody, ProcessGroupResponse,
 )
 
 router = APIRouter(prefix="/api", tags=["merge"])
+
+
+async def _copy_blob(
+    src_url: str,
+    dest_blob_path: str,
+    base_url: str,
+    sas_token: str,
+    client: httpx.AsyncClient,
+) -> str:
+    """Server-side Azure blob copy within the same storage account. Returns new URL (no SAS)."""
+    dest_base = f"{base_url.rstrip('/')}/{dest_blob_path}"
+    resp = await client.put(
+        f"{dest_base}?{sas_token}",
+        headers={"x-ms-copy-source": f"{src_url}?{sas_token}", "x-ms-version": "2020-04-08"},
+        content=b"",
+    )
+    resp.raise_for_status()
+    return dest_base
 
 
 # ── PATCH /api/sops/{sop_id}/project-code ────────────────────────────────────
@@ -286,7 +305,8 @@ async def finalize_merge(
 
     def _load_full(sop_id: uuid.UUID):
         return select(SOP).where(SOP.id == sop_id).options(
-            selectinload(SOP.steps).selectinload(SOPStep.clips)
+            selectinload(SOP.steps).selectinload(SOPStep.clips),
+            selectinload(SOP.sections),
         )
 
     base_sop = (await db.execute(_load_full(session.base_sop_id))).scalar_one()
@@ -320,6 +340,8 @@ async def finalize_merge(
     db.add(merged_sop)
     await db.flush()
 
+    created: list[tuple[int, SOPStep, list[StepClip]]] = []
+
     for seq, decision in enumerate(body.steps, start=1):
         source_step = step_map.get(decision.step_id)
         if source_step is None:
@@ -342,13 +364,56 @@ async def finalize_merge(
         )
         db.add(new_step)
         await db.flush()
+
+        step_clips: list[StepClip] = []
         for clip in source_step.clips:
-            db.add(StepClip(
+            new_clip = StepClip(
                 step_id=new_step.id,
                 clip_url=clip.clip_url,
                 duration_sec=clip.duration_sec,
                 file_size_bytes=clip.file_size_bytes,
-            ))
+            )
+            db.add(new_clip)
+            step_clips.append(new_clip)
+
+        created.append((seq, new_step, step_clips))
+
+    # Copy sections from base SOP so the merged SOP has a full document structure
+    for section in sorted(base_sop.sections, key=lambda s: s.display_order):
+        db.add(SOPSection(
+            sop_id=merged_sop.id,
+            section_key=section.section_key,
+            section_title=section.section_title,
+            display_order=section.display_order,
+            content_type=section.content_type,
+            content_text=section.content_text,
+            content_json=section.content_json,
+            mermaid_syntax=section.mermaid_syntax,
+            diagram_url=section.diagram_url,
+        ))
+
+    # Copy blobs into the merged SOP's own Azure folder so it has its own UUID path
+    base_url = settings.azure_blob_base_url
+    sas_token = settings.azure_blob_sas_token
+    merged_id = str(merged_sop.id)
+
+    if base_url and sas_token:
+        async def _do_copy(obj: object, attr: str, src: str, dest_path: str) -> None:
+            new_url = await _copy_blob(src, dest_path, base_url, sas_token, az)
+            setattr(obj, attr, new_url)
+
+        tasks = []
+        for seq, step, clips in created:
+            if step.screenshot_url:
+                tasks.append(_do_copy(step, "screenshot_url", step.screenshot_url, f"{merged_id}/frames/frame_{seq:03d}.png"))
+            if step.annotated_screenshot_url:
+                tasks.append(_do_copy(step, "annotated_screenshot_url", step.annotated_screenshot_url, f"{merged_id}/frames/annotated_{seq:03d}.png"))
+            for clip in clips:
+                if clip.clip_url:
+                    tasks.append(_do_copy(clip, "clip_url", clip.clip_url, f"{merged_id}/clips/clip_{seq:03d}.mp4"))
+
+        async with httpx.AsyncClient(timeout=120.0) as az:
+            await asyncio.gather(*tasks)
 
     session.merged_sop_id = merged_sop.id
     session.status = "merged"

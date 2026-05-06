@@ -1,9 +1,10 @@
 ﻿import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
-import { fetchSOP, fetchProcessMap, saveProcessMap, uploadProcessMapImage, sopKeys } from '../api/client'
+import { fetchSOP, fetchProcessMap, saveProcessMap, uploadProcessMapImage, createStep, sopKeys } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import type { ProcessMapLane, ProcessMapAssignment, SOPStep, ProcessMapConfig } from '../api/types'
+import { InlineLoader } from '../components/PageLoader'
 
 export const Route = createFileRoute('/sop/$id/processmap')({
   component: ProcessMapPage,
@@ -271,20 +272,38 @@ function StepAssigner({
   assignments,
   steps,
   onChange,
+  onAddStep,
 }: {
   lanes: ProcessMapLane[]
   assignments: ProcessMapAssignment[]
   steps: SOPStep[]
   onChange: (a: ProcessMapAssignment[]) => void
+  onAddStep: (title: string) => Promise<void>
 }) {
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const [addingStep, setAddingStep] = useState(false)
+  const [newStepTitle, setNewStepTitle] = useState('')
+  const [addPending, setAddPending] = useState(false)
 
   const update = (idx: number, patch: Partial<ProcessMapAssignment>) => {
     onChange(assignments.map((a, i) => (i === idx ? { ...a, ...patch } : a)))
   }
 
   const excludedSteps = steps.filter(s => !assignments.find(a => a.step_id === s.id))
+
+  async function submitNewStep() {
+    const title = newStepTitle.trim()
+    if (!title) return
+    setAddPending(true)
+    try {
+      await onAddStep(title)
+      setNewStepTitle('')
+      setAddingStep(false)
+    } finally {
+      setAddPending(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -385,6 +404,47 @@ function StepAssigner({
           ))}
         </div>
       )}
+
+      {/* Add new step */}
+      <div className="pt-3 border-t border-subtle">
+        {addingStep ? (
+          <div className="flex items-center gap-2 bg-card border border-blue-500/30 rounded-xl px-4 py-3 shadow-sm">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+            </svg>
+            <input
+              autoFocus
+              value={newStepTitle}
+              onChange={e => setNewStepTitle(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') submitNewStep()
+                if (e.key === 'Escape') { setAddingStep(false); setNewStepTitle('') }
+              }}
+              placeholder="Step title…"
+              className="flex-1 text-sm bg-transparent outline-none text-default placeholder:text-muted"
+            />
+            <button
+              onClick={submitNewStep}
+              disabled={!newStepTitle.trim() || addPending}
+              className="text-xs px-3 py-1.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+            >{addPending ? 'Adding…' : 'Add'}</button>
+            <button
+              onClick={() => { setAddingStep(false); setNewStepTitle('') }}
+              className="text-xs px-2.5 py-1.5 bg-raised text-muted rounded-lg border border-subtle hover:bg-card transition-colors"
+            >Cancel</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAddingStep(true)}
+            className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-600 font-medium transition-colors"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd"/>
+            </svg>
+            Add new step
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -576,14 +636,16 @@ function ProcessMapPage() {
     queryFn: () => fetchProcessMap(id),
   })
 
+  const [isEditing, setIsEditing] = useState(false)
   const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3>(0)
   const [lanes, setLanes] = useState<ProcessMapLane[]>([])
   const [assignments, setAssignments] = useState<ProcessMapAssignment[]>([])
   const [saved, setSaved] = useState(false)
+  const [initialised, setInitialised] = useState(false)
 
-  // Initialise from existing config or build default assignments from SOP steps
+  // Initialise ONCE from existing config or build default assignments from SOP steps
   useEffect(() => {
-    if (!sopData) return
+    if (!sopData || initialised) return
     const existing = pmData?.process_map_config
     if (existing?.lanes?.length) {
       setLanes(existing.lanes)
@@ -599,7 +661,8 @@ function ProcessMapPage() {
         }))
       )
     }
-  }, [sopData, pmData])
+    setInitialised(true)
+  }, [sopData, pmData, initialised])
 
   const handleLanesChange = (next: ProcessMapLane[]) => {
     setLanes(next)
@@ -631,18 +694,25 @@ function ProcessMapPage() {
   })
 
   const handleConfirmed = (confirmedUrl: string | null, confirmedAt: string) => {
-    saveMutation.mutate({ is_confirmed: true, confirmed_url: confirmedUrl, confirmed_at: confirmedAt })
+    saveMutation.mutate(
+      { is_confirmed: true, confirmed_url: confirmedUrl, confirmed_at: confirmedAt },
+      { onSuccess: () => setIsEditing(false) }
+    )
+  }
+
+  async function handleAddStep(title: string) {
+    const newStep = await createStep(id, title)
+    if (!newStep) return
+    // Patch cache in-place so the useEffect (initialised guard) doesn't reset assignments
+    qc.setQueryData(sopKeys.detail(id), (old: any) =>
+      old ? { ...old, steps: [...(old.steps ?? []), newStep] } : old
+    )
+    setAssignments(prev => [...prev, { step_id: newStep.id, lane_id: lanes[0]?.id ?? '', is_decision: false }])
   }
 
   if (sopLoading || pmLoading) {
     return (
-      <div className="flex items-center gap-2 text-muted text-sm py-8">
-        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-        </svg>
-        Loading process map…
-      </div>
+      <InlineLoader label="Loading process map…" />
     )
   }
 
@@ -672,6 +742,58 @@ function ProcessMapPage() {
     )
   }
 
+  const isConfirmed = pmData?.process_map_config?.is_confirmed === true
+
+  // ── Confirmed view ────────────────────────────────────────────────────────────
+  if (isConfirmed && !isEditing) {
+    const config = pmData!.process_map_config!
+    const confirmedAt = config.confirmed_at
+      ? new Date(config.confirmed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : null
+    const svgMarkup = generateSwimlane(lanes, assignments, steps)
+
+    return (
+      <div className="max-w-4xl space-y-4">
+        {/* Header bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-green-500">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-default">
+                {config.confirmed_url ? 'Custom diagram confirmed' : 'Auto-generated diagram confirmed'}
+              </p>
+              {confirmedAt && <p className="text-xs text-muted">Confirmed {confirmedAt} · used in DOCX/PDF exports</p>}
+            </div>
+          </div>
+          <button
+            onClick={() => { setIsEditing(true); setWizardStep(0) }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-default text-secondary rounded-xl hover:bg-raised transition-colors"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+            </svg>
+            Edit Process Map
+          </button>
+        </div>
+
+        {/* Diagram */}
+        <div className="bg-card rounded-xl border border-subtle shadow-sm overflow-auto">
+          {config.confirmed_url ? (
+            <img src={config.confirmed_url} alt="Confirmed process map" className="max-w-full p-4" />
+          ) : svgMarkup ? (
+            <div className="min-w-max p-4" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+          ) : (
+            <p className="p-8 text-center text-muted text-sm">Diagram data unavailable — click Edit to reconfigure.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const canProceed0 = lanes.length > 0 && lanes.every(l => l.name.trim())
   const canProceed1 = assignments.length > 0
 
@@ -679,6 +801,19 @@ function ProcessMapPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
+      {/* Back to diagram (only when editing an already-confirmed map) */}
+      {isConfirmed && isEditing && (
+        <button
+          onClick={() => setIsEditing(false)}
+          className="flex items-center gap-1.5 text-sm text-muted hover:text-secondary transition-colors"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
+          </svg>
+          Back to confirmed diagram
+        </button>
+      )}
+
       {/* Wizard progress bar */}
       <div className="bg-card rounded-xl border border-subtle shadow-sm p-5">
         <div className="flex items-center gap-0">
@@ -746,6 +881,7 @@ function ProcessMapPage() {
             assignments={assignments}
             steps={steps}
             onChange={setAssignments}
+            onAddStep={handleAddStep}
           />
         )}
         {wizardStep === 2 && (

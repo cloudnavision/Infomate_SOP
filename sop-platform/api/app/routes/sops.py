@@ -3,14 +3,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 import httpx
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
-from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory, SOPActivityLog
+from app.models import SOP, SOPStep, SOPStatus, PipelineRun, User, UserRole, SOPLike, ExportHistory, SOPActivityLog, SOPMergeSession
 from datetime import datetime, timezone
 from app.schemas import SOPListItem, SOPDetail, SOPMetrics, LikeResponse, ExportHistoryItem, ActivityEvent, ProcessMapConfigBody, LikerItem
 
@@ -444,8 +444,10 @@ async def get_process_map(
     config = sop.process_map_config
     if config and config.get("confirmed_url") and settings.azure_blob_sas_token:
         url = config["confirmed_url"]
-        if "?" not in url:
-            config = {**config, "confirmed_url": f"{url}?{settings.azure_blob_sas_token}"}
+        sas = settings.azure_blob_sas_token
+        if sas not in url:
+            sep = "&" if "?" in url else "?"
+            config = {**config, "confirmed_url": f"{url}{sep}{sas}"}
     return {"process_map_config": config}
 
 
@@ -465,7 +467,7 @@ async def save_process_map(
         "lanes": body.lanes,
         "assignments": body.assignments,
         "is_confirmed": body.is_confirmed,
-        "confirmed_url": body.confirmed_url if body.confirmed_url is not None else existing.get("confirmed_url"),
+        "confirmed_url": body.confirmed_url,  # null explicitly clears any uploaded image
         "confirmed_at": body.confirmed_at if body.confirmed_at is not None else existing.get("confirmed_at"),
     }
     sop.updated_at = datetime.now(timezone.utc)
@@ -506,17 +508,45 @@ async def upload_process_map_image(
             raise HTTPException(status_code=502, detail=f"Azure upload failed: {resp.status_code}")
 
     confirmed_at = datetime.now(timezone.utc).isoformat()
+    # Cache-bust so the browser fetches the new upload instead of the cached old one
+    versioned_url = f"{blob_url}?v={int(datetime.now(timezone.utc).timestamp())}"
     existing = sop.process_map_config or {}
     sop.process_map_config = {
         **existing,
         "is_confirmed": True,
-        "confirmed_url": blob_url,
+        "confirmed_url": versioned_url,
         "confirmed_at": confirmed_at,
     }
     sop.updated_at = datetime.now(timezone.utc)
     await db.commit()
 
-    return {"confirmed_url": blob_url, "confirmed_at": confirmed_at}
+    # Return URL with SAS so the frontend can display it immediately
+    sas = settings.azure_blob_sas_token
+    display_url = f"{versioned_url}&{sas}" if sas else versioned_url
+    return {"confirmed_url": display_url, "confirmed_at": confirmed_at}
+
+
+async def _delete_azure_prefix(sop_id: str) -> None:
+    """Delete all Azure Blob files under {sop_id}/ prefix. Best-effort — errors are swallowed."""
+    base_url = settings.azure_blob_base_url.rstrip("/")
+    sas = settings.azure_blob_sas_token
+    if not base_url or not sas:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # List all blobs under this SOP's prefix
+            list_url = f"{base_url}?restype=container&comp=list&prefix={sop_id}/&{sas}"
+            resp = await client.get(list_url)
+            if resp.status_code != 200:
+                return
+            # Parse blob names from XML
+            import re
+            names = re.findall(r"<Name>([^<]+)</Name>", resp.text)
+            # Delete each blob
+            for name in names:
+                await client.delete(f"{base_url}/{name}?{sas}")
+    except Exception:
+        pass  # Azure cleanup is best-effort; DB delete already committed
 
 
 @router.delete("/sops/{sop_id}", status_code=204)
@@ -525,12 +555,33 @@ async def delete_sop(
     current_user: Annotated[User, Depends(require_editor)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a SOP and all related data (cascades). Editor/Admin only."""
+    """Delete a SOP entirely: all DB rows (cascade) + all Azure Blob files. Editor/Admin only."""
     sop = (await db.execute(select(SOP).where(SOP.id == sop_id))).scalar_one_or_none()
     if sop is None:
         raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+
+    # Delete merge sessions (no CASCADE on those FKs — must go before the SOP row)
+    await db.execute(
+        delete(SOPMergeSession).where(
+            (SOPMergeSession.base_sop_id == sop_id)
+            | (SOPMergeSession.updated_sop_id == sop_id)
+            | (SOPMergeSession.merged_sop_id == sop_id)
+        )
+    )
+
+    # Remove from processed_sharepoint_files so the video can be re-ingested if needed
+    await db.execute(
+        text("DELETE FROM processed_sharepoint_files WHERE sop_id = :sop_id"),
+        {"sop_id": str(sop_id)},
+    )
+
+    # Delete the SOP row — cascades to steps, sections, transcript_lines,
+    # pipeline_runs, export_history, sop_likes, sop_activity_log, etc.
     await db.delete(sop)
     await db.commit()
+
+    # Clean up Azure Blob Storage (best-effort, after DB commit)
+    await _delete_azure_prefix(str(sop_id))
 
 
 @router.patch("/sops/{sop_id}/rename")

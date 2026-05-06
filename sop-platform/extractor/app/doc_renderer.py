@@ -3,6 +3,7 @@ SOP Document Renderer
 Phase 7a: docxtpl template injection + LibreOffice PDF conversion + Azure Blob upload
 """
 import logging
+import re
 import subprocess
 import tempfile
 import time
@@ -22,6 +23,16 @@ logger = logging.getLogger(__name__)
 TEMPLATE_PATH = Path("/data/templates/sop_template.docx")
 EXPORTS_DIR = Path("/data/exports")
 
+# Regex for characters that are illegal in XML 1.0 (excludes \t \n \r which are fine)
+_XML_ILLEGAL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _sanitize_text(text: str) -> str:
+    """Strip XML-illegal characters that would corrupt the DOCX output."""
+    if not text:
+        return text
+    return _XML_ILLEGAL_RE.sub("", text)
+
 
 def render_sop(
     sop_id: str,
@@ -37,7 +48,7 @@ def render_sop(
         {"docx_url": str, "pdf_url": str | None}
         URLs are base Azure Blob URLs without SAS (safe for DB storage).
     """
-    # Rebuild template on first run or if missing
+    # Rebuild template if missing or outdated
     try:
         from app.build_template import build as build_template
         build_template(force=False)
@@ -66,6 +77,9 @@ def render_sop(
         # Post-process: replace table placeholders with real Word tables
         if table_registry:
             _inject_tables(docx_path, table_registry)
+
+        # Post-process: add TOC hyperlinks (bookmarks on headings + hyperlink fields in TOC)
+        _inject_toc_links(docx_path)
 
         logger.info("Rendered DOCX: %s (%.1f KB)", docx_path, docx_path.stat().st_size / 1024)
 
@@ -100,7 +114,7 @@ def _section_content(tpl: DocxTemplate, section: dict, table_registry: dict):
     if "." in content_type:
         content_type = content_type.split(".")[-1]
 
-    text = section.get("content_text") or ""
+    text = _sanitize_text(section.get("content_text") or "")
     json_data = section.get("content_json")
 
     if content_type == "table" and isinstance(json_data, list) and json_data:
@@ -116,9 +130,10 @@ def _section_content(tpl: DocxTemplate, section: dict, table_registry: dict):
         rt = RichText()
         items = json_data if isinstance(json_data, list) else ([json_data] if json_data else [text])
         for i, item in enumerate(items):
+            item_str = _sanitize_text(str(item)) if item is not None else ""
             if i > 0:
                 rt.xml += "<w:r><w:br/></w:r>"
-            rt.add(f"\u2022  {item}", font="Calibri", size=22)
+            rt.add(f"•  {item_str}", font="Calibri", size=22)
         return rt
 
     rt = RichText()
@@ -203,6 +218,118 @@ def _inject_tables(docx_path: Path, table_registry: dict[str, list]) -> None:
     doc.save(str(docx_path))
 
 
+# ── TOC Hyperlinks ────────────────────────────────────────────────────────────
+
+def _add_para_bookmark(para, name: str, bm_id: int) -> None:
+    """Insert a named bookmark at the start of a heading paragraph."""
+    p = para._p
+    bm_start = OxmlElement("w:bookmarkStart")
+    bm_start.set(qn("w:id"), str(bm_id))
+    bm_start.set(qn("w:name"), name)
+    bm_end = OxmlElement("w:bookmarkEnd")
+    bm_end.set(qn("w:id"), str(bm_id))
+
+    # Insert immediately after pPr (or at position 0 if no pPr)
+    children = list(p)
+    pPr = p.find(qn("w:pPr"))
+    insert_pos = children.index(pPr) + 1 if pPr is not None else 0
+    p.insert(insert_pos, bm_start)
+    p.insert(insert_pos + 1, bm_end)
+
+
+def _is_toc_para(para) -> bool:
+    """Return True if paragraph has the TOC right-aligned dot-leader tab at 7920 twips."""
+    pPr = para._p.find(qn("w:pPr"))
+    if pPr is None:
+        return False
+    tabs = pPr.find(qn("w:tabs"))
+    if tabs is None:
+        return False
+    for tab in tabs.findall(qn("w:tab")):
+        if (
+            tab.get(qn("w:val")) == "right"
+            and tab.get(qn("w:leader")) == "dot"
+            and tab.get(qn("w:pos")) == "7920"
+        ):
+            return True
+    return False
+
+
+def _add_toc_hyperlink(para, anchor: str) -> None:
+    """Wrap all runs in a TOC paragraph inside a w:hyperlink element pointing to anchor."""
+    p = para._p
+    runs = p.findall(qn("w:r"))
+    if not runs:
+        return
+
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("w:anchor"), anchor)
+
+    # Insert hyperlink at position of first run, then move all runs into it
+    children = list(p)
+    first_pos = children.index(runs[0])
+    p.insert(first_pos, hyperlink)
+    for r in runs:
+        p.remove(r)
+        hyperlink.append(r)
+
+
+def _inject_toc_links(docx_path: Path) -> None:
+    """
+    Post-process rendered DOCX:
+    1. Add named bookmarks to all Heading 1/2/3 paragraphs.
+    2. Wrap TOC entry paragraphs (dot-leader tab at 7920) in w:hyperlink elements.
+    Headings and TOC entries are matched by normalising whitespace in their text.
+    """
+    try:
+        from docx import Document as DocxDoc
+
+        doc = DocxDoc(str(docx_path))
+        all_paras = list(doc.paragraphs)
+        heading_styles = {"Heading 1", "Heading 2", "Heading 3"}
+
+        # ── Pass 1: assign bookmarks to heading paragraphs ────────────────────
+        bm_id = 200  # start high to avoid conflicts with Word's auto-bookmarks
+        bm_map: dict[str, str] = {}  # normalised_text → bookmark_name
+
+        for para in all_paras:
+            style = para.style.name if para.style else ""
+            if style not in heading_styles:
+                continue
+            text = " ".join(para.text.split())
+            if not text:
+                continue
+            bm_name = f"_soptoc{bm_id}"
+            bm_map[text] = bm_name
+            _add_para_bookmark(para, bm_name, bm_id)
+            bm_id += 1
+
+        if not bm_map:
+            return  # no headings found — skip (e.g. empty SOP)
+
+        # ── Pass 2: add hyperlinks to TOC paragraphs ─────────────────────────
+        for para in all_paras:
+            if not _is_toc_para(para):
+                continue
+            raw_text = para.text
+            # Strip tab character and anything after it (dot leaders + empty page ref)
+            title_part = raw_text.split("\t")[0]
+            normalised = " ".join(title_part.split())
+            if not normalised:
+                continue
+            bm_name = bm_map.get(normalised)
+            if bm_name:
+                _add_toc_hyperlink(para, bm_name)
+
+        doc.save(str(docx_path))
+        logger.info("Injected TOC hyperlinks (%d bookmarks)", len(bm_map))
+
+    except Exception as exc:
+        logger.warning("TOC link injection failed (non-fatal): %s", exc)
+
+
+# ── Context builder ───────────────────────────────────────────────────────────
+
 def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_registry: dict | None = None, azure_sas_token: str = "") -> dict:
     """Build the Jinja2 context dict for docxtpl."""
     steps_raw = sop_data.get("steps", [])
@@ -216,12 +343,15 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_regis
 
         steps_ctx.append({
             "sequence": step.get("sequence", ""),
-            "title": step.get("title", ""),
-            "description": step.get("description") or "",
-            "sub_steps": step.get("sub_steps") or [],
+            "title": _sanitize_text(step.get("title") or ""),
+            "description": _sanitize_text(step.get("description") or ""),
+            "sub_steps": [_sanitize_text(str(s)) for s in (step.get("sub_steps") or []) if s is not None],
             "screenshot": screenshot,
             "callouts": [
-                {"callout_number": c.get("callout_number"), "label": c.get("label", "")}
+                {
+                    "callout_number": c.get("callout_number"),
+                    "label": _sanitize_text(c.get("label") or ""),
+                }
                 for c in (step.get("callouts") or [])
             ],
         })
@@ -237,7 +367,7 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_regis
     for s in raw_pre:
         sections_pre.append({
             "num": str(sec_num),
-            "section_title": s.get("section_title", ""),
+            "section_title": _sanitize_text(s.get("section_title") or ""),
             "content_text": _section_content(tpl, s, table_registry if table_registry is not None else {}),
         })
         sec_num += 1
@@ -249,7 +379,7 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_regis
     for s in raw_post:
         sections_post.append({
             "num": str(sec_num),
-            "section_title": s.get("section_title", ""),
+            "section_title": _sanitize_text(s.get("section_title") or ""),
             "content_text": _section_content(tpl, s, table_registry if table_registry is not None else {}),
         })
         sec_num += 1
@@ -271,37 +401,24 @@ def _build_context(tpl: DocxTemplate, sop_data: dict, tmp_dir: Path, table_regis
         process_map = _generate_process_map(tpl, steps_raw, tmp_dir)
     today = date.today().strftime("%d %b %Y")
 
-    # ── Build numbered TOC entries ──────────────────────────────────────────
-    # Matches Aged Debtor structure:
-    #   1   Procedure Description
-    #         Purpose/Scope          (level-1 indent, no number)
-    #   2   Training Prerequisites
-    #   N   Process Map
-    #   N+1 Detailed Procedure
-    #         Step 1: ...            (level-1 indent, no number)
-    #   N+2 Communication Matrix
-    # left_twips: 0 for top-level, 360 for sub-items (~0.63 cm)
+    # ── Build TOC entries ─────────────────────────────────────────────────────
+    # is_sub=False → main entry (Heading 1/2, with section number, no indent)
+    # is_sub=True  → sub-item (Heading 3 step, indented, no section number)
     toc_entries = []
     for s in sections_pre:
-        toc_entries.append({"num": s["num"], "title": s["section_title"], "left_twips": "0"})
+        toc_entries.append({"num": s["num"], "title": s["section_title"], "is_sub": False})
 
-    toc_entries.append({"num": pm_section_num, "title": "Process Map", "left_twips": "0"})
-    toc_entries.append({"num": dp_section_num, "title": "Detailed Procedure", "left_twips": "0"})
-    for step in steps_ctx:
-        toc_entries.append({
-            "num": "",
-            "title": f"Step {step['sequence']}: {step['title']}",
-            "left_twips": "360",
-        })
+    toc_entries.append({"num": pm_section_num, "title": "Process Map", "is_sub": False})
+    toc_entries.append({"num": dp_section_num, "title": "Detailed Procedure", "is_sub": False})
 
     for s in sections_post:
-        toc_entries.append({"num": s["num"], "title": s["section_title"], "left_twips": "0"})
+        toc_entries.append({"num": s["num"], "title": s["section_title"], "is_sub": False})
 
     return {
-        "sop_title": sop_data.get("sop_title", ""),
-        "client_name": sop_data.get("client_name") or "",
-        "process_name": sop_data.get("process_name") or "",
-        "meeting_date": sop_data.get("meeting_date") or "",
+        "sop_title": _sanitize_text(sop_data.get("sop_title") or ""),
+        "client_name": _sanitize_text(sop_data.get("client_name") or ""),
+        "process_name": _sanitize_text(sop_data.get("process_name") or ""),
+        "meeting_date": _sanitize_text(sop_data.get("meeting_date") or ""),
         "generated_date": today,
         "step_count": sop_data.get("step_count", len(steps_raw)),
         "steps": steps_ctx,
@@ -320,12 +437,26 @@ def _download_inline_image(
     tmp_dir: Path,
     step_id: str,
 ) -> Optional[InlineImage]:
-    """Download a screenshot and return an InlineImage object for docxtpl."""
+    """
+    Download a screenshot, resize to max 1400 px wide, and save as JPEG.
+    Keeps DOCX size small and render time fast.
+    """
     try:
+        from PIL import Image as PILImage
+        import io
+
         resp = requests.get(url, timeout=30)
         resp.raise_for_status()
-        img_path = tmp_dir / f"screenshot_{step_id}.png"
-        img_path.write_bytes(resp.content)
+
+        img = PILImage.open(io.BytesIO(resp.content)).convert("RGB")
+        max_w = 1400
+        if img.width > max_w:
+            ratio = max_w / img.width
+            img = img.resize((max_w, int(img.height * ratio)), PILImage.LANCZOS)
+
+        img_path = tmp_dir / f"screenshot_{step_id}.jpg"
+        img.save(str(img_path), "JPEG", quality=85, optimize=True)
+
         return InlineImage(tpl, str(img_path), width=Inches(5.5))
     except Exception as exc:
         logger.warning("Could not download screenshot for step %s: %s", step_id, exc)
@@ -432,8 +563,8 @@ def _generate_process_map(
                 )
                 y += ARROW_H
 
-        map_path = tmp_dir / "process_map.png"
-        img.save(str(map_path), "PNG")
+        map_path = tmp_dir / "process_map.jpg"
+        img.save(str(map_path), "JPEG", quality=92, optimize=True)
         return InlineImage(tpl, str(map_path), width=Inches(5.5))
 
     except Exception as exc:
@@ -626,8 +757,8 @@ def _generate_swimlane_map(
                 for li, line in enumerate(title_lines):
                     draw.text((tx, start_y + li * line_h), line, font=fnt_body, fill=DARK)
 
-        map_path = tmp_dir / "process_map_swimlane.png"
-        img.save(str(map_path), "PNG")
+        map_path = tmp_dir / "process_map_swimlane.jpg"
+        img.save(str(map_path), "JPEG", quality=92, optimize=True)
         return InlineImage(tpl, str(map_path), width=Inches(6.5))
 
     except Exception as exc:
@@ -646,8 +777,11 @@ def _download_confirmed_map(
         full_url = f"{url}?{sas_token}" if sas_token and "?" not in url else url
         resp = requests.get(full_url, timeout=30)
         resp.raise_for_status()
-        map_path = tmp_dir / "process_map_confirmed.png"
-        map_path.write_bytes(resp.content)
+        from PIL import Image as PILImage
+        import io as _io
+        pmap = PILImage.open(_io.BytesIO(resp.content)).convert("RGB")
+        map_path = tmp_dir / "process_map_confirmed.jpg"
+        pmap.save(str(map_path), "JPEG", quality=92, optimize=True)
         return InlineImage(tpl, str(map_path), width=Inches(6.5))
     except Exception as exc:
         logger.warning("Could not download confirmed process map from %s: %s", url, exc)

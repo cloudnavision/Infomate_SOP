@@ -120,8 +120,15 @@ class _ExtractRequest(BaseModel):
     frame_offset_sec: float = 1.5
 
 
-# ── Async extraction job store ────────────────────────────────
+# ── Async job store + GC guard ────────────────────────────────
 _jobs: dict[str, dict[str, Any]] = {}
+_running_tasks: set = set()
+
+
+def _spawn(coro) -> None:
+    task = asyncio.create_task(coro)
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
 
 
 async def _run_extraction_job(job_id: str, body: _ExtractRequest) -> None:
@@ -146,7 +153,7 @@ async def proxy_extract(body: _ExtractRequest) -> Any:
     """
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {"status": "processing", "result": None, "error": None}
-    asyncio.create_task(_run_extraction_job(job_id, body))
+    _spawn(_run_extraction_job(job_id, body))
     return {"job_id": job_id, "status": "processing"}
 
 
@@ -200,7 +207,7 @@ async def proxy_clip(body: _ClipRequest) -> Any:
     """
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {"status": "processing", "result": None, "error": None}
-    asyncio.create_task(_run_clip_job(job_id, body))
+    _spawn(_run_clip_job(job_id, body))
     return {"job_id": job_id, "status": "processing"}
 
 
@@ -214,6 +221,103 @@ async def get_clip_status(job_id: str) -> Any:
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     return {"job_id": job_id, **job}
+
+
+# ── /api/probe-video proxy ────────────────────────────────────
+
+class _ProbeVideoRequest(BaseModel):
+    video_url: str
+    azure_sas_token: str
+    azure_account: str
+    azure_container: str
+
+
+@app.post("/api/probe-video", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def proxy_probe_video(body: _ProbeVideoRequest) -> Any:
+    """Synchronous proxy POST /api/probe-video → sop-extractor:8001/api/probe-video"""
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            "http://sop-extractor:8001/api/probe-video",
+            json=body.model_dump(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+# ── /api/split-video proxy ────────────────────────────────────
+
+class _SplitVideoRequest(BaseModel):
+    video_url: str
+    sop_id: str
+    azure_sas_token: str
+    azure_account: str
+    azure_container: str
+    split_target_sec: float | None = None
+    search_window_sec: float = 300.0
+
+
+async def _run_split_job(job_id: str, body: _SplitVideoRequest) -> None:
+    try:
+        async with httpx.AsyncClient(timeout=3600.0) as client:
+            # Submit to extractor (returns 202 + extractor_job_id immediately)
+            response = await client.post(
+                "http://sop-extractor:8001/api/split-video",
+                json=body.model_dump(),
+            )
+            response.raise_for_status()
+            extractor_job_id = response.json()["job_id"]
+
+            # Poll extractor until split finishes (up to ~60 min)
+            for _ in range(120):
+                await asyncio.sleep(30)
+                try:
+                    st = await client.get(
+                        f"http://sop-extractor:8001/api/split-video/status/{extractor_job_id}",
+                        timeout=15.0,
+                    )
+                    data = st.json()
+                except Exception:
+                    continue
+                if data.get("status") == "done":
+                    _jobs[job_id] = {"status": "done", "result": data["result"], "error": None}
+                    return
+                if data.get("status") == "failed":
+                    _jobs[job_id] = {"status": "failed", "result": None, "error": data.get("error", "extractor failed")}
+                    return
+
+            _jobs[job_id] = {"status": "failed", "result": None, "error": "timed out waiting for extractor"}
+    except Exception as exc:
+        _jobs[job_id] = {"status": "failed", "result": None, "error": str(exc)}
+
+
+@app.post("/api/split-video", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def proxy_split_video(body: _SplitVideoRequest) -> Any:
+    """Async proxy POST /api/split-video → sop-extractor:8001/api/split-video. Returns job_id immediately."""
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {"status": "processing", "result": None, "error": None}
+    _spawn(_run_split_job(job_id, body))
+    return {"job_id": job_id, "status": "processing"}
+
+
+@app.get("/api/split-video/status/{job_id}", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def get_split_status(job_id: str) -> Any:
+    """Poll split job status. Returns {job_id, status, result: {part1_url, part2_url, ...}, error}"""
+    job = _jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return {"job_id": job_id, **job}
+
+
+class _SeedRequest(BaseModel):
+    job_id: str
+    result: dict
+
+
+@app.post("/api/split-video/seed", tags=["pipeline"], dependencies=[Depends(require_internal_key)])
+async def seed_split_result(body: _SeedRequest) -> Any:
+    """Recovery: inject a known split result into _jobs so a polling workflow can continue."""
+    _jobs[body.job_id] = {"status": "done", "result": body.result, "error": None}
+    return {"ok": True, "job_id": body.job_id}
 
 
 @app.get("/api/test-extractor", tags=["diagnostics"], dependencies=[Depends(require_internal_key)])

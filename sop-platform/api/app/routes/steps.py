@@ -2,14 +2,14 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies.auth import require_viewer, require_editor
 from app.models import SOP, SOPStep, StepCallout, User, SOPActivityLog
-from app.schemas import StepSchema, CalloutPatchItem, CalloutSchema, RenderAnnotatedResponse, with_sas, NewCalloutItem, HighlightBoxItem
+from app.schemas import StepSchema, CalloutPatchItem, CalloutSchema, RenderAnnotatedResponse, with_sas, NewCalloutItem, HighlightBoxItem, CreateStepBody
 from app.config import settings
 
 router = APIRouter(prefix="/api", tags=["steps"])
@@ -56,6 +56,47 @@ async def list_steps(
     )
     steps = (await db.execute(stmt)).scalars().all()
     return [StepSchema.model_validate(step) for step in steps]
+
+
+@router.post("/sops/{sop_id}/steps", response_model=StepSchema, status_code=201)
+async def create_step(
+    sop_id: UUID,
+    body: CreateStepBody,
+    current_user: Annotated[User, Depends(require_editor)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually add a new step to a SOP. Editor/Admin only."""
+    sop_exists = await db.scalar(select(SOP.id).where(SOP.id == sop_id))
+    if sop_exists is None:
+        raise HTTPException(status_code=404, detail=f"SOP {sop_id} not found")
+
+    max_seq = await db.scalar(
+        select(func.max(SOPStep.sequence)).where(SOPStep.sop_id == sop_id)
+    ) or 0
+
+    step = SOPStep(
+        sop_id=sop_id,
+        title=body.title.strip(),
+        sequence=max_seq + 1,
+        timestamp_start=0.0,
+    )
+    db.add(step)
+    await db.flush()
+
+    await _log(db, sop_id, current_user.id, "edit",
+               f"Step {max_seq + 1} added manually", f'"{body.title.strip()}"')
+    await db.commit()
+
+    step = await db.scalar(
+        select(SOPStep)
+        .where(SOPStep.id == step.id)
+        .options(
+            selectinload(SOPStep.callouts),
+            selectinload(SOPStep.clips),
+            selectinload(SOPStep.discussions),
+        )
+    )
+    return StepSchema.model_validate(step)
 
 
 @router.get("/sops/{sop_id}/steps/{step_id}", response_model=StepSchema)

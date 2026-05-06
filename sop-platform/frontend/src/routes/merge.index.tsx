@@ -1,7 +1,8 @@
 ﻿import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { fetchMergeGroups, compareSops, fetchSOPs, sopKeys, createProcessGroup, deleteProcessGroup, renameSOP } from '../api/client'
+import { fetchMergeGroups, compareSops, fetchSOPs, sopKeys, createProcessGroup, deleteProcessGroup, renameSOP, deleteSOP } from '../api/client'
+import { InlineLoader } from '../components/PageLoader'
 
 export const Route = createFileRoute('/merge/')({
   component: MergePage,
@@ -24,6 +25,7 @@ function MergePage() {
   const [sopSearch, setSopSearch] = useState('')
   const [comparingCode, setComparingCode] = useState<string | null>(null)
   const [confirmDeleteCode, setConfirmDeleteCode] = useState<string | null>(null)
+  const [confirmDeleteSopId, setConfirmDeleteSopId] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
@@ -82,6 +84,15 @@ function MergePage() {
       queryClient.invalidateQueries({ queryKey: ['merge-groups'] })
       queryClient.invalidateQueries({ queryKey: sopKeys.all })
       setConfirmDeleteCode(null)
+    },
+  })
+
+  const deleteSopMutation = useMutation({
+    mutationFn: (id: string) => deleteSOP(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: sopKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['merge-groups'] })
+      setConfirmDeleteSopId(null)
     },
   })
 
@@ -218,58 +229,101 @@ function MergePage() {
             ) : (
               <div className="space-y-3">
                 {mergedSops.map(sop => (
-                  <div key={sop.id} className="flex items-center gap-4 p-4 rounded-xl border border-subtle hover:border-purple-200 hover:bg-purple-50/20 transition-all">
-                    <div className="shrink-0 w-11 h-11 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {renamingId === sop.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            autoFocus
-                            value={renameValue}
-                            onChange={e => setRenameValue(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') submitRename(sop.id); if (e.key === 'Escape') setRenamingId(null) }}
-                            className="flex-1 px-2 py-1 text-sm border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200"
-                          />
-                          <button onClick={() => submitRename(sop.id)} disabled={renameMutation.isPending} className="text-xs px-2 py-1 bg-purple-600 text-white rounded font-semibold hover:bg-purple-700 disabled:opacity-50">Save</button>
-                          <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-1 bg-raised text-muted rounded font-semibold hover:bg-gray-200">Cancel</button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 group">
-                          <p className="text-sm font-semibold text-secondary truncate">{sop.title}</p>
-                          <button onClick={() => startRename(sop.id, sop.title)} className="opacity-20 group-hover:opacity-100 transition-opacity text-muted hover:text-secondary shrink-0">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                          </button>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-muted">{sop.step_count} steps</span>
-                        {sop.meeting_date && <><span className="text-gray-200">·</span><span className="text-xs text-muted">{sop.meeting_date}</span></>}
-                        {sop.project_code && (
-                          <><span className="text-gray-200">·</span>
-                          <span className="font-mono text-xs text-blue-500 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded-full">{sop.project_code}</span></>
+                  <div key={sop.id} className="group relative flex items-stretch gap-0 rounded-xl border border-subtle hover:border-purple-500/30 hover:shadow-md hover:shadow-purple-500/10 transition-all duration-200 overflow-hidden bg-card">
+                    {/* Left accent bar */}
+                    <div className="w-1 shrink-0 bg-purple-500/40 group-hover:bg-purple-500 transition-colors" />
+
+                    <div className="flex items-center gap-4 p-4 flex-1 min-w-0">
+                      {/* Icon */}
+                      <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/15 flex items-center justify-center transition-colors">
+                        <svg className="w-5 h-5 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 8a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zm6-6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+
+                      {/* Title + meta */}
+                      <div className="flex-1 min-w-0">
+                        {renamingId === sop.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              autoFocus
+                              value={renameValue}
+                              onChange={e => setRenameValue(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') submitRename(sop.id); if (e.key === 'Escape') setRenamingId(null) }}
+                              className="flex-1 px-2 py-1 text-sm border border-purple-500/40 rounded-lg bg-raised text-default focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                            />
+                            <button onClick={() => submitRename(sop.id)} disabled={renameMutation.isPending} className="text-xs px-2.5 py-1 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50">Save</button>
+                            <button onClick={() => setRenamingId(null)} className="text-xs px-2.5 py-1 bg-raised text-muted rounded-lg font-semibold hover:bg-card border border-subtle">Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-semibold text-default truncate">{sop.title}</p>
+                            <button
+                              onClick={() => startRename(sop.id, sop.title)}
+                              className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-muted hover:text-purple-500 shrink-0"
+                              title="Rename"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                          </div>
                         )}
-                        <span className="text-gray-200">·</span>
-                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full capitalize ${
-                          sop.status === 'published' ? 'bg-green-500/10 text-green-600'
-                          : sop.status === 'draft' ? 'bg-raised text-muted'
-                          : 'bg-blue-500/10 text-blue-500'
-                        }`}>{sop.status}</span>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-xs text-muted bg-raised px-2 py-0.5 rounded-full border border-subtle">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                            {sop.step_count} steps
+                          </span>
+                          {sop.meeting_date && (
+                            <span className="text-xs text-muted">{sop.meeting_date}</span>
+                          )}
+                          {sop.project_code && (
+                            <span className="font-mono text-xs text-purple-500 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-full">{sop.project_code}</span>
+                          )}
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full capitalize ${
+                            sop.status === 'published' ? 'bg-green-500/10 text-green-600'
+                            : sop.status === 'draft' ? 'bg-raised text-muted border border-subtle'
+                            : 'bg-blue-500/10 text-blue-500'
+                          }`}>{sop.status}</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="shrink-0 flex items-center gap-2">
+                        {confirmDeleteSopId === sop.id ? (
+                          <div className="flex items-center gap-1.5 bg-red-500/5 border border-red-500/20 rounded-lg px-2.5 py-1.5">
+                            <span className="text-xs text-red-500 font-medium">Delete?</span>
+                            <button
+                              onClick={() => deleteSopMutation.mutate(sop.id)}
+                              disabled={deleteSopMutation.isPending}
+                              className="text-xs px-2 py-0.5 bg-red-600 text-white font-semibold rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
+                            >{deleteSopMutation.isPending ? '…' : 'Yes'}</button>
+                            <button
+                              onClick={() => setConfirmDeleteSopId(null)}
+                              className="text-xs px-2 py-0.5 bg-raised text-muted font-semibold rounded hover:bg-card border border-subtle transition-colors"
+                            >No</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteSopId(sop.id)}
+                            className="p-2 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                            title="Delete merged SOP"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                        <Link
+                          to="/sop/$id/procedure"
+                          params={{ id: sop.id }}
+                          className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 active:scale-95 transition-all shadow-sm shadow-purple-500/20"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Open
+                        </Link>
                       </div>
                     </div>
-                    <Link
-                      to="/sop/$id/procedure"
-                      params={{ id: sop.id }}
-                      className="shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                      Open
-                    </Link>
                   </div>
                 ))}
               </div>
@@ -296,8 +350,8 @@ function MergePage() {
             </div>
 
             {groupsLoading ? (
-              <p className="text-sm text-muted py-8 text-center">Loading groups…</p>
-            ) : !groups?.length ? (
+              <InlineLoader label="Loading groups…" />
+            ) :!groups?.length ? (
               <div className="flex flex-col items-center justify-center h-44 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-blue-500/15 flex items-center justify-center mb-4">
                   <svg className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -341,7 +395,7 @@ function MergePage() {
                             </button>
                             <button
                               onClick={() => setConfirmDeleteCode(null)}
-                              className="text-xs px-2 py-0.5 bg-gray-200 text-muted rounded font-semibold hover:bg-gray-300 transition-colors"
+                              className="text-xs px-2 py-0.5 bg-raised text-muted rounded font-semibold hover:bg-card border border-subtle transition-colors"
                             >
                               No
                             </button>
@@ -364,7 +418,7 @@ function MergePage() {
                       const mergedOutputs = group.sops.filter(s => s.is_merged)
                       return (
                         <>
-                          <div className="divide-y divide-gray-50">
+                          <div className="divide-y divide-subtle">
                             {sources.map((sop, idx) => (
                               <div key={sop.id} className="flex items-center gap-3 px-4 py-2.5">
                                 <span className="w-5 h-5 rounded-full bg-raised text-muted text-xs font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
@@ -375,10 +429,10 @@ function MergePage() {
                                       value={renameValue}
                                       onChange={e => setRenameValue(e.target.value)}
                                       onKeyDown={e => { if (e.key === 'Enter') submitRename(sop.id); if (e.key === 'Escape') setRenamingId(null) }}
-                                      className="flex-1 px-2 py-0.5 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                      className="flex-1 px-2 py-0.5 text-sm border border-blue-500/40 rounded bg-raised text-default focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                                     />
                                     <button onClick={() => submitRename(sop.id)} disabled={renameMutation.isPending} className="text-xs px-2 py-0.5 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700 disabled:opacity-50">Save</button>
-                                    <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-raised text-muted rounded hover:bg-gray-200">✕</button>
+                                    <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-raised text-muted rounded hover:bg-card border border-subtle">✕</button>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-1.5 flex-1 min-w-0 group">
@@ -394,7 +448,7 @@ function MergePage() {
                           </div>
 
                           {mergedOutputs.length > 0 && (
-                            <div className="border-t border-subtle bg-purple-50/40">
+                            <div className="border-t border-subtle bg-purple-500/10">
                               <p className="px-4 pt-2.5 pb-1 text-xs font-semibold text-purple-500 uppercase tracking-wide">Merged Output</p>
                               {mergedOutputs.map(sop => (
                                 <div key={sop.id} className="flex items-center gap-3 px-4 py-2 pb-2.5">
@@ -410,10 +464,10 @@ function MergePage() {
                                         value={renameValue}
                                         onChange={e => setRenameValue(e.target.value)}
                                         onKeyDown={e => { if (e.key === 'Enter') submitRename(sop.id); if (e.key === 'Escape') setRenamingId(null) }}
-                                        className="flex-1 px-2 py-0.5 text-sm border border-purple-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-200"
+                                        className="flex-1 px-2 py-0.5 text-sm border border-purple-500/40 rounded bg-raised text-default focus:outline-none focus:ring-2 focus:ring-purple-500/30"
                                       />
                                       <button onClick={() => submitRename(sop.id)} disabled={renameMutation.isPending} className="text-xs px-2 py-0.5 bg-purple-600 text-white rounded font-semibold hover:bg-purple-700 disabled:opacity-50">Save</button>
-                                      <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-raised text-muted rounded hover:bg-gray-200">✕</button>
+                                      <button onClick={() => setRenamingId(null)} className="text-xs px-2 py-0.5 bg-raised text-muted rounded hover:bg-card border border-subtle">✕</button>
                                     </div>
                                   ) : (
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0 group">
@@ -425,13 +479,41 @@ function MergePage() {
                                   )}
                                   {sop.meeting_date && renamingId !== sop.id && <span className="text-xs text-purple-400 shrink-0">{sop.meeting_date}</span>}
                                   {renamingId !== sop.id && (
-                                    <Link
-                                      to="/sop/$id/procedure"
-                                      params={{ id: sop.id }}
-                                      className="shrink-0 text-xs font-semibold text-purple-600 hover:text-purple-800 underline underline-offset-2"
-                                    >
-                                      Open
-                                    </Link>
+                                    <div className="shrink-0 flex items-center gap-1.5">
+                                      {confirmDeleteSopId === sop.id ? (
+                                        <>
+                                          <span className="text-xs text-muted">Delete?</span>
+                                          <button
+                                            onClick={() => deleteSopMutation.mutate(sop.id)}
+                                            disabled={deleteSopMutation.isPending}
+                                            className="text-xs px-2 py-0.5 bg-red-600 text-white font-semibold rounded hover:bg-red-700 disabled:opacity-50"
+                                          >Yes</button>
+                                          <button
+                                            onClick={() => setConfirmDeleteSopId(null)}
+                                            className="text-xs px-2 py-0.5 bg-raised text-muted rounded hover:bg-card border border-subtle"
+                                          >No</button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button
+                                            onClick={() => setConfirmDeleteSopId(sop.id)}
+                                            className="p-1 text-purple-300 hover:text-red-500 transition-colors"
+                                            title="Delete"
+                                          >
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                          </button>
+                                          <Link
+                                            to="/sop/$id/procedure"
+                                            params={{ id: sop.id }}
+                                            className="text-xs font-semibold text-purple-600 hover:text-purple-800 underline underline-offset-2"
+                                          >
+                                            Open
+                                          </Link>
+                                        </>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               ))}
@@ -505,7 +587,7 @@ function MergePage() {
                 value={groupName}
                 onChange={e => setGroupName(e.target.value)}
                 placeholder="e.g. New Aged Debtor Report"
-                className="w-full px-3 py-2 border border-default rounded-lg text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full px-3 py-2 border border-default rounded-lg text-sm text-default bg-raised focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-muted mt-1.5">
                 A code will be auto-assigned — e.g. <span className="font-mono text-blue-600">GRP-001</span>
@@ -522,7 +604,7 @@ function MergePage() {
                 value={sopSearch}
                 onChange={e => setSopSearch(e.target.value)}
                 placeholder="Search recordings…"
-                className="w-full px-3 py-2 border border-default rounded-lg text-sm text-secondary mb-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full px-3 py-2 border border-default rounded-lg text-sm text-default bg-raised mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <div className="max-h-56 overflow-y-auto space-y-1 border border-subtle rounded-xl p-2">
                 {filteredRecordings.length === 0 ? (

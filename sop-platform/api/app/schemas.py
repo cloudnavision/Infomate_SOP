@@ -313,6 +313,10 @@ class ActivityEvent(BaseModel):
     actor_name: Optional[str] = None
 
 
+class CreateStepBody(BaseModel):
+    title: str
+
+
 class ProcessMapConfigBody(BaseModel):
     lanes: list[dict]
     assignments: list[dict]

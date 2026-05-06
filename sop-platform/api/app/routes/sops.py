@@ -444,8 +444,10 @@ async def get_process_map(
     config = sop.process_map_config
     if config and config.get("confirmed_url") and settings.azure_blob_sas_token:
         url = config["confirmed_url"]
-        if "?" not in url:
-            config = {**config, "confirmed_url": f"{url}?{settings.azure_blob_sas_token}"}
+        sas = settings.azure_blob_sas_token
+        if sas not in url:
+            sep = "&" if "?" in url else "?"
+            config = {**config, "confirmed_url": f"{url}{sep}{sas}"}
     return {"process_map_config": config}
 
 
@@ -518,7 +520,10 @@ async def upload_process_map_image(
     sop.updated_at = datetime.now(timezone.utc)
     await db.commit()
 
-    return {"confirmed_url": versioned_url, "confirmed_at": confirmed_at}
+    # Return URL with SAS so the frontend can display it immediately
+    sas = settings.azure_blob_sas_token
+    display_url = f"{versioned_url}&{sas}" if sas else versioned_url
+    return {"confirmed_url": display_url, "confirmed_at": confirmed_at}
 
 
 async def _delete_azure_prefix(sop_id: str) -> None:

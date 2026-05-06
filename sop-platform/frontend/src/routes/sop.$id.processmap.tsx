@@ -696,6 +696,7 @@ function ProcessMapPage() {
 
   async function handleAddStep(title: string) {
     const newStep = await createStep(id, title)
+    if (!newStep) return
     await qc.invalidateQueries({ queryKey: sopKeys.detail(id) })
     setAssignments(prev => [...prev, { step_id: newStep.id, lane_id: lanes[0]?.id ?? '', is_decision: false }])
   }

@@ -1,6 +1,6 @@
-﻿import { createFileRoute, useParams } from '@tanstack/react-router'
+import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { fetchSOP, sopKeys, setProjectCode } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import type { SOPSection } from '../api/types'
@@ -88,25 +88,25 @@ const SECTION_ICONS: Record<string, JSX.Element> = {
   ),
 }
 
-const SECTION_COLORS: Record<string, { bg: string; icon: string; border: string; badge: string }> = {
-  purpose:              { bg: 'bg-blue-500/10',    icon: 'text-blue-500',    border: 'border-blue-500/20',    badge: 'bg-blue-500/10 text-blue-500' },
-  inputs:               { bg: 'bg-emerald-500/10', icon: 'text-emerald-500', border: 'border-emerald-500/20', badge: 'bg-emerald-500/10 text-emerald-500' },
-  process_summary:      { bg: 'bg-indigo-500/10',  icon: 'text-indigo-500',  border: 'border-indigo-500/20',  badge: 'bg-indigo-500/10 text-indigo-500' },
-  outputs:              { bg: 'bg-teal-500/10',    icon: 'text-teal-500',    border: 'border-teal-500/20',    badge: 'bg-teal-500/10 text-teal-500' },
-  risks:                { bg: 'bg-red-500/10',     icon: 'text-red-500',     border: 'border-red-500/20',     badge: 'bg-red-500/10 text-red-500' },
-  training_prereqs:     { bg: 'bg-amber-500/10',   icon: 'text-amber-500',   border: 'border-amber-500/20',   badge: 'bg-amber-500/10 text-amber-500' },
-  software_access:      { bg: 'bg-violet-500/10',  icon: 'text-violet-500',  border: 'border-violet-500/20',  badge: 'bg-violet-500/10 text-violet-500' },
-  comm_matrix_infomate: { bg: 'bg-cyan-500/10',    icon: 'text-cyan-500',    border: 'border-cyan-500/20',    badge: 'bg-cyan-500/10 text-cyan-500' },
-  comm_matrix_client:   { bg: 'bg-sky-500/10',     icon: 'text-sky-500',     border: 'border-sky-500/20',     badge: 'bg-sky-500/10 text-sky-500' },
-  quality_params:       { bg: 'bg-purple-500/10',  icon: 'text-purple-500',  border: 'border-purple-500/20',  badge: 'bg-purple-500/10 text-purple-500' },
-  quality_sampling:     { bg: 'bg-fuchsia-500/10', icon: 'text-fuchsia-500', border: 'border-fuchsia-500/20', badge: 'bg-fuchsia-500/10 text-fuchsia-500' },
-  sow:                  { bg: 'bg-orange-500/10',  icon: 'text-orange-500',  border: 'border-orange-500/20',  badge: 'bg-orange-500/10 text-orange-500' },
-  baseline_target:      { bg: 'bg-lime-500/10',    icon: 'text-lime-600',    border: 'border-lime-500/20',    badge: 'bg-lime-500/10 text-lime-600' },
-  challenges:           { bg: 'bg-rose-500/10',    icon: 'text-rose-500',    border: 'border-rose-500/20',    badge: 'bg-rose-500/10 text-rose-500' },
-  improvements:         { bg: 'bg-green-500/10',   icon: 'text-green-500',   border: 'border-green-500/20',   badge: 'bg-green-500/10 text-green-500' },
+const SECTION_COLORS: Record<string, { bg: string; icon: string; border: string; activeBorder: string }> = {
+  purpose:              { bg: 'bg-blue-500/10',    icon: 'text-blue-500',    border: 'border-blue-500/20',    activeBorder: 'border-l-blue-500' },
+  inputs:               { bg: 'bg-emerald-500/10', icon: 'text-emerald-500', border: 'border-emerald-500/20', activeBorder: 'border-l-emerald-500' },
+  process_summary:      { bg: 'bg-indigo-500/10',  icon: 'text-indigo-500',  border: 'border-indigo-500/20',  activeBorder: 'border-l-indigo-500' },
+  outputs:              { bg: 'bg-teal-500/10',    icon: 'text-teal-500',    border: 'border-teal-500/20',    activeBorder: 'border-l-teal-500' },
+  risks:                { bg: 'bg-red-500/10',     icon: 'text-red-500',     border: 'border-red-500/20',     activeBorder: 'border-l-red-500' },
+  training_prereqs:     { bg: 'bg-amber-500/10',   icon: 'text-amber-500',   border: 'border-amber-500/20',   activeBorder: 'border-l-amber-500' },
+  software_access:      { bg: 'bg-violet-500/10',  icon: 'text-violet-500',  border: 'border-violet-500/20',  activeBorder: 'border-l-violet-500' },
+  comm_matrix_infomate: { bg: 'bg-cyan-500/10',    icon: 'text-cyan-500',    border: 'border-cyan-500/20',    activeBorder: 'border-l-cyan-500' },
+  comm_matrix_client:   { bg: 'bg-sky-500/10',     icon: 'text-sky-500',     border: 'border-sky-500/20',     activeBorder: 'border-l-sky-500' },
+  quality_params:       { bg: 'bg-purple-500/10',  icon: 'text-purple-500',  border: 'border-purple-500/20',  activeBorder: 'border-l-purple-500' },
+  quality_sampling:     { bg: 'bg-fuchsia-500/10', icon: 'text-fuchsia-500', border: 'border-fuchsia-500/20', activeBorder: 'border-l-fuchsia-500' },
+  sow:                  { bg: 'bg-orange-500/10',  icon: 'text-orange-500',  border: 'border-orange-500/20',  activeBorder: 'border-l-orange-500' },
+  baseline_target:      { bg: 'bg-lime-500/10',    icon: 'text-lime-600',    border: 'border-lime-500/20',    activeBorder: 'border-l-lime-500' },
+  challenges:           { bg: 'bg-rose-500/10',    icon: 'text-rose-500',    border: 'border-rose-500/20',    activeBorder: 'border-l-rose-500' },
+  improvements:         { bg: 'bg-green-500/10',   icon: 'text-green-500',   border: 'border-green-500/20',   activeBorder: 'border-l-green-500' },
 }
 
-const DEFAULT_COLOR = { bg: 'bg-raised', icon: 'text-muted', border: 'border-subtle', badge: 'bg-raised text-muted' }
+const DEFAULT_COLOR = { bg: 'bg-raised', icon: 'text-muted', border: 'border-subtle', activeBorder: 'border-l-default' }
 
 function impactBadge(val: string) {
   const v = val.toLowerCase()
@@ -120,10 +120,10 @@ function StyledTable({ rows }: { rows: Record<string, unknown>[] }) {
   if (!rows.length) return null
   const cols = Object.keys(rows[0])
   return (
-    <div className="overflow-x-auto rounded-lg border border-default">
+    <div className="overflow-x-auto rounded-lg border border-subtle">
       <table className="min-w-full text-sm">
         <thead>
-          <tr className="bg-raised border-b border-default">
+          <tr className="bg-raised border-b border-subtle">
             {cols.map((col) => (
               <th key={col} className="px-4 py-2.5 text-left text-xs font-semibold text-muted uppercase tracking-wide">
                 {col.replace(/_/g, ' ')}
@@ -131,7 +131,7 @@ function StyledTable({ rows }: { rows: Record<string, unknown>[] }) {
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-subtle">
           {rows.map((row, i) => (
             <tr key={i} className="hover:bg-raised transition-colors">
               {cols.map((col) => {
@@ -147,7 +147,7 @@ function StyledTable({ rows }: { rows: Record<string, unknown>[] }) {
                         {val}
                       </span>
                     ) : (isFreq || isAccess || isOwner) ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-raised text-muted">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-raised text-muted border border-subtle">
                         {val}
                       </span>
                     ) : val}
@@ -162,50 +162,324 @@ function StyledTable({ rows }: { rows: Record<string, unknown>[] }) {
   )
 }
 
-function SectionCard({ section }: { section: SOPSection }) {
-  const [open, setOpen] = useState(true)
+// ── Section card with smooth collapse animation ───────────────────────────────
+function SectionCard({
+  section,
+  isOpen,
+  onToggle,
+}: {
+  section: SOPSection
+  isOpen: boolean
+  onToggle: () => void
+}) {
   const colors = SECTION_COLORS[section.section_key] ?? DEFAULT_COLOR
   const icon = SECTION_ICONS[section.section_key]
 
   return (
-    <div id={`section-${section.section_key}`} className={`rounded-xl border ${colors.border} overflow-hidden shadow-sm`}>
+    <div
+      id={`section-${section.section_key}`}
+      className={`rounded-xl border ${colors.border} overflow-hidden shadow-sm transition-shadow hover:shadow-md`}
+    >
       {/* Header */}
       <button
-        onClick={() => setOpen((o) => !o)}
-        className={`w-full flex items-center justify-between px-5 py-3.5 ${colors.bg} hover:brightness-95 transition-all`}
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between px-5 py-3.5 ${colors.bg} hover:brightness-95 transition-all duration-150 group`}
       >
         <div className="flex items-center gap-2.5">
-          <span className={colors.icon}>{icon}</span>
+          <span className={`${colors.icon} transition-transform duration-150 group-hover:scale-110`}>
+            {icon}
+          </span>
           <span className="text-sm font-semibold text-secondary">{section.section_title}</span>
         </div>
-        <svg
-          viewBox="0 0 20 20" fill="currentColor"
-          className={`w-4 h-4 text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-        >
-          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
-        </svg>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted opacity-0 group-hover:opacity-100 transition-opacity">
+            {isOpen ? 'collapse' : 'expand'}
+          </span>
+          <svg
+            viewBox="0 0 20 20" fill="currentColor"
+            className={`w-4 h-4 text-muted transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          >
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+          </svg>
+        </div>
       </button>
 
-      {/* Body */}
-      {open && (
-        <div className="px-5 py-4 bg-card">
-          {section.content_type === 'text' && section.content_text && (
-            <p className="text-sm text-secondary leading-relaxed">{section.content_text}</p>
+      {/* Body — smooth height animation via grid trick */}
+      <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <div className="px-5 py-4 bg-card">
+            {section.content_type === 'text' && section.content_text && (
+              <p className="text-sm text-secondary leading-relaxed">{section.content_text}</p>
+            )}
+            {section.content_type === 'list' && Array.isArray(section.content_json) && (
+              <ul className="space-y-2">
+                {(section.content_json as string[]).map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-secondary group/item">
+                    <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full ${colors.bg} ${colors.icon} flex items-center justify-center text-xs font-bold transition-transform duration-150 group-hover/item:scale-110`}>
+                      {i + 1}
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {section.content_type === 'table' && Array.isArray(section.content_json) && section.content_json.length > 0 && (
+              <StyledTable rows={section.content_json as Record<string, unknown>[]} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Avatar colour palette ─────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  { bg: 'bg-blue-500/15',    text: 'text-blue-500',    border: 'border-blue-500/30' },
+  { bg: 'bg-violet-500/15',  text: 'text-violet-500',  border: 'border-violet-500/30' },
+  { bg: 'bg-emerald-500/15', text: 'text-emerald-500', border: 'border-emerald-500/30' },
+  { bg: 'bg-orange-500/15',  text: 'text-orange-500',  border: 'border-orange-500/30' },
+  { bg: 'bg-rose-500/15',    text: 'text-rose-500',    border: 'border-rose-500/30' },
+  { bg: 'bg-cyan-500/15',    text: 'text-cyan-500',    border: 'border-cyan-500/30' },
+  { bg: 'bg-amber-500/15',   text: 'text-amber-500',   border: 'border-amber-500/30' },
+  { bg: 'bg-indigo-500/15',  text: 'text-indigo-500',  border: 'border-indigo-500/30' },
+]
+
+const STATUS_CONFIG: Record<string, { bg: string; text: string; pulse: boolean; label: string }> = {
+  draft:       { bg: 'bg-gray-500/10',  text: 'text-gray-400',   pulse: false, label: 'Draft' },
+  in_review:   { bg: 'bg-amber-500/10', text: 'text-amber-400',  pulse: true,  label: 'In Review' },
+  published:   { bg: 'bg-green-500/10', text: 'text-green-400',  pulse: false, label: 'Published' },
+  archived:    { bg: 'bg-red-500/10',   text: 'text-red-400',    pulse: false, label: 'Archived' },
+  processing:  { bg: 'bg-blue-500/10',  text: 'text-blue-400',   pulse: true,  label: 'Processing' },
+}
+
+function StatCell({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-4 bg-card hover:bg-raised transition-colors cursor-default group">
+      <span className="text-2xl font-bold text-default tabular-nums group-hover:scale-105 transition-transform duration-150">
+        {value}
+      </span>
+      <span className="text-[10px] font-semibold text-muted mt-0.5 uppercase tracking-wider">{label}</span>
+      {sub && <span className="text-[10px] text-muted mt-0.5">{sub}</span>}
+    </div>
+  )
+}
+
+function SOPDetailsCard({ sop, canEdit }: { sop: any; canEdit: boolean }) {
+  const queryClient = useQueryClient()
+  const [editingCode, setEditingCode] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
+  const [showAllParticipants, setShowAllParticipants] = useState(false)
+
+  const projectCodeMutation = useMutation({
+    mutationFn: (code: string | null) => setProjectCode(sop.id, code),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: sopKeys.detail(sop.id) })
+      setEditingCode(false)
+    },
+  })
+
+  const approvedCount = sop.steps.filter((s: any) => s.is_approved).length
+  const totalSteps = sop.steps.length
+  const approvalPct = totalSteps > 0 ? Math.round((approvedCount / totalSteps) * 100) : 0
+  const durationMin = sop.video_duration_sec ? Math.floor(sop.video_duration_sec / 60) : 0
+  const durationSec = sop.video_duration_sec ? sop.video_duration_sec % 60 : 0
+  const durationStr = sop.video_duration_sec != null ? `${durationMin}m ${String(durationSec).padStart(2, '0')}s` : '—'
+  const participants = Array.isArray(sop.meeting_participants) ? sop.meeting_participants as string[] : []
+  const MAX_AVATARS = 5
+  const visibleAvatars = participants.slice(0, MAX_AVATARS)
+  const overflow = participants.length - MAX_AVATARS
+  const statusCfg = STATUS_CONFIG[sop.status] ?? STATUS_CONFIG.draft
+  const progressColor = approvalPct === 100
+    ? '#22c55e'
+    : approvalPct >= 50
+      ? '#3b82f6'
+      : '#a855f7'
+
+  return (
+    <div className="bg-card rounded-xl border border-subtle shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-3 border-b border-subtle bg-page flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
+          </svg>
+          <span className="text-xs font-semibold text-muted uppercase tracking-wide">SOP Details</span>
+        </div>
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${statusCfg.bg} ${statusCfg.text}`}>
+          {statusCfg.pulse && (
+            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${statusCfg.text.replace('text-', 'bg-')}`} />
           )}
-          {section.content_type === 'list' && Array.isArray(section.content_json) && (
-            <ul className="space-y-2">
-              {(section.content_json as string[]).map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-secondary">
-                  <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full ${colors.bg} ${colors.icon} flex items-center justify-center text-xs font-bold`}>
-                    {i + 1}
+          {statusCfg.label.toUpperCase()}
+        </span>
+      </div>
+
+      {/* Stats strip */}
+      <div className="grid grid-cols-3 divide-x divide-subtle border-b border-subtle">
+        <StatCell label="Steps" value={totalSteps} sub={totalSteps > 0 ? `${approvedCount} approved` : undefined} />
+        <StatCell label="Duration" value={durationStr} />
+        <StatCell label="Participants" value={participants.length || '—'} />
+      </div>
+
+      {/* Approval progress bar */}
+      {totalSteps > 0 && (
+        <div className="px-5 py-3 border-b border-subtle bg-page/40">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-medium text-muted">Step approval progress</span>
+            <span className="text-[11px] font-bold text-default tabular-nums">{approvalPct}%</span>
+          </div>
+          <div className="h-2 bg-raised rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${approvalPct}%`, backgroundColor: progressColor }}
+            />
+          </div>
+          <p className="text-[10px] text-muted mt-1.5">
+            {approvedCount} of {totalSteps} steps approved
+            {approvalPct === 100 && ' ✓'}
+          </p>
+        </div>
+      )}
+
+      {/* Detail rows */}
+      <div className="px-5 py-3 space-y-0.5">
+        {sop.meeting_date && (
+          <div className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-lg hover:bg-raised transition-colors group">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted shrink-0 group-hover:text-default transition-colors">
+              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
+            </svg>
+            <span className="text-xs text-muted w-24 shrink-0">Meeting date</span>
+            <span className="text-sm text-secondary">
+              {new Date(sop.meeting_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+          </div>
+        )}
+        {sop.client_name && (
+          <div className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-lg hover:bg-raised transition-colors group">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted shrink-0 group-hover:text-default transition-colors">
+              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd"/>
+            </svg>
+            <span className="text-xs text-muted w-24 shrink-0">Client</span>
+            <span className="text-sm text-secondary font-medium">{sop.client_name}</span>
+          </div>
+        )}
+        {sop.process_name && (
+          <div className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-lg hover:bg-raised transition-colors group">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted shrink-0 group-hover:text-default transition-colors">
+              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" clipRule="evenodd"/>
+            </svg>
+            <span className="text-xs text-muted w-24 shrink-0">Process</span>
+            <span className="text-sm text-secondary font-medium">{sop.process_name}</span>
+          </div>
+        )}
+        {/* Project Code */}
+        <div className="flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-lg hover:bg-raised transition-colors group">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted shrink-0 group-hover:text-default transition-colors">
+            <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
+          </svg>
+          <span className="text-xs text-muted w-24 shrink-0">Project code</span>
+          {editingCode ? (
+            <div className="flex items-center gap-2">
+              <input
+                value={codeInput}
+                onChange={e => setCodeInput(e.target.value.toUpperCase())}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') projectCodeMutation.mutate(codeInput || null)
+                  if (e.key === 'Escape') setEditingCode(false)
+                }}
+                className="text-sm bg-input text-secondary border border-default rounded-lg px-3 py-1 w-32 focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-mono"
+                placeholder="e.g. GRP-001"
+                maxLength={50}
+                autoFocus
+              />
+              <button
+                onClick={() => projectCodeMutation.mutate(codeInput || null)}
+                disabled={projectCodeMutation.isPending}
+                className="text-xs px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >Save</button>
+              <button onClick={() => setEditingCode(false)} className="text-xs text-muted hover:text-secondary transition-colors">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {sop.project_code ? (
+                <span className="text-sm font-mono font-semibold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
+                  {sop.project_code}
+                </span>
+              ) : (
+                <span className="text-sm text-muted">—</span>
+              )}
+              {canEdit && (
+                <button
+                  onClick={() => { setCodeInput(sop.project_code || ''); setEditingCode(true) }}
+                  className="text-xs text-muted hover:text-blue-500 px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition-all"
+                >{sop.project_code ? 'Edit' : 'Set'}</button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Participants */}
+      {participants.length > 0 && (
+        <div className="px-5 py-3.5 border-t border-subtle">
+          <div className="flex items-center gap-2 mb-3">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted shrink-0">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+            </svg>
+            <span className="text-xs text-muted">Participants</span>
+          </div>
+          {/* Stacked avatars */}
+          <div className="flex items-center gap-3">
+            <div className="flex -space-x-2">
+              {visibleAvatars.map((p, i) => {
+                const ac = AVATAR_COLORS[i % AVATAR_COLORS.length]
+                return (
+                  <div
+                    key={p}
+                    title={p}
+                    className={`w-8 h-8 rounded-full ${ac.bg} border-2 border-card flex items-center justify-center text-[11px] font-bold uppercase cursor-default hover:scale-110 hover:z-10 transition-transform duration-150 ${ac.text}`}
+                    style={{ zIndex: MAX_AVATARS - i }}
+                  >
+                    {p[0]}
+                  </div>
+                )
+              })}
+              {overflow > 0 && (
+                <button
+                  onClick={() => setShowAllParticipants(v => !v)}
+                  className="w-8 h-8 rounded-full bg-raised border-2 border-card flex items-center justify-center text-[10px] font-bold text-muted hover:scale-110 hover:bg-card transition-all duration-150"
+                  title="Show all participants"
+                  style={{ zIndex: 0 }}
+                >
+                  +{overflow}
+                </button>
+              )}
+            </div>
+            {overflow > 0 && (
+              <button
+                onClick={() => setShowAllParticipants(v => !v)}
+                className="text-xs text-muted hover:text-default transition-colors"
+              >
+                {showAllParticipants ? 'Show less' : `Show all ${participants.length}`}
+              </button>
+            )}
+          </div>
+          {/* Expanded name chips */}
+          {(showAllParticipants || overflow <= 0) && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {participants.map((p, i) => {
+                const ac = AVATAR_COLORS[i % AVATAR_COLORS.length]
+                return (
+                  <span
+                    key={p}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${ac.bg} ${ac.text} border ${ac.border}`}
+                  >
+                    <span className="font-bold">{p[0]}</span>
+                    {p}
                   </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
-          {section.content_type === 'table' && Array.isArray(section.content_json) && section.content_json.length > 0 && (
-            <StyledTable rows={section.content_json as Record<string, unknown>[]} />
+                )
+              })}
+            </div>
           )}
         </div>
       )}
@@ -213,34 +487,20 @@ function SectionCard({ section }: { section: SOPSection }) {
   )
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  completed:   'bg-green-500/10 text-green-600 border border-green-500/30',
-  processing:  'bg-blue-500/10 text-blue-600 border border-blue-500/30',
-  failed:      'bg-red-500/10 text-red-600 border border-red-500/30',
-  queued:      'bg-raised text-muted',
-}
-
 function OverviewPage() {
   const { id } = useParams({ from: '/sop/$id/overview' })
   const { appUser } = useAuth()
   const canEdit = appUser?.role === 'editor' || appUser?.role === 'admin'
-  const queryClient = useQueryClient()
-  const [editingCode, setEditingCode] = useState(false)
-  const [codeInput, setCodeInput] = useState('')
+  // section open/close state — undefined means open by default
+  const [closedSections, setClosedSections] = useState<Set<string>>(new Set())
+  const [activeSection, setActiveSection] = useState<string | null>(null)
 
   const { data: sop } = useQuery({
     queryKey: sopKeys.detail(id),
     queryFn: () => fetchSOP(id),
   })
 
-  const projectCodeMutation = useMutation({
-    mutationFn: (code: string | null) => setProjectCode(id, code),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: sopKeys.detail(id) })
-      setEditingCode(false)
-    },
-  })
-
+  // Scroll to hash section on load
   useEffect(() => {
     if (!sop || sop.sections.length === 0) return
     const hash = window.location.hash.slice(1)
@@ -249,13 +509,52 @@ function OverviewPage() {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [sop])
 
+  // IntersectionObserver — highlight active TOC item while scrolling
+  useEffect(() => {
+    if (!sop?.sections.length) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id.replace('section-', ''))
+          }
+        })
+      },
+      { rootMargin: '-15% 0px -70% 0px', threshold: 0 },
+    )
+    sop.sections.forEach((sec) => {
+      const el = document.getElementById(`section-${sec.section_key}`)
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+  }, [sop?.sections.length])
+
+  const isSectionOpen = useCallback(
+    (sectionId: string) => !closedSections.has(sectionId),
+    [closedSections],
+  )
+
+  const toggleSection = useCallback((sectionId: string) => {
+    setClosedSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(sectionId)) next.delete(sectionId)
+      else next.add(sectionId)
+      return next
+    })
+  }, [])
+
+  const allOpen = sop ? sop.sections.every((s) => !closedSections.has(s.id as unknown as string)) : true
+
+  function toggleAll() {
+    if (!sop) return
+    if (allOpen) {
+      setClosedSections(new Set(sop.sections.map((s) => s.id as unknown as string)))
+    } else {
+      setClosedSections(new Set())
+    }
+  }
+
   if (!sop) return null
-
-  const participants = Array.isArray(sop.meeting_participants) && sop.meeting_participants.length > 0
-    ? (sop.meeting_participants as string[])
-    : []
-
-  const statusColor = STATUS_COLORS[sop.status] ?? STATUS_COLORS.queued
 
   return (
     <div className="flex gap-6 items-start">
@@ -263,135 +562,33 @@ function OverviewPage() {
       <div className="flex-1 min-w-0 space-y-4">
 
         {/* SOP Details card */}
-        <div className="bg-card rounded-xl border border-subtle shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-subtle bg-page flex items-center gap-2">
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-muted">
-              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
-            </svg>
-            <span className="text-xs font-semibold text-muted uppercase tracking-wide">SOP Details</span>
-          </div>
-          <div className="px-5 py-4 grid grid-cols-2 gap-x-8 gap-y-3">
-            {sop.client_name && (
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd"/>
-                </svg>
-                <span className="text-xs text-muted w-20 shrink-0">Client</span>
-                <span className="text-sm text-secondary font-medium">{sop.client_name}</span>
-              </div>
-            )}
-            {sop.process_name && (
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
-                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" clipRule="evenodd"/>
-                </svg>
-                <span className="text-xs text-muted w-20 shrink-0">Process</span>
-                <span className="text-sm text-secondary font-medium">{sop.process_name}</span>
-              </div>
-            )}
-            {sop.meeting_date && (
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"/>
-                </svg>
-                <span className="text-xs text-muted w-20 shrink-0">Meeting</span>
-                <span className="text-sm text-secondary">
-                  {new Date(sop.meeting_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
-                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd"/>
-              </svg>
-              <span className="text-xs text-muted w-20 shrink-0">Status</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}>
-                {sop.status.replace(/_/g, ' ').toUpperCase()}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
-                <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/>
-              </svg>
-              <span className="text-xs text-muted w-20 shrink-0">Steps</span>
-              <span className="text-sm font-semibold text-secondary">{sop.steps.length}</span>
-            </div>
-            {/* Project Code */}
-            <div className="flex items-center gap-2 col-span-2">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
-                <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
-              </svg>
-              <span className="text-xs text-muted w-20 shrink-0">Project Code</span>
-              {editingCode ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    value={codeInput}
-                    onChange={e => setCodeInput(e.target.value.toUpperCase())}
-                    className="text-sm bg-input text-secondary border border-default rounded-lg px-3 py-1 w-36 focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-mono"
-                    placeholder="e.g. AGED-001"
-                    maxLength={50}
-                  />
-                  <button
-                    onClick={() => projectCodeMutation.mutate(codeInput || null)}
-                    disabled={projectCodeMutation.isPending}
-                    className="text-xs px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  >Save</button>
-                  <button onClick={() => setEditingCode(false)} className="text-xs text-muted hover:text-secondary">Cancel</button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-mono font-medium ${sop.project_code ? 'text-blue-600' : 'text-gray-300'}`}>
-                    {sop.project_code || 'None'}
-                  </span>
-                  {canEdit && (
-                    <button
-                      onClick={() => { setCodeInput(sop.project_code || ''); setEditingCode(true) }}
-                      className="text-xs text-muted hover:text-blue-500 underline"
-                    >{sop.project_code ? 'Edit' : 'Set'}</button>
-                  )}
-                </div>
-              )}
-            </div>
-            {sop.video_duration_sec != null && (
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
-                </svg>
-                <span className="text-xs text-muted w-20 shrink-0">Duration</span>
-                <span className="text-sm text-secondary">
-                  {Math.floor(sop.video_duration_sec / 60)} min {sop.video_duration_sec % 60} sec
-                </span>
-              </div>
-            )}
-          </div>
+        <SOPDetailsCard sop={sop} canEdit={canEdit} />
 
-          {/* Participants */}
-          {participants.length > 0 && (
-            <div className="px-5 pb-4">
-              <div className="flex items-start gap-2">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-gray-300 shrink-0 mt-1">
-                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
-                </svg>
-                <span className="text-xs text-muted w-20 shrink-0 mt-1">Participants</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {participants.map((p) => (
-                    <span key={p} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                      <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-[9px] font-bold uppercase">
-                        {p[0]}
-                      </span>
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Sections header + expand/collapse all */}
+        {sop.sections.length > 0 && (
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-semibold text-muted uppercase tracking-wide">
+              {sop.sections.length} section{sop.sections.length !== 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={toggleAll}
+              className="flex items-center gap-1.5 text-xs text-muted hover:text-default transition-colors"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                {allOpen
+                  ? <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd"/>
+                  : <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                }
+              </svg>
+              {allOpen ? 'Collapse all' : 'Expand all'}
+            </button>
+          </div>
+        )}
 
         {/* Section cards */}
         {sop.sections.length === 0 ? (
           <div className="text-sm text-muted bg-page rounded-xl p-6 border border-dashed border-default text-center">
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-8 h-8 text-gray-300 mx-auto mb-2">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-8 h-8 text-muted mx-auto mb-2">
               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
             </svg>
             No sections generated yet.
@@ -399,7 +596,12 @@ function OverviewPage() {
         ) : (
           <div className="space-y-3">
             {sop.sections.map((section) => (
-              <SectionCard key={section.id} section={section} />
+              <SectionCard
+                key={section.id}
+                section={section}
+                isOpen={isSectionOpen(section.id as unknown as string)}
+                onToggle={() => toggleSection(section.id as unknown as string)}
+              />
             ))}
           </div>
         )}
@@ -407,7 +609,7 @@ function OverviewPage() {
 
       {/* ── Sticky TOC sidebar ─────────────────────────────────────────── */}
       {sop.sections.length > 0 && (
-        <div className="hidden lg:block w-44 shrink-0">
+        <div className="hidden lg:block w-48 shrink-0">
           <div className="sticky top-4 bg-card rounded-xl border border-subtle shadow-sm overflow-hidden">
             <div className="px-3 py-2.5 border-b border-subtle bg-page">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">On this page</span>
@@ -415,6 +617,7 @@ function OverviewPage() {
             <nav className="py-2">
               {sop.sections.map((sec) => {
                 const colors = SECTION_COLORS[sec.section_key] ?? DEFAULT_COLOR
+                const isActive = activeSection === sec.section_key
                 return (
                   <a
                     key={sec.id}
@@ -422,10 +625,15 @@ function OverviewPage() {
                     onClick={(e) => {
                       e.preventDefault()
                       document.getElementById(`section-${sec.section_key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      setActiveSection(sec.section_key)
                     }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted hover:bg-raised hover:text-gray-900 transition-colors group"
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs transition-all duration-150 border-l-2 ${
+                      isActive
+                        ? `${colors.activeBorder} bg-raised ${colors.icon} font-medium`
+                        : 'border-l-transparent text-muted hover:bg-raised hover:text-default'
+                    }`}
                   >
-                    <span className={`shrink-0 ${colors.icon} opacity-70 group-hover:opacity-100`}>
+                    <span className={`shrink-0 transition-colors duration-150 ${isActive ? colors.icon : 'text-muted'}`}>
                       {SECTION_ICONS[sec.section_key] ?? null}
                     </span>
                     <span className="leading-tight">{sec.section_title}</span>

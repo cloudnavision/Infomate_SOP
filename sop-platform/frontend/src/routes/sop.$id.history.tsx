@@ -1,11 +1,15 @@
-﻿import { createFileRoute, useParams } from '@tanstack/react-router'
+import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { fetchAPI } from '../api/client'
 import type { ActivityEvent } from '../api/types'
+import { InlineLoader } from '../components/PageLoader'
 
 export const Route = createFileRoute('/sop/$id/history')({
   component: HistoryPage,
 })
+
+const INITIAL_LIMIT = 15
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 const Icon = {
@@ -79,9 +83,14 @@ const Icon = {
       <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z"/>
     </svg>
   ),
+  ChevronDown: () => (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+    </svg>
+  ),
 }
 
-// ── Per-event styling + icon resolution ───────────────────────────────────────
+// ── Per-event styling ─────────────────────────────────────────────────────────
 function resolveEvent(event: ActivityEvent): {
   IconComp: () => JSX.Element
   bg: string
@@ -92,35 +101,34 @@ function resolveEvent(event: ActivityEvent): {
   const label = event.label.toLowerCase()
 
   if (event.event_type === 'export')
-    return { IconComp: Icon.Download, bg: 'bg-orange-500/10', ring: 'ring-orange-500/30', iconColor: 'text-orange-500', labelColor: 'text-orange-600' }
+    return { IconComp: Icon.Download, bg: 'bg-orange-500/10', ring: 'ring-orange-500/30', iconColor: 'text-orange-500', labelColor: 'text-orange-600 dark:text-orange-400' }
   if (event.event_type === 'approved')
-    return { IconComp: Icon.ThumbUp, bg: 'bg-green-500/10', ring: 'ring-green-500/30', iconColor: 'text-green-600', labelColor: 'text-green-600' }
+    return { IconComp: Icon.ThumbUp, bg: 'bg-green-500/10', ring: 'ring-green-500/30', iconColor: 'text-green-600', labelColor: 'text-green-600 dark:text-green-400' }
   if (event.event_type === 'edit')
-    return { IconComp: Icon.Pencil, bg: 'bg-violet-500/10', ring: 'ring-violet-500/30', iconColor: 'text-violet-500', labelColor: 'text-violet-600' }
+    return { IconComp: Icon.Pencil, bg: 'bg-violet-500/10', ring: 'ring-violet-500/30', iconColor: 'text-violet-500', labelColor: 'text-violet-600 dark:text-violet-400' }
   if (event.event_type === 'created')
-    return { IconComp: Icon.Plus, bg: 'bg-blue-500/10', ring: 'ring-blue-500/30', iconColor: 'text-blue-600', labelColor: 'text-blue-600' }
+    return { IconComp: Icon.Plus, bg: 'bg-blue-500/10', ring: 'ring-blue-500/30', iconColor: 'text-blue-600', labelColor: 'text-blue-600 dark:text-blue-400' }
 
-  // pipeline — differentiate by label
   if (label.includes('failed'))
-    return { IconComp: Icon.XCircle, bg: 'bg-red-500/10', ring: 'ring-red-500/30', iconColor: 'text-red-500', labelColor: 'text-red-600' }
-  if (label.includes('completed') || label.includes('complete') && label.includes('pipeline'))
-    return { IconComp: Icon.CheckCircle, bg: 'bg-green-500/10', ring: 'ring-green-500/30', iconColor: 'text-green-600', labelColor: 'text-green-600' }
+    return { IconComp: Icon.XCircle, bg: 'bg-red-500/10', ring: 'ring-red-500/30', iconColor: 'text-red-500', labelColor: 'text-red-600 dark:text-red-400' }
+  if (label.includes('completed') || (label.includes('complete') && label.includes('pipeline')))
+    return { IconComp: Icon.CheckCircle, bg: 'bg-green-500/10', ring: 'ring-green-500/30', iconColor: 'text-green-600', labelColor: 'text-green-600 dark:text-green-400' }
   if (label.includes('started') || label.includes('in progress'))
-    return { IconComp: Icon.Play, bg: 'bg-raised', ring: 'ring-default', iconColor: 'text-muted', labelColor: 'text-secondary' }
+    return { IconComp: Icon.Play, bg: 'bg-raised', ring: 'ring-subtle', iconColor: 'text-muted', labelColor: 'text-secondary' }
   if (label.includes('transcription'))
-    return { IconComp: Icon.Mic, bg: 'bg-indigo-500/10', ring: 'ring-indigo-500/30', iconColor: 'text-indigo-500', labelColor: 'text-indigo-600' }
+    return { IconComp: Icon.Mic, bg: 'bg-indigo-500/10', ring: 'ring-indigo-500/30', iconColor: 'text-indigo-500', labelColor: 'text-indigo-600 dark:text-indigo-400' }
   if (label.includes('screen') || label.includes('detection'))
-    return { IconComp: Icon.Monitor, bg: 'bg-sky-500/10', ring: 'ring-sky-500/30', iconColor: 'text-sky-500', labelColor: 'text-sky-600' }
+    return { IconComp: Icon.Monitor, bg: 'bg-sky-500/10', ring: 'ring-sky-500/30', iconColor: 'text-sky-500', labelColor: 'text-sky-600 dark:text-sky-400' }
   if (label.includes('frame extraction'))
-    return { IconComp: Icon.Camera, bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/30', iconColor: 'text-cyan-600', labelColor: 'text-cyan-600' }
+    return { IconComp: Icon.Camera, bg: 'bg-cyan-500/10', ring: 'ring-cyan-500/30', iconColor: 'text-cyan-600', labelColor: 'text-cyan-600 dark:text-cyan-400' }
   if (label.includes('annotation'))
-    return { IconComp: Icon.Tag, bg: 'bg-purple-500/10', ring: 'ring-purple-500/30', iconColor: 'text-purple-500', labelColor: 'text-purple-600' }
+    return { IconComp: Icon.Tag, bg: 'bg-purple-500/10', ring: 'ring-purple-500/30', iconColor: 'text-purple-500', labelColor: 'text-purple-600 dark:text-purple-400' }
   if (label.includes('clip'))
-    return { IconComp: Icon.Film, bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/30', iconColor: 'text-fuchsia-500', labelColor: 'text-fuchsia-600' }
+    return { IconComp: Icon.Film, bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/30', iconColor: 'text-fuchsia-500', labelColor: 'text-fuchsia-600 dark:text-fuchsia-400' }
   if (label.includes('step content') || label.includes('section'))
-    return { IconComp: Icon.FileText, bg: 'bg-teal-500/10', ring: 'ring-teal-500/30', iconColor: 'text-teal-600', labelColor: 'text-teal-600' }
+    return { IconComp: Icon.FileText, bg: 'bg-teal-500/10', ring: 'ring-teal-500/30', iconColor: 'text-teal-600', labelColor: 'text-teal-600 dark:text-teal-400' }
 
-  return { IconComp: Icon.Clock, bg: 'bg-raised', ring: 'ring-default', iconColor: 'text-muted', labelColor: 'text-secondary' }
+  return { IconComp: Icon.Clock, bg: 'bg-raised', ring: 'ring-subtle', iconColor: 'text-muted', labelColor: 'text-secondary' }
 }
 
 function formatDate(ts: string) {
@@ -131,86 +139,139 @@ function formatDate(ts: string) {
   }
 }
 
+function groupByDate(events: ActivityEvent[]): [string, ActivityEvent[]][] {
+  const map = new Map<string, ActivityEvent[]>()
+  for (const e of events) {
+    const { date } = formatDate(e.timestamp)
+    if (!map.has(date)) map.set(date, [])
+    map.get(date)!.push(e)
+  }
+  return Array.from(map.entries())
+}
+
 function HistoryPage() {
   const { id } = useParams({ from: '/sop/$id/history' })
+  const [showAll, setShowAll] = useState(false)
 
   const { data: events, isLoading } = useQuery({
     queryKey: ['sops', id, 'history'],
     queryFn: () => fetchAPI<ActivityEvent[]>(`/api/sops/${id}/history`),
   })
 
-  if (isLoading) return (
-    <div className="flex items-center gap-2 text-muted text-sm py-8">
-      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-      </svg>
-      Loading history…
-    </div>
-  )
+  if (isLoading) return <InlineLoader label="Loading history…" />
 
   if (!events || events.length === 0)
     return <p className="text-muted text-sm py-8">No activity recorded yet.</p>
 
+  const visible = showAll ? events : events.slice(0, INITIAL_LIMIT)
+  const hiddenCount = events.length - INITIAL_LIMIT
+  const grouped = groupByDate(visible)
+
   return (
     <div className="max-w-2xl">
-      <div className="relative">
-        {/* Vertical timeline track */}
-        <div className="absolute left-[19px] top-5 bottom-5 w-0.5 bg-gradient-to-b from-blue-200 via-gray-200 to-gray-100" />
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-sm font-semibold text-default">Activity History</h2>
+          <p className="text-xs text-muted mt-0.5">{events.length} events total</p>
+        </div>
+        {showAll && hiddenCount > 0 && (
+          <button
+            onClick={() => setShowAll(false)}
+            className="text-xs text-muted hover:text-default transition-colors"
+          >
+            Show less
+          </button>
+        )}
+      </div>
 
-        <ol className="space-y-1">
-          {events.map((event, i) => {
-            const { IconComp, bg, ring, iconColor, labelColor } = resolveEvent(event)
-            const { date, time } = formatDate(event.timestamp)
-            const isSystem = !event.actor_name || event.actor_name === 'System'
+      {/* Timeline grouped by date */}
+      {grouped.map(([date, dateEvents]) => (
+        <div key={date} className="mb-4">
+          {/* Date divider */}
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-px flex-1 bg-subtle" />
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-muted px-1">{date}</span>
+            <div className="h-px flex-1 bg-subtle" />
+          </div>
 
-            return (
-              <li key={i} className="relative flex gap-4 group">
-                {/* Icon dot */}
-                <div className={`relative z-10 shrink-0 w-10 h-10 rounded-full ${bg} ring-2 ${ring} flex items-center justify-center shadow-sm transition-transform group-hover:scale-110`}>
-                  <span className={iconColor}>
-                    <IconComp />
-                  </span>
-                </div>
+          <ol>
+            {dateEvents.map((event, i) => {
+              const { IconComp, bg, ring, iconColor, labelColor } = resolveEvent(event)
+              const { time } = formatDate(event.timestamp)
+              const isLast = i === dateEvents.length - 1
+              const isSystem = !event.actor_name || event.actor_name === 'System'
 
-                {/* Card */}
-                <div className="flex-1 min-w-0 bg-card rounded-xl border border-subtle shadow-sm px-4 py-3 mb-2 transition-shadow group-hover:shadow-md">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className={`text-sm font-semibold ${labelColor} leading-snug`}>{event.label}</p>
-                      {event.detail && (
-                        <p className="text-xs text-muted mt-0.5 leading-relaxed">{event.detail}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1.5">
-                        {isSystem ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted">
-                            <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                              <path d="M8 2a2 2 0 100 4A2 2 0 008 2zM4 9a4 4 0 018 0v1H4V9z"/>
-                            </svg>
-                            System
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted font-medium">
-                            <span className="w-4 h-4 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center text-[9px] font-bold uppercase">
-                              {event.actor_name![0]}
-                            </span>
-                            {event.actor_name}
-                          </span>
+              return (
+                <li key={i} className="flex gap-3 group">
+                  {/* Icon + connector column */}
+                  <div className="flex flex-col items-center shrink-0">
+                    <div
+                      className={`w-9 h-9 rounded-full ${bg} ring-2 ${ring} flex items-center justify-center shadow-sm transition-transform duration-150 group-hover:scale-110`}
+                    >
+                      <span className={iconColor}><IconComp /></span>
+                    </div>
+                    {/* Connector line — grows to match card height */}
+                    {!isLast && (
+                      <div className="w-px flex-1 bg-subtle mt-1.5 mb-1.5 min-h-[12px]" />
+                    )}
+                  </div>
+
+                  {/* Event card */}
+                  <div className={`flex-1 min-w-0 bg-card border border-subtle rounded-xl shadow-sm px-4 py-3 transition-all duration-150 group-hover:shadow-md group-hover:border-default ${!isLast ? 'mb-3' : 'mb-2'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-semibold ${labelColor} leading-snug truncate`}>
+                          {event.label}
+                        </p>
+                        {event.detail && (
+                          <p className="text-xs text-muted mt-0.5 leading-relaxed">{event.detail}</p>
                         )}
+                        {/* Actor */}
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          {isSystem ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-muted">
+                              <span className="w-3.5 h-3.5 rounded-full bg-raised border border-subtle flex items-center justify-center">
+                                <svg viewBox="0 0 16 16" fill="currentColor" className="w-2 h-2 text-muted">
+                                  <path d="M8 2a2 2 0 100 4A2 2 0 008 2zM4 9a4 4 0 018 0v1H4V9z"/>
+                                </svg>
+                              </span>
+                              System
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-muted font-medium">
+                              <span className="w-3.5 h-3.5 rounded-full bg-blue-500/15 text-blue-500 flex items-center justify-center text-[8px] font-bold uppercase">
+                                {event.actor_name![0]}
+                              </span>
+                              {event.actor_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Timestamp */}
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs font-medium text-default tabular-nums">{time}</p>
                       </div>
                     </div>
-
-                    <div className="shrink-0 text-right">
-                      <p className="text-xs font-medium text-muted">{time}</p>
-                      <p className="text-xs text-muted">{date}</p>
-                    </div>
                   </div>
-                </div>
-              </li>
-            )
-          })}
-        </ol>
-      </div>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
+      ))}
+
+      {/* Show more button */}
+      {!showAll && hiddenCount > 0 && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="w-full mt-1 py-2.5 flex items-center justify-center gap-2 text-sm font-medium text-muted hover:text-default border border-subtle rounded-xl hover:bg-raised transition-all duration-150"
+        >
+          <Icon.ChevronDown />
+          Show {hiddenCount} older event{hiddenCount !== 1 ? 's' : ''}
+        </button>
+      )}
     </div>
   )
 }

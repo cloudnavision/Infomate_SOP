@@ -1,7 +1,8 @@
-﻿import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { fetchSOP, sopKeys } from '../api/client'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { SOPPageSkeleton, PageError } from '../components/PageLoader'
 import { useAuth } from '../hooks/useAuth'
 
 export const Route = createFileRoute('/sop/$id')({
@@ -13,11 +14,11 @@ export const Route = createFileRoute('/sop/$id')({
 })
 
 const ALL_TABS = [
-  { label: 'Procedure', path: 'procedure', minRole: 'viewer' },
-  { label: 'Overview', path: 'overview', minRole: 'viewer' },
-  { label: 'Process Map', path: 'processmap', minRole: 'viewer' },
-  { label: 'Metrics', path: 'matrices', minRole: 'editor' },
-  { label: 'History', path: 'history', minRole: 'editor' },
+  { label: 'Procedure',    path: 'procedure',  minRole: 'viewer' },
+  { label: 'Overview',     path: 'overview',   minRole: 'viewer' },
+  { label: 'Process Map',  path: 'processmap', minRole: 'viewer' },
+  { label: 'Metrics',      path: 'matrices',   minRole: 'editor' },
+  { label: 'History',      path: 'history',    minRole: 'editor' },
 ] as const
 
 function SOPLayout() {
@@ -27,22 +28,24 @@ function SOPLayout() {
   const tabs = ALL_TABS.filter(t =>
     t.minRole === 'viewer' || role === 'editor' || role === 'admin'
   )
-  const { data: sop, isLoading, error } = useQuery({
+
+  const { data: sop, isLoading, error, refetch } = useQuery({
     queryKey: sopKeys.detail(id),
     queryFn: () => fetchSOP(id),
   })
 
-  if (isLoading) {
-    return <p className="text-gray-500">Loading SOP...</p>
-  }
+  if (isLoading) return <SOPPageSkeleton />
 
-  if (error) {
-    return <p className="text-red-600">Error: {(error as Error).message}</p>
-  }
+  if (error) return (
+    <PageError
+      message={(error as Error).message}
+      onRetry={() => refetch()}
+    />
+  )
 
-  if (!sop) {
-    return <p className="text-gray-400">SOP not found.</p>
-  }
+  if (!sop) return (
+    <PageError message="This SOP could not be found. It may have been deleted." />
+  )
 
   return (
     <div>

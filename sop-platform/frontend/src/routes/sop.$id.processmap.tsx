@@ -640,10 +640,11 @@ function ProcessMapPage() {
   const [lanes, setLanes] = useState<ProcessMapLane[]>([])
   const [assignments, setAssignments] = useState<ProcessMapAssignment[]>([])
   const [saved, setSaved] = useState(false)
+  const [initialised, setInitialised] = useState(false)
 
-  // Initialise from existing config or build default assignments from SOP steps
+  // Initialise ONCE from existing config or build default assignments from SOP steps
   useEffect(() => {
-    if (!sopData) return
+    if (!sopData || initialised) return
     const existing = pmData?.process_map_config
     if (existing?.lanes?.length) {
       setLanes(existing.lanes)
@@ -659,7 +660,8 @@ function ProcessMapPage() {
         }))
       )
     }
-  }, [sopData, pmData])
+    setInitialised(true)
+  }, [sopData, pmData, initialised])
 
   const handleLanesChange = (next: ProcessMapLane[]) => {
     setLanes(next)
@@ -697,7 +699,10 @@ function ProcessMapPage() {
   async function handleAddStep(title: string) {
     const newStep = await createStep(id, title)
     if (!newStep) return
-    await qc.invalidateQueries({ queryKey: sopKeys.detail(id) })
+    // Patch cache in-place so the useEffect (initialised guard) doesn't reset assignments
+    qc.setQueryData(sopKeys.detail(id), (old: any) =>
+      old ? { ...old, steps: [...(old.steps ?? []), newStep] } : old
+    )
     setAssignments(prev => [...prev, { step_id: newStep.id, lane_id: lanes[0]?.id ?? '', is_decision: false }])
   }
 

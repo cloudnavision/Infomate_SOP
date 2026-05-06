@@ -636,6 +636,7 @@ function ProcessMapPage() {
     queryFn: () => fetchProcessMap(id),
   })
 
+  const [isEditing, setIsEditing] = useState(false)
   const [wizardStep, setWizardStep] = useState<0 | 1 | 2 | 3>(0)
   const [lanes, setLanes] = useState<ProcessMapLane[]>([])
   const [assignments, setAssignments] = useState<ProcessMapAssignment[]>([])
@@ -693,7 +694,10 @@ function ProcessMapPage() {
   })
 
   const handleConfirmed = (confirmedUrl: string | null, confirmedAt: string) => {
-    saveMutation.mutate({ is_confirmed: true, confirmed_url: confirmedUrl, confirmed_at: confirmedAt })
+    saveMutation.mutate(
+      { is_confirmed: true, confirmed_url: confirmedUrl, confirmed_at: confirmedAt },
+      { onSuccess: () => setIsEditing(false) }
+    )
   }
 
   async function handleAddStep(title: string) {
@@ -738,6 +742,58 @@ function ProcessMapPage() {
     )
   }
 
+  const isConfirmed = pmData?.process_map_config?.is_confirmed === true
+
+  // ── Confirmed view ────────────────────────────────────────────────────────────
+  if (isConfirmed && !isEditing) {
+    const config = pmData!.process_map_config!
+    const confirmedAt = config.confirmed_at
+      ? new Date(config.confirmed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : null
+    const svgMarkup = generateSwimlane(lanes, assignments, steps)
+
+    return (
+      <div className="max-w-4xl space-y-4">
+        {/* Header bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-green-500">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-default">
+                {config.confirmed_url ? 'Custom diagram confirmed' : 'Auto-generated diagram confirmed'}
+              </p>
+              {confirmedAt && <p className="text-xs text-muted">Confirmed {confirmedAt} · used in DOCX/PDF exports</p>}
+            </div>
+          </div>
+          <button
+            onClick={() => { setIsEditing(true); setWizardStep(0) }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold border border-default text-secondary rounded-xl hover:bg-raised transition-colors"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+            </svg>
+            Edit Process Map
+          </button>
+        </div>
+
+        {/* Diagram */}
+        <div className="bg-card rounded-xl border border-subtle shadow-sm overflow-auto">
+          {config.confirmed_url ? (
+            <img src={config.confirmed_url} alt="Confirmed process map" className="max-w-full p-4" />
+          ) : svgMarkup ? (
+            <div className="min-w-max p-4" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+          ) : (
+            <p className="p-8 text-center text-muted text-sm">Diagram data unavailable — click Edit to reconfigure.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const canProceed0 = lanes.length > 0 && lanes.every(l => l.name.trim())
   const canProceed1 = assignments.length > 0
 
@@ -745,6 +801,19 @@ function ProcessMapPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
+      {/* Back to diagram (only when editing an already-confirmed map) */}
+      {isConfirmed && isEditing && (
+        <button
+          onClick={() => setIsEditing(false)}
+          className="flex items-center gap-1.5 text-sm text-muted hover:text-secondary transition-colors"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd"/>
+          </svg>
+          Back to confirmed diagram
+        </button>
+      )}
+
       {/* Wizard progress bar */}
       <div className="bg-card rounded-xl border border-subtle shadow-sm p-5">
         <div className="flex items-center gap-0">

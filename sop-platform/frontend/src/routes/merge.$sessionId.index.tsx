@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { fetchMergeSession, fetchSOP, sopKeys } from '../api/client'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { PageLoader, PageError } from '../components/PageLoader'
 import type { MergeStepDecision } from '../api/types'
 
 export const Route = createFileRoute('/merge/$sessionId/')({
@@ -104,8 +105,8 @@ function DiffReviewPage() {
 
   const canProceed = changedUnresolved === 0
 
-  if (sessionLoading) return <p className="text-muted p-8">Loading diff…</p>
-  if (!session) return <p className="text-red-500 p-8">Session not found.</p>
+  if (sessionLoading) return <PageLoader label="Loading diff…" />
+  if (!session) return <PageError message="Session not found or has expired." />
 
   return (
     <div className="max-w-4xl mx-auto py-8 space-y-6">

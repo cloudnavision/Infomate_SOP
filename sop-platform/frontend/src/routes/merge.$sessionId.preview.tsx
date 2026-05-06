@@ -2,6 +2,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { finalizeMerge, fetchSOP, fetchMergeSession, sopKeys } from '../api/client'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { PageLoader, PageError } from '../components/PageLoader'
 import type { MergeStepDecision } from '../api/types'
 
 export const Route = createFileRoute('/merge/$sessionId/preview')({
@@ -45,17 +46,16 @@ function PreviewPage() {
     },
   })
 
-  if (!session) return <p className="text-muted p-8">Loading…</p>
+  if (!session) return <PageLoader label="Loading preview…" />
 
   if (steps.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto py-8">
-        <p className="text-red-500 text-sm">No steps found. Please go back and make your decisions.</p>
+      <PageError message="No steps found. Please go back and make your merge decisions.">
         <Link to="/merge/$sessionId" params={{ sessionId }} className="flex items-center gap-1.5 text-blue-500 text-sm mt-2">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back to diff review
         </Link>
-      </div>
+      </PageError>
     )
   }
 

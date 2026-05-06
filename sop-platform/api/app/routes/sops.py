@@ -465,7 +465,7 @@ async def save_process_map(
         "lanes": body.lanes,
         "assignments": body.assignments,
         "is_confirmed": body.is_confirmed,
-        "confirmed_url": body.confirmed_url if body.confirmed_url is not None else existing.get("confirmed_url"),
+        "confirmed_url": body.confirmed_url,  # null explicitly clears any uploaded image
         "confirmed_at": body.confirmed_at if body.confirmed_at is not None else existing.get("confirmed_at"),
     }
     sop.updated_at = datetime.now(timezone.utc)

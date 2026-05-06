@@ -506,17 +506,19 @@ async def upload_process_map_image(
             raise HTTPException(status_code=502, detail=f"Azure upload failed: {resp.status_code}")
 
     confirmed_at = datetime.now(timezone.utc).isoformat()
+    # Cache-bust so the browser fetches the new upload instead of the cached old one
+    versioned_url = f"{blob_url}?v={int(datetime.now(timezone.utc).timestamp())}"
     existing = sop.process_map_config or {}
     sop.process_map_config = {
         **existing,
         "is_confirmed": True,
-        "confirmed_url": blob_url,
+        "confirmed_url": versioned_url,
         "confirmed_at": confirmed_at,
     }
     sop.updated_at = datetime.now(timezone.utc)
     await db.commit()
 
-    return {"confirmed_url": blob_url, "confirmed_at": confirmed_at}
+    return {"confirmed_url": versioned_url, "confirmed_at": confirmed_at}
 
 
 async def _delete_azure_prefix(sop_id: str) -> None:

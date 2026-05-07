@@ -1,0 +1,135 @@
+name: CI/CD — Build & Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+
+env:
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  RESOURCE_GROUP: rg-saara-workspace
+
+jobs:
+
+  # ── Job 1: Type-check and lint ──────────────────────────
+  check:
+    name: Type-check & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sop-platform/frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: sop-platform/frontend
+
+      - name: TypeScript check
+        run: npm run typecheck
+        working-directory: sop-platform/frontend
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint API
+        run: ruff check sop-platform/api
+
+  # ── Job 2: Build images and push to ACR ────────────────
+  build-push:
+    name: Build & Push Images to ACR
+    runs-on: ubuntu-latest
+    needs: check
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag (short SHA)
+        id: meta
+        run: echo "tag=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to ACR
+        run: az acr login --name sopacr
+
+      - name: Build & push sop-frontend
+        run: |
+          docker build \
+            --build-arg VITE_API_URL=${{ secrets.VITE_API_URL }} \
+            --build-arg VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }} \
+            --build-arg VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }} \
+            --target prod \
+            -t ${{ env.ACR_LOGIN_SERVER }}/sop-frontend:${{ steps.meta.outputs.tag }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/sop-frontend:latest \
+            sop-platform/frontend
+          docker push ${{ env.ACR_LOGIN_SERVER }}/sop-frontend:${{ steps.meta.outputs.tag }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/sop-frontend:latest
+
+      - name: Build & push sop-api
+        run: |
+          docker build \
+            -t ${{ env.ACR_LOGIN_SERVER }}/sop-api:${{ steps.meta.outputs.tag }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/sop-api:latest \
+            sop-platform/api
+          docker push ${{ env.ACR_LOGIN_SERVER }}/sop-api:${{ steps.meta.outputs.tag }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/sop-api:latest
+
+      - name: Build & push sop-extractor
+        run: |
+          docker build \
+            -t ${{ env.ACR_LOGIN_SERVER }}/sop-extractor:${{ steps.meta.outputs.tag }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/sop-extractor:latest \
+            sop-platform/extractor
+          docker push ${{ env.ACR_LOGIN_SERVER }}/sop-extractor:${{ steps.meta.outputs.tag }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/sop-extractor:latest
+
+  # ── Job 3: Update Container Apps with new images ────────
+  deploy:
+    name: Deploy to Azure Container Apps
+    runs-on: ubuntu-latest
+    needs: build-push
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy sop-frontend
+        run: |
+          az containerapp update \
+            --name sop-frontend \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/sop-frontend:${{ needs.build-push.outputs.image-tag }}
+
+      - name: Deploy sop-api
+        run: |
+          az containerapp update \
+            --name sop-api \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/sop-api:${{ needs.build-push.outputs.image-tag }}
+
+      - name: Deploy sop-extractor
+        run: |
+          az containerapp update \
+            --name sop-extractor \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/sop-extractor:${{ needs.build-push.outputs.image-tag }}
+
+      - name: Health check sop-api
+        run: |
+          API_URL=$(az containerapp show \
+            --name sop-api \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          curl --retry 5 --retry-delay 10 --fail https://$API_URL/health

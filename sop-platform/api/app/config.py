@@ -1,11 +1,24 @@
+import json
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     # Database
     database_url: str = ""
-    # CORS — set via env var, must be valid JSON array: ["http://localhost:5173"]
+    # CORS — accepts JSON array or comma-separated string
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: object) -> object:
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                return json.loads(v)
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
     # Azure
     azure_blob_base_url: str = ""
     azure_blob_sas_token: str = ""

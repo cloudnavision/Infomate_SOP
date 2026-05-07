@@ -129,8 +129,4 @@ jobs:
 
       - name: Health check sop-api
         run: |
-          API_URL=$(az containerapp show \
-            --name sop-api \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --query "properties.configuration.ingress.fqdn" -o tsv)
-          curl --retry 5 --retry-delay 10 --fail https://$API_URL/health
+          curl --retry 5 --retry-delay 10 --fail https://soptest.cloudnavision.com/health

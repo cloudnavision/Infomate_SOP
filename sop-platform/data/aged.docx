@@ -1,0 +1,493 @@
+ ![C:\\Users\\Administrator\\Downloads\\Cover-01.png](media/image1.png){width="8.566666666666666in"
+height="12.009722222222223in"}
+
+![A logo for a hotel AI-generated content may be
+incorrect.](media/image2.png){width="1.4083333333333334in"
+height="1.0989884076990377in"} **\
+**
+
+Contents
+
+[1 Procedure Description
+[2](#procedure-description)](#procedure-description)
+
+[• Purpose/Objective/Scope
+[2](#purposeobjectivescope)](#purposeobjectivescope)
+
+[• Input [2](#input)](#input)
+
+[• Process Description [2](#process-description)](#process-description)
+
+[• Output [2](#output)](#output)
+
+[• Description of risks
+[2](#description-of-risks)](#description-of-risks)
+
+[2 Training Prerequisites
+[2](#training-prerequisites)](#training-prerequisites)
+
+[3 Software Applications/Software Used/Access Levels
+[3](#software-applicationssoftware-usedaccess-levels)](#software-applicationssoftware-usedaccess-levels)
+
+[4 Process Map [4](#process-map)](#process-map)
+
+[5 Detailed Procedure [5](#detailed-procedure)](#detailed-procedure)
+
+[6 Communication Matrix
+[9](#communication-matrix)](#communication-matrix)
+
+[7 FAQ [9](#faq)](#faq)
+
+[8. Quality Parameters [9](#quality-parameters)](#quality-parameters)
+
+[9. Quality Sampling Percentage
+[11](#quality-sampling-percentage)](#quality-sampling-percentage)
+
+[10. Detailed Statement of Work
+[11](#detailed-statement-of-work)](#detailed-statement-of-work)
+
+[11. Baselining and Target
+[12](#baselining-and-target)](#baselining-and-target)
+
+[12. Challenges [13](#challenges)](#challenges)
+
+[13. Process Improvements
+[13](#process-improvements)](#process-improvements)
+
+[14. SOP Author/Reviewer/Approver Certification
+[13](#sop-authorreviewerapprover-certification)](#sop-authorreviewerapprover-certification)
+
+# Procedure Description {#procedure-description .unnumbered}
+
+## Purpose/Objective/Scope {#purposeobjectivescope .unnumbered}
+
+This process outlines the scope of the Aged Debtor Report at Starboard
+Hotels.
+
+## Input {#input .unnumbered}
+
+-   Aged debtor reports from PMS systems -- For all 21 properties
+
+-   PM report (Permanent Folio Report)
+
+## Process Description {#process-description .unnumbered}
+
+1.  The treasurer shares the current week folder with each GM to upload
+    the relevant Aged Debtor reports and the PM reports
+
+2.  Relevant GMs upload the relevant Aged Debtor reports to the folder
+    by each Wednesday.
+
+3.  Once all the reports are uploaded, check & verify that all the
+    relevant reports are visible in the folder.
+
+4.  Open the Aged Debt report summary file, copy the previous week's
+    sheet, and rename it with the current week\'s ending date.
+
+5.  Clear all the previous week's data column C to H in the new sheet.
+
+6.  Open the hotel's aged balance report, check the values in column H
+    (PM/Permanent Folios 2 days+)
+
+7.  Copy all the notes (if any) from the Aged Balance report to the
+    summary report.
+
+8.  Once all hotels are updated, rename the summary report with the week
+    ending date.
+
+## Output {#output .unnumbered}
+
+-   Completed Aged Debtor report (Weekly)
+
+## Description of risks {#description-of-risks .unnumbered}
+
+  -----------------------------------------------------------------------
+  **Risk**                            **Mitigation Point**
+  ----------------------------------- -----------------------------------
+  Incorrect inputs. Incorrect         Include a Quality Check
+  preparation of aged debtor reports  
+  could lead to incorrect debtor      
+  balances, which ultimately impact   
+  the financial statements and        
+  business decisions.                 
+
+  Delay in inputs, delay in aged      Include a Quality Check
+  reports could lead to delay in      
+  taking business decisions and also  
+  impact financial statements as      
+  well.                               
+
+  Duplicate inputs and duplicate      Include a Quality Check
+  preparation of aged reports may     
+  lead to overstated totals and       
+  misleading week-on-week movements,  
+  and ultimately to unnecessary       
+  follow-ups and incorrect            
+  conclusions in business decisions.  
+  -----------------------------------------------------------------------
+
+# Training Prerequisites {#training-prerequisites .unnumbered}
+
+-   MS Excel
+
+# Software Applications/Software Used/Access Levels {#software-applicationssoftware-usedaccess-levels .unnumbered}
+
+  -----------------------------------------------------------------------
+  **Software/Application/Mailbox**    **Access Level**
+  ----------------------------------- -----------------------------------
+  Dedicated Accounts Email --         AM/TL/SPA
+  Starboard Hotels                    
+
+                                      
+  -----------------------------------------------------------------------
+
+# Process Map {#process-map .unnumbered}
+
+![](media/image3.emf)
+
+# Detailed Procedure {#detailed-procedure .unnumbered}
+
+##  {#section .unnumbered}
+
+-   Log in to the Shared Folder, navigate to the designated folder.​​
+
+-   Share the current week's folder with each GM by Wednesday so they
+    can upload the relevant Aged Debtor reports and PM reports.
+    (Screenshot 1, callout 1)
+
+![](media/image4.png){width="4.896527777777778in" height="3.15in"}
+
+-   Ensure all GMs upload the relevant Aged Debtor reports for all
+    properties to the folder by Friday EOD.
+
+-   After all reports have been uploaded, review and confirm that every
+    required report is correctly visible in the folder. (Screenshot 2,
+    callout 1)
+
+![](media/image5.png){width="4.916666666666667in"
+height="2.691666666666667in"}
+
+-   Open the Aged Debt Report Summary file, copy the previous week's
+    sheet, and rename it with the current week-ending date. (Screenshot
+    3, callout 1)
+
+-   In the new sheet, clear all previous week's data in columns C to H
+    (amounts and comments). (Screenshot 3, callout 2)
+
+![](media/image7.png){width="6.360416666666667in"
+height="3.187007874015748in"}
+
+-   Open the separate hotel's aged balance report, check the values in
+    column H (PM/Permanent Folios 2 days+) (Screenshot 4, callout 1)
+
+![](media/image9.png){width="6.4847222222222225in"
+height="3.2193186789151356in"}
+
+-   Copy the total of column E to column I (Screenshot 5, callout 1)
+
+-   Paste the updated values into the Summary Aged Debtor Report under
+    the relevant hotel column (Columns C to G). (Screenshot 5, callout
+    2)
+
+![](media/image11.png){width="6.560416666666667in"
+height="3.3409087926509184in"}
+
+-   Check the value in column H (PM), Cross-check the PM value with the
+    PM report received from the GM.
+
+-   After verification, update the PM value in the Summary Aged Debtor
+    Report. (Screenshot 6, callout 1)
+
+![](media/image13.png){width="5.878787182852143in"
+height="3.516178915135608in"}
+
+-   ![](media/image15.png){width="5.1818186789151355in"
+    height="3.946527777777778in"}Copy all notes (if any) from each
+    hotel's Aged Balance Report and paste them into the Summary Aged
+    Debtor Report (Screenshot 7, callout 1)
+
+-   Once all hotels are updated, rename the Summary Aged Debtor Report
+    using the correct date. (Screenshot 8, callout 1)
+
+![](media/image17.png){width="6.330508530183727in"
+height="2.7966097987751533in"}
+
+# Communication Matrix {#communication-matrix .unnumbered}
+
+**InfoMate**
+
+  -----------------------------------------------------------------------
+  Process                     Starboard Hotels - Aged Debtor Report
+  --------------------------- -------------------------------------------
+  First Communicator          Suchith Peiris
+
+  Email                       <suchith.ssc@keells.com>
+
+  First Escalation            Manjula Perera
+
+  Email                       <manjula.ssc@keells.com>
+
+  Second Escalation           Ranga Wijewardana
+
+  Email                       <ranga.ssc@keells.com>
+
+  Final Escalation            Jehan Perinpanayagam
+
+  Email                       <jehan.jkh@keells.com>
+  -----------------------------------------------------------------------
+
+**Client**
+
+  -----------------------------------------------------------------------
+  Process                     Starboard Hotels - Aged Debtor Report
+  --------------------------- -------------------------------------------
+  First Communicator          Kanu Parmar
+
+  Email                       <kanu.parmar@starboardhotels.com>
+
+  First Escalation            Amol Medhekar
+
+  Email                       <Amol.Medhekar@starboardhotels.com>
+
+  Final Escalation            Nimisha Mehan
+
+  Email                       <Nimisha.Mehan@starboardhotels.com>
+  -----------------------------------------------------------------------
+
+# FAQ  {#faq .unnumbered}
+
+  -----------------------------------------------------------------------
+  **Questions**                      **Answers**
+  ---------------------------------- ------------------------------------
+                                     
+
+  -----------------------------------------------------------------------
+
+# Quality Parameters
+
+##  {#section-1 .unnumbered}
+
+**Haydock PM Report**
+
+  -----------------------------------------------------------------------
+  **Error**                          **Error Type**
+  ---------------------------------- ------------------------------------
+  Room No                            Fatal
+
+  Name                               Fatal
+
+  VIP                                Fatal
+
+  Company                            Fatal
+
+  Arrival                            Fatal
+
+  Departure                          Fatal
+
+  Room Type                          Fatal
+
+  Prs                                Fatal
+
+  Balance                            Fatal
+  -----------------------------------------------------------------------
+
+**Aged Report - (Each Hotel)**
+
+  -----------------------------------------------------------------------
+  **Error**                          **Error Type**
+  ---------------------------------- ------------------------------------
+  Hotel                              Fatal
+
+  Debtor Days: \<30                  Fatal
+
+  Debtor Days: 30 - 59               Fatal
+
+  Debtor Days: 60 - 89               Fatal
+
+  Debtor Days: 90 - 119              Fatal
+
+  Debtor Days: 120+                  Fatal
+
+  PM / Permanent folios 7 days       Fatal
+
+  Total                              Fatal
+
+  Analysis of Debt 60 Days +:        Fatal
+  Balance                            
+
+  Analysis of Debt 60 Days +:        Fatal
+  Movement                           
+
+  Rank: Lowest Debtor days           Fatal
+
+  Bad Debt Accrual to Add            Fatal
+
+  Totals (Each age bucket)           Fatal
+  -----------------------------------------------------------------------
+
+**Aged Report - (Console Report)**
+
+  -----------------------------------------------------------------------
+  **Error**                          **Error Type**
+  ---------------------------------- ------------------------------------
+  Hotel                              Fatal
+
+  Debtor Days: \<30                  Fatal
+
+  Debtor Days: 30 - 59               Fatal
+
+  Debtor Days: 60 - 89               Fatal
+
+  Debtor Days: 90 - 119              Fatal
+
+  Debtor Days: 120+                  Fatal
+
+  PM / Permanent folios 7 days       Fatal
+
+  Total                              Fatal
+
+  \% Overall Debt                    Fatal
+
+  Analysis of Debt 60 Days +:        Fatal
+  Balance                            
+
+  Analysis of Debt 60 Days +:        Fatal
+  Movement since 05 Nov              
+
+  Bad Debt Accrual to Add            Fatal
+
+  Totals (Each age bucket)           Fatal
+
+  Group % split by month             Fatal
+
+  Group % split by 60-day period     Fatal
+
+  Notes: for each Hotel              Non-Fatal
+  -----------------------------------------------------------------------
+
+# Quality Sampling Percentage
+
+-   100% quality check.
+
+# Detailed Statement of Work
+
+  ----------------------------------------------------------------------------------------------------------------
+  **Description**           **Starboard -   **Infomate    **Infomate   **Frequency**   **Expected    **Remarks**
+                            GM**            Processor**   QC**                         Time**        
+  ------------------------- --------------- ------------- ------------ --------------- ------------- -------------
+  Every Wednesday, GMs      X                                          Weekly          Every         Standard SLA
+  upload Aged Debtor and PM                                                            Friday - EOD  will be
+  reports to a folder                                                                                exempted if
+  shared by the Treasurer.                                                                           the reports
+                                                                                                     are delayed
+
+  confirms all files are                    X                          Weekly                         
+  present, requesting any                                                                            
+  missing reports from GMs.                                                                          
+
+  Share the missing report  X                                          Ad Hoc          Immediately   Standard SLA
+  by the relevant GM                                                                                 will be
+                                                                                                     exempted if
+                                                                                                     the reports
+                                                                                                     are delayed
+
+  Create a new summary                      X                          Weekly                         
+  sheet by duplicating the                                                                           
+  previous week's tab and                                                                            
+  clearing data in columns                                                                           
+  C to H.                                                                                            
+
+  Update the current                        X                          Weekly                         
+  week-aged debtor summary                                                                           
+  from the each hotel\'s                                                                             
+  aged debtor report data.                                                                           
+
+  Perform QC review                                       X            Weekly                         
+
+  Rename the Summary Report                 X                          Weekly                         
+  with the current                                                                                   
+  week-ending date once all                                                                          
+  hotels are updated &                                                                               
+  Create a new empty folder                                                                          
+  for the upcoming week's                                                                            
+  reports.                                                                                           
+
+  Share the completed                       X                          Weekly                         
+  report and the next                                                                                
+  week's folder access to                                                                            
+  all GMs.                                                                                           
+
+  Escalate for any queries/                 X                          Ad Hoc          Immediately    
+  non-responses                                                                                      
+
+  Respond to the queries/   X                                          Ad Hoc          Immediately   Standard SLA
+  non-responses                                                                                      will be
+                                                                                                     exempted if
+                                                                                                     responses are
+                                                                                                     delayed
+
+  Inform subsequent process X                                          Ad Hoc          Immediately    
+  changes.                                                                                           
+  ----------------------------------------------------------------------------------------------------------------
+
+# Baselining and Target
+
+  ---------------------------------------------------------------------------------------------------
+  **Effectiveness   **KPI**      **Unit of   **Current**   **Target**   **Formula**     **Remarks**
+  /Efficiency                    Measure**                                              
+  Metric**                                                                              
+  ----------------- ------------ ----------- ------------- ------------ --------------- -------------
+  Timeliness        Turnaround   \%          TBA           95           Completed       
+                    time                                                within SLA \*   
+                                                                        100 / Total     
+                                                                        Volume          
+
+  Accuracy          Accuracy     \%          TBA           95           1- Fatal errors 
+                    Score                                               detected by     
+                                                                        client \*100    
+                                                                        /Total Volume   
+
+  Note: \*The                                                                           
+  Formula is only                                                                       
+  applicable for                                                                        
+  volume \>100.                                                                         
+  Follow the                                                                            
+  conditions in                                                                         
+  "Remarks" if the                                                                      
+  volume is \<100                                                                       
+  ---------------------------------------------------------------------------------------------------
+
+# Challenges 
+
+# Process Improvements
+
+# SOP Author/Reviewer/Approver Certification
+
+**Revision History**
+
+  ---------------------------------------------------------------------------------------------------------
+  **Version            **Release   **Author**   **Event       **Description**   **Confirmed   **Confirmed
+  No.**                Date**                   /Reason                         by**          date**
+                                                Triggered**                                   
+  ----------- -------- ----------- ------------ ------------- ----------------- ------------- -------------
+  **From**    **To**                                                                          
+
+  0.0                                                                                         
+  ---------------------------------------------------------------------------------------------------------
+
+**Document Approval**
+
+The Project Manager and Quality Assurance Manager have reviewed this
+document and hereby agree that the contents herein are accurate. Any
+changes to this document must be communicated in writing and signed off
+by both parties.
+
+  -------------------------------------- --------------------------------
+  Signature                              Signature
+
+  Date:                                  Date:
+
+  Name: Jehan Perinpanayagam             Name: Ranga Wijewardana
+
+  CEO -- Infomate                        Head of Operations -- Infomate
+  -------------------------------------- --------------------------------

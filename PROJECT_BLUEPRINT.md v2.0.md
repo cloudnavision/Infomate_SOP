@@ -1,5 +1,5 @@
 # SOP Automation Platform — Project Blueprint
-## Version 2.0 | March 2026
+## Version 2.0 | Originally March 2026 | Last Updated: 06 May 2026
 
 ---
 
@@ -14,23 +14,15 @@ that produces a draft SOP in ~4 minutes, requiring ~20-30 minutes of human revie
 
 | Component | Technology | Purpose |
 |---|---|---|
-| React SPA | React 18 + TypeScript + Vite | Interactive SOP viewer + editor |
-| FastAPI Backend | Python 3.11 + FastAPI | REST API + export generation |
+| React SPA | React 18 + TypeScript + Vite + Tailwind + TanStack Router/Query | Interactive SOP viewer + editor |
+| FastAPI Backend | Python 3.11 + FastAPI + SQLAlchemy | REST API + export generation |
 | PostgreSQL | Supabase (transaction pooling, port 6543) | SOP data, transcripts, metadata |
-| Frame Extractor | Python + FFmpeg + PySceneDetect | Video processing microservice |
+| Frame Extractor | Python + FFmpeg + PySceneDetect + imagehash | Video processing microservice |
 | n8n Workflows | n8n (externally hosted) | Pipeline orchestration via webhooks |
 | Azure Blob Storage | Azure | Video, image, and document storage |
-| Cloudflare | Cloudflare Tunnel (sideloaded on host) | HTTPS exposure + CDN |
+| Cloudflare | Cloudflare Tunnel + ZTNA | HTTPS exposure + Zero Trust access control |
 
 ### Infrastructure
-
-Three Docker containers run via Docker Compose on a single Azure VM.
-Supabase provides the PostgreSQL database via transaction pooling (port 6543).
-n8n is hosted externally and communicates with the platform via HTTP webhooks.
-Cloudflare Tunnel runs as a sideloaded `cloudflared` daemon on the host machine —
-not inside Docker — transparently routing internet traffic to the local containers
-over HTTPS. The container images stay clean and portable, working identically
-with or without Cloudflare.
 
 ```
 Docker Compose (3 containers):
@@ -39,239 +31,281 @@ Docker Compose (3 containers):
   sop-extractor   FFmpeg + PySceneDetect    :8001
 
   Network: sop-network (bridge)
-  Shared volume: ./data (uploads, frames, exports, templates)
+  cloudflared: network_mode: host (not inside sop-network)
 
 External Services:
   Supabase        PostgreSQL via transaction pooler (port 6543)
   n8n             Externally hosted, webhook communication
-  Cloudflare      Sideloaded cloudflared daemon on host (HTTPS :443)
-  Azure Blob      Video, image, and document storage
+  Cloudflare      soptest.cloudnavision.com → localhost:8001 (sop-extractor)
+  Azure Blob      infsop container (video, frames, exports)
 
-Traffic flow:
-  Internet → https://sop.yourdomain.com → cloudflared (host) → localhost:5173
-  Internet → https://api.sop.yourdomain.com → cloudflared (host) → localhost:8000
-  sop-api → HTTP POST → https://n8n-host.com/webhook/* (trigger pipelines)
-  n8n → HTTP POST → https://api.sop.yourdomain.com/api/* (callbacks)
+n8n Workflows:
+  WF0   Smart Ingest & Auto-Split     SharePoint → Blob → Gemini → Supabase
+  WF1   Transcription + Screen Detect Gemini File API (API key, NOT Vertex AI)
+  WF2b  Frame Extraction (Sync)       sop-extractor:8001, 600s timeout
+  WF3c  Full Hybrid Annotation        Vertex AI + Cloud Vision (GCP service account)
 ```
 
 ---
 
-## Database Schema
+## Database Schema (14 tables, 6 migrations)
 
-See: `schema/001_initial_schema.sql`
+**Core:**
+- `sops` — Master SOP record (title, status, video_url, project_code, is_merged, views, likes)
+- `sop_steps` — Process steps (sequence, description, screenshot_url, timestamps)
+- `step_callouts` — Annotation markers (x, y, original_x, original_y, confidence, label)
+- `step_clips` — Short video clips per step
+- `step_discussions` — Contextual Q&A from KT session
 
-**Provider:** Supabase (transaction pooling, port 6543)
+**Content:**
+- `transcript_lines` — Full meeting transcript (speaker, text, start_time)
+- `sop_sections` — AI-generated text sections (purpose, risks, SOW, 17 sections)
+- `section_templates` — Standard SOP structure + AI prompts
 
-### Key Tables
+**Operations:**
+- `pipeline_runs` — Pipeline progress (status enum: queued/transcribing/detecting_screenshare/extracting_frames/deduplicating/classifying_frames/generating_annotations/extracting_clips/generating_sections/completed/failed)
+- `sop_versions` — Version history snapshots
+- `export_history` — Export records (format, blob URL, size)
 
-- **sops** — Master SOP record (title, status, video URL, metadata)
-- **sop_steps** — Process steps with screenshots and timestamps
-- **step_callouts** — Annotation markers on screenshots (position, confidence)
-- **step_clips** — Short video clips per step
-- **step_discussions** — Contextual Q&A from the KT session
-- **transcript_lines** — Full meeting transcript with speaker ID
-- **sop_sections** — AI-generated text sections (purpose, risks, SOW, etc.)
-- **section_templates** — Defines the standard SOP structure + AI prompts
-- **pipeline_runs** — Pipeline progress tracking and cost monitoring
-- **sop_versions** — Version history snapshots
+**Merge system:**
+- `sop_merge_sessions` — Merge session (source_sop_ids, merged_sop_id, status)
+- `process_groups` — Group name, auto-generated code (GRP-001), source SOPs
+- `users` — User accounts (email, role: viewer/editor/admin)
 
----
-
-## n8n Workflows
-
-n8n is hosted externally. All workflows are triggered via HTTP webhooks
-from the FastAPI backend and communicate back via webhook callbacks.
-
-### Workflow 1: Extraction Pipeline
-See: `workflows/workflow_1_extraction.md`
-
-**Trigger**: Webhook POST from sop-api when admin uploads MP4
-**Duration**: ~3-4 minutes for a 60-minute recording
-**Stages**:
-1. Gemini transcription (parallel with screen share detection)
-2. Azure Blob upload of original video
-3. Frame extractor service call (HTTP to sop-extractor:8001)
-4. Annotation matching loop (Gemini semantic + Vision OCR per frame)
-5. Video clip extraction (HTTP to sop-extractor)
-6. Media upload to Azure Blob
-7. Triggers Workflow 2
-
-### Workflow 2: Section Generation
-See: `workflows/workflow_2_section_generation.md`
-
-**Trigger**: Called by Workflow 1
-**Duration**: ~30-60 seconds
-**Stages**:
-1. Load full transcript + step data from Supabase
-2. Generate 17 section prompts (one per SOP section)
-3. Batch call Gemini (4 parallel at a time)
-4. Parse responses, upsert into sop_sections via Supabase
-5. Apply step titles/descriptions from AI
-6. Insert discussion context per step
-7. Render Mermaid process map to PNG
-
-### Workflow 3: Export Generation
-See: `workflows/workflow_3_export.md`
-
-**Trigger**: Webhook POST from sop-api when user clicks Export
-**Duration**: ~10-30 seconds
-**Stages**:
-1. Load full SOP data from Supabase
-2. Render any modified callout annotations (HTTP to sop-api internal endpoint)
-3. Route by format (DOCX / PDF / Markdown)
-4. DOCX: Template-based assembly with python-docx
-5. PDF: LibreOffice headless conversion
-6. Markdown: Direct generation for Confluence/Notion
-7. Upload to Azure Blob, record in export_history
+**Migrations:**
+- `001_initial_schema.sql`
+- `002_seed_aged_debtor.sql`
+- `003_add_views_likes.sql`
+- `004_sop_version_merge.sql`
+- `005_is_merged.sql`
+- `006_process_groups.sql`
 
 ---
 
-## Cost Estimates
+## n8n Workflows (as built)
 
-### Per 60-minute meeting (Gemini 2.5 Flash):
-- Transcription: ~$0.30
-- Frame annotation: ~$0.03
-- Section generation: ~$0.07
-- Cloud Vision OCR: Free (under 1K units/month)
-- Azure compute: ~$0.02
-- **Total: ~$0.43 per SOP**
+### WF0: Smart Ingest & Auto-Split
+**File:** `n8n-workflows/Saara - SOP_WF0 - Smart Ingest & Auto-Split 2.json`
+**Trigger:** Watches SharePoint folder for new MP4 files
+**Flow:** SharePoint → Azure Blob upload → Gemini screen detection prompt → split if > 55 min → create sop + pipeline_run → trigger WF1
+**Long video handling:** ONE sop record, original video URL; Part 2 timestamps offset by `actual_split_sec` → absolute positions
 
-### Monthly (10 SOPs):
-- Gemini API: ~$4.00
-- Supabase: Free tier or ~$25/month (Pro plan)
-- Azure VM (shared): already provisioned
-- Azure Blob Storage: ~$1-2 (video + images)
-- n8n hosted: depends on hosting plan
-- Cloudflare: Free tier
-- **Total incremental: ~$6-30/month**
+### WF1: Transcription + Screen Detection
+**File:** `n8n-workflows/Saara - SOP_Workflow 1 - Complete Workflow v2.json`
+**Auth:** Gemini File API with API key (NOT Vertex AI — File API not on Vertex AI)
+**Key settings:** `thinkingLevel: "minimal"`, `maxOutputTokens: 100000` (fixes transcript cutoff)
+**Nodes:** Upload video → Poll for ACTIVE → Transcribe → Detect screen periods → Fix Screen Periods (crop: `y += 30, h -= 60`) → upsert transcript_lines + sop_steps
+
+### WF2b: Frame Extraction (Synchronous)
+**File:** `n8n-workflows/Saara - SOP_Workflow 2b - Frame Extraction v2 (Sync).json`
+**Flow:** Poll pipeline_runs for `extracting_frames` → POST to sop-extractor → wait 600s → update status
+**EXTRACTOR_URL:** Must be `http://sop-extractor:8001` (not Cloudflare URL — 100s timeout kills long extractions)
+**Known issue:** Remove `supabase_url` + `supabase_service_key` from Build Extract Request payload (causes duplicate step inserts)
+
+### WF3c: Full Hybrid Annotation (Service Account)
+**File:** `n8n-workflows/v2-service-account/Saara - SOP_Workflow 3c - Full Hybrid (Service Account) v3.json`
+**Auth:** GCP service account "Saara - Google Service Account account" (covers both Gemini Vision + OCR)
+**Vertex AI flow:** Download frame from Azure Blob → Convert to base64 → Build Gemini request with `inlineData.data` (raw base64, no `data:image/png;base64,` prefix) → Call Vertex AI
+**v3 fix:** Removed `JSON.stringify()` from all 4 jsonBody nodes (n8n's `specifyBody: "json"` already serialises — double-encoding caused `URL_REJECTED`)
 
 ---
 
-## Build Plan
+## Build Plan — All Phases Complete
 
-### Phase 1: Foundation (Week 1-2)
-- [x] Docker Compose setup (3 containers)
+### Phase 1: Foundation ✅ Complete (March 2026)
+- [x] Docker Compose setup (3 containers + cloudflared host daemon)
 - [x] Supabase PostgreSQL schema deployment
-- [x] FastAPI skeleton with basic CRUD endpoints
-- [ ] React project scaffolding
-- [ ] StepSidebar + StepDetail components (read-only)
-- [ ] Basic SOP page layout
+- [x] FastAPI skeleton with CRUD endpoints
+- [x] React project scaffolding (Vite + TanStack Router + TanStack Query + Tailwind)
+- [x] Basic SOP page layout
 
-### Phase 2: Video + Transcript (Week 2-3)
-- [ ] VideoPlayer component (Video.js)
-- [ ] useStepSync hook (video-step synchronisation)
-- [ ] TranscriptPanel (virtualised, searchable)
-- [ ] Video-to-step navigation
-- [ ] Short clip mode toggle
+### Phase 1.5: Auth ✅ Complete (March 2026)
+- [x] Cloudflare ZTNA role-based access (viewer/editor/admin)
+- [x] useCurrentUser hook, role gates in components
 
-### Phase 3: Callout Editor (Week 3-4)
-- [ ] Konva canvas setup with layer architecture
-- [ ] Drag-and-drop callout positioning
-- [ ] Add/delete callout interactions
-- [ ] Confidence colour coding (green/amber/red)
-- [ ] Optimistic updates via TanStack Query
-- [ ] Read mode fallback (image map, no Konva)
+### Phase 2: n8n Ingestion Pipeline ✅ Complete (March 2026)
+- [x] WF0 Smart Ingest (SharePoint → Blob → Gemini → Supabase)
+- [x] WF1 Transcription + Screen Detection (Gemini File API)
+- [x] pipeline_runs status tracking
+- [x] Upload page with SSE pipeline progress
 
-### Phase 4: Pipeline Integration (Week 4-5)
-- [ ] Frame extractor Docker service
-- [ ] n8n Workflow 1: Extraction Pipeline (webhook integration)
-- [ ] n8n Workflow 2: Section Generation (webhook integration)
-- [ ] Upload page with SSE progress
-- [ ] Annotation hint → callout editor data flow
+### Phase 3: Frame Extraction ✅ Complete (March 2026)
+- [x] sop-extractor Docker service (FFmpeg + PySceneDetect + imagehash)
+- [x] WF2b Synchronous Frame Extraction
+- [x] scene_detector.py, deduplicator.py, clip_extractor.py
 
-### Phase 5: Exports + Polish (Week 5-6)
-- [ ] n8n Workflow 3: Export Generation (webhook integration)
-- [ ] DOCX template creation
-- [ ] PDF export via LibreOffice
-- [ ] Dashboard page
-- [ ] Cloudflare Tunnel configuration (sideload setup)
-- [ ] Role-based access control
-- [ ] Testing with real recordings
+### Phase 4: Annotation ✅ Complete (April 2026)
+- [x] WF3c Full Hybrid (Gemini Vision + Cloud Vision OCR)
+- [x] Confidence color coding (green/amber/red)
+- [x] step_callouts with original_x/y for first-reposition tracking
+- [x] PATCH /api/steps/{id}/callouts bulk update
+- [x] POST /api/steps/{id}/render-annotated (Pillow → Azure Blob)
+
+### Phase 4b: Service Account Migration ✅ Built / ⏳ Pending n8n activation
+- [x] WF3c v3 JSON with double-encoding fix
+- [x] Base64 inlineData (no data URL prefix)
+- [ ] Delete old WF3c in n8n → import v3 → select service account credential → activate
+
+### Phase 5: Clip Extraction ✅ Complete (April 2026)
+- [x] clip_extractor.py (FFmpeg trim + Azure Blob upload)
+- [x] step_clips table
+- [x] VideoPlayer clip mode toggle
+
+### Phase 6: Video + Transcript UI ✅ Complete (April 2026)
+- [x] VideoPlayer (Video.js, timestamp sync, clip mode)
+- [x] TranscriptPanel (virtualised, searchable, speaker filter, auto-scroll)
+- [x] useStepSync hook (3-way sync: video ↔ step ↔ transcript, seekSource guard)
+- [x] StepCard (description, screenshot lightbox, KT quote, Play from timestamp, callouts, discussions)
+- [x] SOPPageHeader (title, metadata, export buttons)
+- [x] StepSidebar with SECTIONS block
+
+### Phase 7: Exports + Dashboard Polish ✅ Complete (April 2026)
+- [x] DOCX/PDF export (docxtpl template + LibreOffice headless)
+- [x] export_history table + GET /api/sops/{id}/exports
+- [x] Dashboard search bar, pipeline status badges on SOPCard
+- [x] "Open →" + "Export PDF" card buttons
+- [ ] 7c: Cloudflare ZTNA configuration (deferred — pure dashboard config, no code)
+
+### Phase 8: Annotation Editor ✅ Complete (April 2026)
+- [x] AnnotationEditorModal (full-screen Konva canvas)
+- [x] Drag dots to reposition, delete callouts
+- [x] Color coding: green=OCR, amber=gemini_only, blue=repositioned
+- [x] PATCH /api/steps/{id}/callouts bulk update
+- [x] "✎ Edit Callouts" button in StepCard (editor/admin only)
+
+### Phase 9: Role-Based UI + UX Polish ✅ Complete (April 2026)
+- [x] Compact SOPPageHeader with clickable status dropdown (editor/admin)
+- [x] Views + like count + interactive like button (all roles)
+- [x] Tab role gates: History=editor+, Metrics=editor+, Process Map edit=editor+
+- [x] Metrics tab: 3 views (viewer/editor/admin)
+- [x] Step deletion with sequence re-numbering (DELETE /api/steps/{id})
+- [x] SOP status change (PATCH /api/sops/{id}/status)
+- [x] Process Map: read-only preview for viewers
+
+### Phase 10: SOP Version Merge ✅ Complete (April 2026)
+- [x] /merge page: stats row, Merged SOPs tab, Source Groups tab
+- [x] Process Groups: auto-generated GRP-001 codes, group name as primary label
+- [x] Merge flow: Compare → diff review → preview → finalize (copies steps + clips)
+- [x] Merged SOPs: separate from dashboard, titled `{group name} (Updated)`
+- [x] Delete group: removes merged SOPs + clears source project_codes
+- [x] DB migrations: 004, 005, 006
+- [x] API routes: /api/merge/*, /api/process-groups/*
+
+### Phase 11: UX Polish II ✅ Complete (May 2026)
+- [x] Settings/Users page: UserManagementTable rewrite (avatar gradients, stats cards, search, role filter pills, invite panel, always-visible Edit+X buttons)
+- [x] Role Permissions sidebar: left border accent, no duplicate role name, plain SVG icons
+- [x] Overview page: SOPDetailsCard, stats strip, approval progress bar, stacked avatars, animated status badge
+- [x] History tab: date grouping, timeline connector fix, show-more pagination
+- [x] Merge page: clickable stat cards, animated Ready badge, numbered recording circles, Merged Output divider, gradient Compare & Merge button, modal redesign
 
 ---
 
-## File Structure
+## File Structure (actual — as of May 2026)
 
 ```
 sop-platform/
 ├── docker-compose.yml
-├── docker-compose.dev.yml
 ├── .env.example
 ├── schema/
 │   ├── 001_initial_schema.sql
-│   └── 002_seed_aged_debtor.sql
-├── workflows/
-│   ├── workflow_1_extraction.md
-│   ├── workflow_2_section_generation.md
-│   └── workflow_3_export.md
-├── frontend/                        # React SPA
+│   ├── 002_seed_aged_debtor.sql
+│   ├── 003_add_views_likes.sql
+│   ├── 004_sop_version_merge.sql
+│   ├── 005_is_merged.sql
+│   └── 006_process_groups.sql
+├── n8n-workflows/
+│   ├── Saara - SOP_WF0 - Smart Ingest & Auto-Split 2.json
+│   ├── Saara - SOP_Workflow 1 - Complete Workflow v2.json
+│   ├── Saara - SOP_Workflow 2b - Frame Extraction v2 (Sync).json
+│   └── v2-service-account/
+│       └── Saara - SOP_Workflow 3c - Full Hybrid (Service Account) v3.json
+├── docs/
+│   └── superpowers/
+│       ├── specs/
+│       └── plans/
+├── frontend/
 │   ├── Dockerfile
 │   ├── package.json
 │   ├── vite.config.ts
 │   ├── tailwind.config.ts
 │   └── src/
 │       ├── main.tsx
+│       ├── routeTree.gen.ts          # Auto-generated by TanStack Router
 │       ├── routes/
+│       │   ├── __root.tsx
 │       │   ├── dashboard.tsx
-│       │   ├── sop.$id.tsx         # Main SOP page
-│       │   ├── sop.$id.procedure.tsx
-│       │   ├── sop.$id.overview.tsx
-│       │   ├── sop.$id.matrices.tsx
-│       │   ├── sop.$id.history.tsx
-│       │   └── sop.new.tsx         # Upload page
+│       │   ├── settings.tsx          # User management + role permissions
+│       │   ├── sop.new.tsx           # Upload + SSE pipeline progress
+│       │   ├── sop.$id.tsx           # SOP shell (tabs layout)
+│       │   ├── sop.$id.procedure.tsx # 3-col grid: sidebar + video + stepcard
+│       │   ├── sop.$id.overview.tsx  # SOPDetailsCard + stats + approval bar
+│       │   ├── sop.$id.processmap.tsx
+│       │   ├── sop.$id.history.tsx   # Date-grouped audit trail
+│       │   ├── sop.$id.metrics.tsx   # Views/likes/approval stats
+│       │   ├── merge.tsx             # Merge shell
+│       │   ├── merge.index.tsx       # Merged SOPs + Source Groups tabs
+│       │   ├── merge.$sessionId.tsx
+│       │   ├── merge.$sessionId.index.tsx
+│       │   └── merge.$sessionId.preview.tsx
 │       ├── components/
 │       │   ├── VideoPlayer.tsx
 │       │   ├── StepSidebar.tsx
-│       │   ├── StepDetail.tsx
-│       │   ├── CalloutEditor.tsx   # Konva canvas (lazy loaded)
-│       │   ├── ScreenshotReadView.tsx
+│       │   ├── StepCard.tsx
+│       │   ├── AnnotationEditorModal.tsx  # Konva canvas (lazy loaded)
 │       │   ├── TranscriptPanel.tsx
-│       │   ├── EditToolbar.tsx
+│       │   ├── SOPPageHeader.tsx
 │       │   ├── PipelineProgress.tsx
-│       │   └── ExportButtons.tsx
+│       │   └── UserManagementTable.tsx    # Phase 11 full rewrite
 │       ├── hooks/
 │       │   ├── useStepSync.ts
-│       │   ├── useSOPStore.ts      # Zustand store
 │       │   └── useCurrentUser.ts
 │       └── api/
-│           ├── client.ts           # TanStack Query + fetch wrapper
+│           ├── client.ts
 │           └── types.ts
-├── api/                             # FastAPI backend
+├── api/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── app/
 │       ├── main.py
 │       ├── config.py
 │       ├── database.py
-│       ├── models.py               # SQLAlchemy models
-│       ├── schemas.py              # Pydantic schemas
-│       ├── routes/
-│       │   ├── sops.py
-│       │   ├── steps.py
-│       │   ├── sections.py
-│       │   ├── exports.py
-│       │   ├── media.py
-│       │   └── pipeline.py
-│       └── services/
-│           ├── docx_generator.py
-│           ├── annotation_renderer.py
-│           └── mermaid_renderer.py
-├── extractor/                       # Frame extraction service
+│       ├── models.py
+│       ├── schemas.py
+│       └── routes/
+│           ├── sops.py
+│           ├── steps.py
+│           ├── sections.py
+│           ├── exports.py
+│           ├── media.py
+│           ├── pipeline.py
+│           └── merge.py              # Phase 10
+├── extractor/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── app/
 │       ├── main.py
-│       ├── scene_detector.py
+│       ├── scene_detector.py         # PySceneDetect + imagehash
 │       ├── deduplicator.py
 │       ├── clip_extractor.py
-│       └── mermaid_renderer.py
-├── templates/
-│   └── default_sop_template.docx    # Master DOCX template
-├── data/
-│   ├── uploads/
-│   ├── frames/
-│   ├── exports/
-│   └── templates/
-└── scripts/
-    └── verify_infrastructure.sh
+│       ├── doc_renderer.py
+│       ├── sop_comparator.py         # Phase 10 merge diff
+│       └── annotator.py              # Pillow callout rendering
+└── templates/
+    └── default_sop_template.docx
 ```
+
+---
+
+## Pending Improvements
+
+| # | Task | File | Priority |
+|---|---|---|---|
+| 1 | Activate WF3c v3 in n8n | n8n UI (manual) | High |
+| 2 | Fix WF2 EXTRACTOR_URL to `http://sop-extractor:8001` | n8n UI (manual) | High |
+| 3 | Fix WF2 duplicate inserts (remove supabase keys from payload) | n8n UI (manual) | High |
+| 4 | Import WF1 v2 + test | n8n UI | High |
+| 5 | Import WF2b v2 + test | n8n UI | High |
+| 6 | Time-based frame fallback (force frame every ~2 min) | `extractor/app/scene_detector.py` | Medium |
+| 7 | Fix Screen Periods permanent crop fix (`y += 30, h -= 60`) | WF1 JSON Fix Screen Periods node | Medium |
+| 8 | Resume parked pipeline run `0029ccd6` | Supabase SQL | Low (when ready) |
+| 9 | Re-import WF0 with updated Teams UI filtering prompts | n8n UI | Low |

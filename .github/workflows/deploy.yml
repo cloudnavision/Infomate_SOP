@@ -110,6 +110,7 @@ jobs:
           az containerapp update \
             --name sop-frontend \
             --resource-group ${{ env.RESOURCE_GROUP }} \
+            --container-name sop-frontend \
             --image ${{ env.ACR_LOGIN_SERVER }}/sop-frontend:${{ needs.build-push.outputs.image-tag }}
 
       - name: Deploy sop-api
@@ -125,6 +126,7 @@ jobs:
           az containerapp update \
             --name sop-extractor \
             --resource-group ${{ env.RESOURCE_GROUP }} \
+            --container-name sop-extractor \
             --image ${{ env.ACR_LOGIN_SERVER }}/sop-extractor:${{ needs.build-push.outputs.image-tag }}
 
       - name: Health check sop-api

@@ -252,7 +252,7 @@ async def get_metrics(
     )).scalar_one()
 
     approved_count = (await db.execute(
-        select(func.count(SOPStep.id)).where(SOPStep.sop_id == sop_id, SOPStep.is_approved == True)
+        select(func.count(SOPStep.id)).where(SOPStep.sop_id == sop_id, SOPStep.is_approved)
     )).scalar_one()
 
     export_count = (await db.execute(

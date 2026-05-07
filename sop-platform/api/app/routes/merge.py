@@ -144,7 +144,7 @@ async def delete_process_group(
 ) -> None:
     """Remove a process group: deletes merged SOPs, clears project_code on source SOPs, deletes group record."""
     merged_sops = (await db.execute(
-        select(SOP).where(SOP.project_code == code, SOP.is_merged == True)
+        select(SOP).where(SOP.project_code == code, SOP.is_merged)
     )).scalars().all()
     if merged_sops:
         merged_ids = [sop.id for sop in merged_sops]
@@ -158,7 +158,7 @@ async def delete_process_group(
         await db.flush()
 
     await db.execute(
-        update(SOP).where(SOP.project_code == code, SOP.is_merged == False).values(project_code=None)
+        update(SOP).where(SOP.project_code == code, ~SOP.is_merged).values(project_code=None)
     )
     group = (await db.execute(
         select(ProcessGroup).where(ProcessGroup.code == code)

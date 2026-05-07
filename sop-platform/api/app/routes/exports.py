@@ -13,9 +13,9 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies.auth import require_viewer, require_editor
+from app.dependencies.auth import require_viewer
 from app.models import SOP, SOPStep, ExportHistory, User
-from app.schemas import SOPDetail, ExportResponse, with_sas, CombineExportBody
+from app.schemas import SOPDetail, ExportResponse, with_sas
 
 router = APIRouter(prefix="/api", tags=["exports"])
 

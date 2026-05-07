@@ -11,7 +11,7 @@ Usage:
 import logging
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Header, HTTPException
 
 from app.config import settings
 
